@@ -88,7 +88,12 @@ impl Card {
     pub fn show<R>(self, ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> InnerResponse<R> {
         // Se reserva el fondo antes del contenido y se dibuja al conocer su tamaño.
         let bg = ui.painter().add(Shape::Noop);
-        let r = Frame::none().inner_margin(self.margin).show(ui, add);
+        // Las columnas de egui justifican el texto: en pantallas angostas una línea partida
+        // («95,7 GB / libres») se estiraba letra por letra. Dentro de la tarjeta no se justifica.
+        let r = Frame::none().inner_margin(self.margin).show(ui, |ui| {
+            let layout = ui.layout().with_cross_justify(false);
+            ui.with_layout(layout, add).inner
+        });
         let accent = if self.accent.a() < 200 { opaque(self.accent) } else { self.accent };
         ui.painter().set(bg, Shape::Vec(hud_shapes(r.response.rect, self.fill, self.tint, self.stroke, accent)));
         r

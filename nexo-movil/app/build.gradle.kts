@@ -11,8 +11,22 @@ android {
         applicationId = "app.nexo.movil"
         minSdk = 30          // Android 11: Realme C11 2021 y Honor X7
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.0"
+        versionCode = 3
+        versionName = "1.1"
+    }
+
+    // Firma de publicación: la llave llega por variables de entorno (secretos de GitHub o
+    // claves/ en la PC). Sin ellas se firma con la llave de depuración.
+    val llave = System.getenv("NEXO_KEYSTORE")?.let { file(it) }?.takeIf { it.exists() }
+    signingConfigs {
+        if (llave != null) {
+            create("publicacion") {
+                storeFile = llave
+                storePassword = System.getenv("NEXO_KEYSTORE_PASS")
+                keyAlias = System.getenv("NEXO_KEY_ALIAS") ?: "nexo"
+                keyPassword = System.getenv("NEXO_KEYSTORE_PASS")
+            }
+        }
     }
 
     buildTypes {
@@ -21,7 +35,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("publicacion") ?: signingConfigs.getByName("debug")
         }
     }
     compileOptions {

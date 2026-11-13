@@ -20,8 +20,20 @@ pub fn install_dir() -> PathBuf {
     std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".local/share")).join("nexo")
 }
 
+/// NEXO instalado por un paquete del sistema (.deb, AppImage o NEXO.app en /Applications):
+/// en ese caso el ejecutable ya tiene su sitio fijo y no se copia al perfil.
+fn packaged() -> Option<PathBuf> {
+    if let Some(a) = std::env::var_os("APPIMAGE") {
+        return Some(PathBuf::from(a));
+    }
+    let cur = std::env::current_exe().ok()?.canonicalize().ok()?;
+    let s = cur.to_string_lossy();
+    let fixed = s.starts_with("/usr/") || s.starts_with("/opt/") || (s.starts_with("/Applications/") && s.contains(".app/Contents/MacOS/"));
+    fixed.then_some(cur)
+}
+
 pub fn installed_exe() -> PathBuf {
-    install_dir().join("nexo")
+    packaged().unwrap_or_else(|| install_dir().join("nexo"))
 }
 
 fn same_file(a: &Path, b: &Path) -> bool {
@@ -40,6 +52,9 @@ fn outdated(src: &Path, dest: &Path) -> bool {
 
 /// Hay una copia instalada más vieja que el NEXO que se está ejecutando.
 pub fn needs_update() -> bool {
+    if packaged().is_some() {
+        return false;
+    }
     let dest = installed_exe();
     match std::env::current_exe() {
         Ok(cur) => dest.exists() && !same_file(&cur, &dest) && outdated(&cur, &dest),
@@ -54,9 +69,18 @@ fn make_executable(p: &Path) {
 
 /// Copia (o actualiza) NEXO a su carpeta fija y crea el acceso directo.
 pub fn install() -> Result<PathBuf, String> {
+    std::fs::create_dir_all(install_dir()).map_err(|e| e.to_string())?;
+    if let Some(p) = packaged() {
+        // El paquete .deb y NEXO.app ya traen su acceso; la AppImage no, así que se le crea uno.
+        if std::env::var_os("APPIMAGE").is_some() {
+            let png = install_dir().join("nexo.png");
+            let _ = image::save_buffer(&png, &icon::rgba(128), 128, 128, image::ExtendedColorType::Rgba8);
+            shortcut(&p, &png);
+        }
+        return Ok(p);
+    }
     let dest = installed_exe();
     let cur = std::env::current_exe().map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(install_dir()).map_err(|e| e.to_string())?;
     if !same_file(&cur, &dest) && outdated(&cur, &dest) {
         let was_running = vigia::stop_and_wait();
         // Se copia a un archivo nuevo y se renombra: así no se pisa un ejecutable en uso.
@@ -122,12 +146,12 @@ fn shortcut(exe: &Path, png: &Path) {
 <key>CFBundleIdentifier</key><string>com.nexo.optimizador</string>
 <key>CFBundleExecutable</key><string>NEXO</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.1</string>
+<key>CFBundleShortVersionString</key><string>{}</string>
 <key>LSMinimumSystemVersion</key><string>11.0</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 "#;
-    let _ = std::fs::write(app.join("Contents/Info.plist"), plist);
+    let _ = std::fs::write(app.join("Contents/Info.plist"), plist.replace("{}", env!("CARGO_PKG_VERSION")));
 }
 
 /// En Linux y macOS las notificaciones no necesitan registro previo.
