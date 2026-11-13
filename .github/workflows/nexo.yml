@@ -55,10 +55,10 @@ jobs:
           grep -q "videos/documentos incluidos: 0" sim.txt
       - name: Capturas de la ventana (pantalla virtual)
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb mesa-utils libgl1-mesa-dri
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb xauth libgl1-mesa-dri libegl1 libgl1 libxkbcommon-x11-0 libxcursor1 libxrandr2 libxi6 libx11-xcb1
           mkdir -p capturas
           for p in panel limpieza ram diagnostico proteccion; do
-            NEXO_CAPTURA=capturas/linux_$p.bmp NEXO_CAPTURA_SEG=4 timeout 60 xvfb-run -a -s "-screen 0 1600x1000x24" ./target/release/nexo --pagina $p || true
+            NEXO_CAPTURA=$PWD/capturas/linux_$p.bmp NEXO_CAPTURA_SEG=4 timeout 60 xvfb-run -a -s "-screen 0 1600x1000x24" ./target/release/nexo --pagina $p || true
           done
           ls -la capturas
       - name: Paquete

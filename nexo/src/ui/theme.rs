@@ -27,20 +27,37 @@ pub fn font(size: f32) -> FontId {
     FontId::new(size, display())
 }
 
-/// Usa fuentes que ya trae Windows (Bahnschrift / Cascadia): nada que descargar ni empaquetar.
+/// Usa fuentes que ya trae el sistema: nada que descargar ni empaquetar.
+/// Windows: Bahnschrift y Cascadia · macOS: DIN Alternate y Menlo · Linux: DejaVu.
 pub fn setup(ctx: &egui::Context) {
     let mut fonts = FontDefinitions::default();
     let windows_fonts = std::env::var_os("WINDIR")
         .map(|w| std::path::PathBuf::from(w).join("Fonts"))
         .unwrap_or_else(|| "C:\\Windows\\Fonts".into());
+    let display_candidates = [
+        windows_fonts.join("bahnschrift.ttf"),
+        "/System/Library/Fonts/Supplemental/DIN Alternate Bold.ttf".into(),
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf".into(),
+        "/usr/share/fonts/dejavu-sans-fonts/DejaVuSansCondensed.ttf".into(),
+    ];
+    let mono_candidates = [
+        windows_fonts.join("CascadiaMono.ttf"),
+        "/System/Library/Fonts/Menlo.ttc".into(),
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf".into(),
+        "/usr/share/fonts/dejavu-sans-mono-fonts/DejaVuSansMono.ttf".into(),
+    ];
+    let first = |c: &[std::path::PathBuf]| c.iter().find_map(|p| std::fs::read(p).ok());
 
     let mut display_list = Vec::new();
-    if let Ok(b) = std::fs::read(windows_fonts.join("bahnschrift.ttf")) {
+    if let Some(b) = first(&display_candidates) {
         fonts.font_data.insert("bahn".into(), FontData::from_owned(b));
-        fonts.families.get_mut(&FontFamily::Proportional).unwrap().insert(0, "bahn".into());
+        // En Windows es también la fuente de todo el texto; en Linux y macOS solo de títulos y cifras.
+        if cfg!(windows) {
+            fonts.families.get_mut(&FontFamily::Proportional).unwrap().insert(0, "bahn".into());
+        }
         display_list.push("bahn".to_string());
     }
-    if let Ok(b) = std::fs::read(windows_fonts.join("CascadiaMono.ttf")) {
+    if let Some(b) = first(&mono_candidates) {
         fonts.font_data.insert("cascadia".into(), FontData::from_owned(b));
         fonts.families.get_mut(&FontFamily::Monospace).unwrap().insert(0, "cascadia".into());
     }
