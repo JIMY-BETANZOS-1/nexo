@@ -1,0 +1,18 @@
+# Compilaciones (se regeneran)
+nexo/target/
+nexo-movil/build/
+nexo-movil/app/build/
+nexo-movil/.gradle/
+nexo-movil/local.properties
+nexo-ios/NEXO.xcodeproj/
+nexo-ios/build/
+nexo-ios/build-dev/
+nexo-ios/DerivedData/
+*.bmp
+*.xcuserstate
+.DS_Store
+
+# Ejecutables y documentos generados (se descargan de GitHub Actions o están en tu disco)
+entrega/
+*.docx
+*.pdf

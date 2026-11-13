@@ -1,0 +1,51 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "NEXO: compilar (depuración)",
+      "type": "shell",
+      "command": "cargo build",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "NEXO: compilar .exe final (release)",
+      "type": "shell",
+      "command": "cargo build --release",
+      "group": "build",
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "NEXO: ejecutar",
+      "type": "shell",
+      "command": "cargo run --release",
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "NEXO: ejecutar sin pedir administrador",
+      "type": "shell",
+      "command": "cargo run --release",
+      "options": { "env": { "NEXO_SIN_ELEVAR": "1" } },
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "NEXO: pruebas automatizadas",
+      "type": "shell",
+      "command": "cargo test --release",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "NEXO: revisar calidad (clippy)",
+      "type": "shell",
+      "command": "cargo clippy --release",
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "NEXO: simular el modo automático (no borra nada)",
+      "type": "shell",
+      "command": "cargo run --release -- --simular-auto simulacion.txt; Get-Content simulacion.txt",
+      "problemMatcher": []
+    }
+  ]
+}
