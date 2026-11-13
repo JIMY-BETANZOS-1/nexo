@@ -155,7 +155,7 @@ jobs:
           echo "UDID=$UDID" >> $GITHUB_ENV
           echo "Simulador: $UDID"
       - name: Pruebas en el simulador
-        run: xcodebuild test -project NEXO.xcodeproj -scheme NEXO -destination "id=$UDID" -derivedDataPath build CODE_SIGNING_ALLOWED=NO | tail -40
+        run: xcodebuild test -project NEXO.xcodeproj -scheme NEXO -destination "id=$UDID" -derivedDataPath build CODE_SIGNING_ALLOWED=NO 2>&1 | grep -E "error:|Test Case|Executed|TEST (SUCCEEDED|FAILED)" | head -300
       - name: Capturas de cada pantalla en el simulador
         run: |
           xcrun simctl boot "$UDID" || true
@@ -169,7 +169,7 @@ jobs:
           done
       - name: App para iPhone sin firmar (.ipa)
         run: |
-          xcodebuild -project NEXO.xcodeproj -scheme NEXO -configuration Release -sdk iphoneos -derivedDataPath build-dev CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build | tail -5
+          xcodebuild -project NEXO.xcodeproj -scheme NEXO -configuration Release -sdk iphoneos -derivedDataPath build-dev CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build 2>&1 | grep -E "error:|BUILD (SUCCEEDED|FAILED)"
           mkdir -p Payload
           cp -R build-dev/Build/Products/Release-iphoneos/NEXO.app Payload/
           zip -qr NEXO-iOS-sin-firmar.ipa Payload
