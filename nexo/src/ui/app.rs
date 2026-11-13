@@ -529,7 +529,7 @@ impl NexoApp {
                 }
 
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
-                    ui.label(RichText::new("v1.0 · sin conexión a internet").size(11.0).color(MUTED));
+                    ui.label(RichText::new(concat!("v", env!("CARGO_PKG_VERSION"), " · sin conexión a internet")).size(11.0).color(MUTED));
                     let (txt, col) = if cfg!(unix) { ("• MODO USUARIO", CYAN) } else if self.admin { ("• ACCESO TOTAL", GREEN) } else { ("• ACCESO LIMITADO", AMBER) };
                     tinted_card(col).inner_margin(Margin::symmetric(12.0, 8.0)).show(ui, |ui| {
                         ui.set_width(ui.available_width());

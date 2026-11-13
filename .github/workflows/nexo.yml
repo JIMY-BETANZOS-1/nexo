@@ -1,6 +1,6 @@
-# NEXO · compilación y pruebas en las cuatro plataformas.
-# Cada ejecución deja descargables (Artifacts): NEXO para Windows, Linux y macOS, la app de
-# iPhone sin firmar y capturas de pantalla de cada sistema.
+# NEXO · compilación y pruebas en Windows, Linux (x86_64 y ARM64), macOS, iPhone y Android.
+# Cada ejecución deja descargables (Artifacts) y capturas de pantalla de cada sistema.
+# Al subir una etiqueta vX.Y.Z se publica además una versión en «Releases» con todos los instaladores.
 name: NEXO
 
 on:
@@ -31,12 +31,19 @@ jobs:
           Start-Process target\release\nexo.exe -ArgumentList "--simular-auto","sim.txt" -Wait
           Get-Content sim.txt
           if (-not (Select-String sim.txt -Pattern "videos/documentos incluidos: 0" -Quiet)) { exit 1 }
+      - run: cp target/release/nexo.exe NEXO-Windows.exe
       - uses: actions/upload-artifact@v4
-        with: { name: NEXO-Windows, path: nexo/target/release/nexo.exe }
+        with: { name: NEXO-Windows, path: nexo/NEXO-Windows.exe }
 
   linux:
-    name: Escritorio · Linux
-    runs-on: ubuntu-22.04
+    name: Escritorio · Linux (${{ matrix.arq }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { so: ubuntu-22.04, arq: x86_64 }
+          - { so: ubuntu-22.04-arm, arq: aarch64 }
+    runs-on: ${{ matrix.so }}
     defaults: { run: { working-directory: nexo, shell: bash } }
     steps:
       - uses: actions/checkout@v4
@@ -54,6 +61,7 @@ jobs:
           ./target/release/nexo --simular-auto sim.txt && cat sim.txt
           grep -q "videos/documentos incluidos: 0" sim.txt
       - name: Capturas de la ventana (pantalla virtual)
+        if: matrix.arq == 'x86_64'
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq xvfb xauth libgl1-mesa-dri libegl1 libgl1 libxkbcommon-x11-0 libxcursor1 libxrandr2 libxi6 libx11-xcb1
           mkdir -p capturas
@@ -61,15 +69,16 @@ jobs:
             NEXO_CAPTURA=$PWD/capturas/linux_$p.bmp NEXO_CAPTURA_SEG=4 timeout 60 xvfb-run -a -s "-screen 0 1600x1000x24" ./target/release/nexo --pagina $p || true
           done
           ls -la capturas
-      - name: Paquete
+      - name: Paquetes .tar.gz, .deb y AppImage
+        run: bash empaquetar/linux.sh
+      - name: Probar el paquete .deb instalado
         run: |
-          mkdir -p paquete/nexo-linux
-          cp target/release/nexo paquete/nexo-linux/
-          printf 'NEXO para Linux\n\n1. chmod +x nexo\n2. ./nexo\n\nAl activar la limpieza automática o el vigía, NEXO se instala en ~/.local/share/nexo\ny aparece en el menú de aplicaciones.\n' > paquete/nexo-linux/LEEME.txt
-          tar -czf nexo-linux-x86_64.tar.gz -C paquete nexo-linux
+          sudo apt-get install -y -qq ./paquetes/*.deb
+          nexo --simular-auto sim2.txt && grep -q "videos/documentos incluidos: 0" sim2.txt
       - uses: actions/upload-artifact@v4
-        with: { name: NEXO-Linux, path: nexo/nexo-linux-x86_64.tar.gz }
+        with: { name: "NEXO-Linux-${{ matrix.arq }}", path: nexo/paquetes/* }
       - uses: actions/upload-artifact@v4
+        if: matrix.arq == 'x86_64'
         with: { name: capturas-linux, path: nexo/capturas, if-no-files-found: ignore }
 
   macos:
@@ -126,11 +135,13 @@ jobs:
           <key>CFBundleExecutable</key><string>nexo</string>
           <key>CFBundleIconFile</key><string>NEXO</string>
           <key>CFBundlePackageType</key><string>APPL</string>
-          <key>CFBundleShortVersionString</key><string>1.1</string>
+          <key>CFBundleShortVersionString</key><string>VERSION</string>
           <key>LSMinimumSystemVersion</key><string>11.0</string>
           <key>NSHighResolutionCapable</key><true/>
           </dict></plist>
           PLIST
+          VER=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          sed -i '' "s/VERSION/$VER/" dmg/NEXO.app/Contents/Info.plist
           codesign --force --deep --sign - dmg/NEXO.app
           ln -s /Applications dmg/Aplicaciones
           hdiutil create -volname NEXO -srcfolder dmg -ov -format UDZO NEXO-macOS.dmg
@@ -177,3 +188,46 @@ jobs:
         with: { name: NEXO-iOS, path: nexo-ios/NEXO-iOS-sin-firmar.ipa }
       - uses: actions/upload-artifact@v4
         with: { name: capturas-ios, path: nexo-ios/capturas, if-no-files-found: ignore }
+
+  android:
+    name: Móvil · Android
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: nexo-movil, shell: bash } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Llave de firma (secretos del repositorio)
+        env: { B64: "${{ secrets.ANDROID_KEYSTORE_B64 }}" }
+        run: |
+          if [ -n "$B64" ]; then
+            echo "$B64" | base64 -d > "$RUNNER_TEMP/nexo.jks"
+            echo "NEXO_KEYSTORE=$RUNNER_TEMP/nexo.jks" >> "$GITHUB_ENV"
+            echo "Se firma con la llave de publicación"
+          else
+            echo "::warning::Sin los secretos ANDROID_KEYSTORE_*: el APK se firma con una llave de depuración"
+          fi
+      - name: Compilar el APK
+        env: { NEXO_KEYSTORE_PASS: "${{ secrets.ANDROID_KEYSTORE_PASS }}" }
+        run: |
+          bash gradlew assembleRelease --no-daemon --console=plain
+          cp app/build/outputs/apk/release/app-release.apk NEXO-Android.apk
+      - uses: actions/upload-artifact@v4
+        with: { name: NEXO-Android, path: nexo-movil/NEXO-Android.apk }
+
+  publicar:
+    name: Publicar versión (Releases)
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux, macos, ios, android]
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { pattern: NEXO-*, merge-multiple: true, path: descargas }
+      - run: ls -la descargas
+      - name: Crear la versión con todos los instaladores
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release create "$GITHUB_REF_NAME" descargas/* --repo "$GITHUB_REPOSITORY"             --title "NEXO $GITHUB_REF_NAME" --notes-file .github/notas-version.md
