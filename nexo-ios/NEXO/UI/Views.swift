@@ -145,7 +145,9 @@ struct CleanView: View {
                 if !g.isProtected {
                     Button(items.allSatisfy { lib.selected.contains($0.id) } ? "Quitar todo" : "Marcar todo (\(Fmt.count(items.count)))") {
                         let all = items.allSatisfy { lib.selected.contains($0.id) }
-                        items.forEach { all ? lib.selected.remove($0.id) : lib.selected.insert($0.id) }
+                        for it in items {
+                            if all { lib.selected.remove(it.id) } else { lib.selected.insert(it.id) }
+                        }
                     }
                     .font(.footnote).foregroundColor(color)
                 }
