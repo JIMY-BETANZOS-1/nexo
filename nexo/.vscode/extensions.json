@@ -1,0 +1,9 @@
+{
+  // VS Code ofrece instalarlas al abrir la carpeta.
+  "recommendations": [
+    "rust-lang.rust-analyzer",
+    "ms-vscode.cpptools",
+    "tamasfe.even-better-toml",
+    "ms-vscode.powershell"
+  ]
+}

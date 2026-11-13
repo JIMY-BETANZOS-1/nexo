@@ -1,0 +1,179 @@
+# NEXO · compilación y pruebas en las cuatro plataformas.
+# Cada ejecución deja descargables (Artifacts): NEXO para Windows, Linux y macOS, la app de
+# iPhone sin firmar y capturas de pantalla de cada sistema.
+name: NEXO
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows:
+    name: Escritorio · Windows
+    runs-on: windows-latest
+    defaults: { run: { working-directory: nexo, shell: bash } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: clippy }
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: nexo }
+      - run: cargo clippy --release --all-targets -- -D warnings
+      - run: cargo test --release
+      - run: cargo build --release
+      - name: Prueba sin interfaz (no borra nada)
+        shell: pwsh
+        run: |
+          Start-Process target\release\nexo.exe -ArgumentList "--simular-auto","sim.txt" -Wait
+          Get-Content sim.txt
+          if (-not (Select-String sim.txt -Pattern "videos/documentos incluidos: 0" -Quiet)) { exit 1 }
+      - uses: actions/upload-artifact@v4
+        with: { name: NEXO-Windows, path: nexo/target/release/nexo.exe }
+
+  linux:
+    name: Escritorio · Linux
+    runs-on: ubuntu-22.04
+    defaults: { run: { working-directory: nexo, shell: bash } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: clippy }
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: nexo }
+      - run: cargo clippy --release --all-targets -- -D warnings
+      - run: cargo test --release
+      - run: cargo build --release
+      - name: Prueba sin interfaz (no borra nada)
+        run: |
+          ./target/release/nexo --informe informe.txt && cat informe.txt
+          ./target/release/nexo --diagnostico diag.txt && cat diag.txt
+          ./target/release/nexo --simular-auto sim.txt && cat sim.txt
+          grep -q "videos/documentos incluidos: 0" sim.txt
+      - name: Capturas de la ventana (pantalla virtual)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb mesa-utils libgl1-mesa-dri
+          mkdir -p capturas
+          for p in panel limpieza ram diagnostico proteccion; do
+            NEXO_CAPTURA=capturas/linux_$p.bmp NEXO_CAPTURA_SEG=4 timeout 60 xvfb-run -a -s "-screen 0 1600x1000x24" ./target/release/nexo --pagina $p || true
+          done
+          ls -la capturas
+      - name: Paquete
+        run: |
+          mkdir -p paquete/nexo-linux
+          cp target/release/nexo paquete/nexo-linux/
+          printf 'NEXO para Linux\n\n1. chmod +x nexo\n2. ./nexo\n\nAl activar la limpieza automática o el vigía, NEXO se instala en ~/.local/share/nexo\ny aparece en el menú de aplicaciones.\n' > paquete/nexo-linux/LEEME.txt
+          tar -czf nexo-linux-x86_64.tar.gz -C paquete nexo-linux
+      - uses: actions/upload-artifact@v4
+        with: { name: NEXO-Linux, path: nexo/nexo-linux-x86_64.tar.gz }
+      - uses: actions/upload-artifact@v4
+        with: { name: capturas-linux, path: nexo/capturas, if-no-files-found: ignore }
+
+  macos:
+    name: Escritorio · macOS
+    runs-on: macos-14
+    defaults: { run: { working-directory: nexo, shell: bash } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: clippy, targets: "aarch64-apple-darwin,x86_64-apple-darwin" }
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: nexo }
+      - run: cargo clippy --release --all-targets -- -D warnings
+      - run: cargo test --release
+      - name: Compilar para Apple Silicon e Intel (binario universal)
+        run: |
+          cargo build --release --target aarch64-apple-darwin
+          cargo build --release --target x86_64-apple-darwin
+          lipo -create -output nexo target/aarch64-apple-darwin/release/nexo target/x86_64-apple-darwin/release/nexo
+          lipo -info nexo
+      - name: Prueba sin interfaz (no borra nada)
+        run: |
+          ./nexo --informe informe.txt && cat informe.txt
+          ./nexo --diagnostico diag.txt && cat diag.txt
+          ./nexo --simular-auto sim.txt && cat sim.txt
+          grep -q "videos/documentos incluidos: 0" sim.txt
+      - name: Capturas de la ventana
+        run: |
+          mkdir -p capturas
+          for p in panel limpieza ram diagnostico proteccion; do
+            NEXO_CAPTURA=$PWD/capturas/macos_$p.bmp NEXO_CAPTURA_SEG=4 ./nexo --pagina $p &
+            PID=$!; for i in $(seq 1 40); do kill -0 $PID 2>/dev/null || break; sleep 1; done; kill $PID 2>/dev/null || true
+          done
+          ls -la capturas
+      - name: Crear NEXO.app y el instalador .dmg
+        run: |
+          ./nexo --exportar-icono icono.png
+          mkdir -p NEXO.iconset
+          for s in 16 32 128 256 512; do
+            sips -z $s $s icono.png --out NEXO.iconset/icon_${s}x${s}.png >/dev/null
+            sips -z $((s*2)) $((s*2)) icono.png --out NEXO.iconset/icon_${s}x${s}@2x.png >/dev/null
+          done
+          iconutil -c icns NEXO.iconset -o NEXO.icns
+          mkdir -p dmg/NEXO.app/Contents/MacOS dmg/NEXO.app/Contents/Resources
+          cp nexo dmg/NEXO.app/Contents/MacOS/nexo
+          cp NEXO.icns dmg/NEXO.app/Contents/Resources/
+          cat > dmg/NEXO.app/Contents/Info.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+          <key>CFBundleName</key><string>NEXO</string>
+          <key>CFBundleDisplayName</key><string>NEXO</string>
+          <key>CFBundleIdentifier</key><string>com.nexo.optimizador</string>
+          <key>CFBundleExecutable</key><string>nexo</string>
+          <key>CFBundleIconFile</key><string>NEXO</string>
+          <key>CFBundlePackageType</key><string>APPL</string>
+          <key>CFBundleShortVersionString</key><string>1.1</string>
+          <key>LSMinimumSystemVersion</key><string>11.0</string>
+          <key>NSHighResolutionCapable</key><true/>
+          </dict></plist>
+          PLIST
+          codesign --force --deep --sign - dmg/NEXO.app
+          ln -s /Applications dmg/Aplicaciones
+          hdiutil create -volname NEXO -srcfolder dmg -ov -format UDZO NEXO-macOS.dmg
+      - uses: actions/upload-artifact@v4
+        with: { name: NEXO-macOS, path: nexo/NEXO-macOS.dmg }
+      - uses: actions/upload-artifact@v4
+        with: { name: capturas-macos, path: nexo/capturas, if-no-files-found: ignore }
+
+  ios:
+    name: Móvil · iPhone (iOS)
+    runs-on: macos-14
+    defaults: { run: { working-directory: nexo-ios, shell: bash } }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generar el proyecto de Xcode
+        run: |
+          brew install xcodegen
+          xcodegen generate
+      - name: Elegir un simulador de iPhone
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')))")
+          echo "UDID=$UDID" >> $GITHUB_ENV
+          echo "Simulador: $UDID"
+      - name: Pruebas en el simulador
+        run: xcodebuild test -project NEXO.xcodeproj -scheme NEXO -destination "id=$UDID" -derivedDataPath build CODE_SIGNING_ALLOWED=NO | tail -40
+      - name: Capturas de cada pantalla en el simulador
+        run: |
+          xcrun simctl boot "$UDID" || true
+          APP=$(find build/Build/Products -name "NEXO.app" -path "*iphonesimulator*" | head -1)
+          xcrun simctl install "$UDID" "$APP"
+          mkdir -p capturas
+          for t in 0 1 2 3 4; do
+            xcrun simctl launch --terminate-running-process "$UDID" com.nexo.movil -pestana $t
+            sleep 6
+            xcrun simctl io "$UDID" screenshot capturas/ios_pestana_$t.png
+          done
+      - name: App para iPhone sin firmar (.ipa)
+        run: |
+          xcodebuild -project NEXO.xcodeproj -scheme NEXO -configuration Release -sdk iphoneos -derivedDataPath build-dev CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build | tail -5
+          mkdir -p Payload
+          cp -R build-dev/Build/Products/Release-iphoneos/NEXO.app Payload/
+          zip -qr NEXO-iOS-sin-firmar.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with: { name: NEXO-iOS, path: nexo-ios/NEXO-iOS-sin-firmar.ipa }
+      - uses: actions/upload-artifact@v4
+        with: { name: capturas-ios, path: nexo-ios/capturas, if-no-files-found: ignore }

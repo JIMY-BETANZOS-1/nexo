@@ -1,0 +1,50 @@
+# Proyecto de Xcode generado con XcodeGen (https://github.com/yonaskolb/XcodeGen):
+#   brew install xcodegen && xcodegen generate && open NEXO.xcodeproj
+name: NEXO
+options:
+  bundleIdPrefix: com.nexo
+  deploymentTarget:
+    iOS: "16.0"
+  developmentLanguage: es
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.1"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  NEXO:
+    type: application
+    platform: iOS
+    sources:
+      - path: NEXO
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nexo.movil
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: NEXO
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIUserInterfaceStyle: Dark
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "NEXO revisa tu galería para encontrar capturas de pantalla y fotos duplicadas. Nada sale del iPhone y nada se borra sin tu confirmación."
+        INFOPLIST_KEY_NSFaceIDUsageDescription: "NEXO solo comprueba si Face ID está configurado; no lo usa para nada más."
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  NEXOTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: NEXOTests
+    dependencies:
+      - target: NEXO
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  NEXO:
+    build:
+      targets:
+        NEXO: all
+        NEXOTests: [test]
+    test:
+      targets:
+        - NEXOTests
