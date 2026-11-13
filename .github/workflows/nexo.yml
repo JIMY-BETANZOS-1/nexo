@@ -74,7 +74,7 @@ jobs:
 
   macos:
     name: Escritorio · macOS
-    runs-on: macos-14
+    runs-on: macos-latest
     defaults: { run: { working-directory: nexo, shell: bash } }
     steps:
       - uses: actions/checkout@v4
@@ -141,7 +141,7 @@ jobs:
 
   ios:
     name: Móvil · iPhone (iOS)
-    runs-on: macos-14
+    runs-on: macos-latest
     defaults: { run: { working-directory: nexo-ios, shell: bash } }
     steps:
       - uses: actions/checkout@v4
