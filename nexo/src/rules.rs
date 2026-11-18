@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/rules.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Reglas de limpieza: qué se puede borrar, qué va a la Papelera y qué está protegido.
 //!
 //! Regla de oro: los videos y documentos NUNCA se eliminan de forma definitiva ni
@@ -144,6 +149,7 @@ fn norm(p: &Path) -> String {
     p.to_string_lossy().trim_end_matches(std::path::MAIN_SEPARATOR).to_lowercase()
 }
 
+// jimy-betanzos: se compara con el separador al final para que «/tmp» no coincida con «/tmpx».
 pub fn is_inside(p: &Path, root: &Path) -> bool {
     let (s, r) = (norm(p), norm(root));
     s == r || s.starts_with(&(r + std::path::MAIN_SEPARATOR_STR))
@@ -164,6 +170,8 @@ pub(crate) fn blocked(mut x: Target, by: &'static [&'static str]) -> Target {
     x
 }
 
+// jimy-betanzos: el modo automático solo usa basura real (categorías seguras sin tratamiento especial).
+// Videos, documentos, capturas y descargas quedan fuera siempre, aunque el usuario lo active.
 /// Categorías que el modo automático puede usar (solo basura real).
 pub fn auto_eligible(defs: &[CategoryDef]) -> Vec<&CategoryDef> {
     defs.iter().filter(|d| d.kind == Kind::Safe && d.special == Special::None).collect()

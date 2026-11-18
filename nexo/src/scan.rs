@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/scan.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Motor de escaneo. Solo lee: nunca borra nada.
 
 use std::collections::HashSet;
@@ -11,6 +16,7 @@ use walkdir::WalkDir;
 use crate::rules::{protection, CategoryDef, Filter, Kind, Protect, Special, Target};
 use crate::sys;
 
+// jimy-betanzos: no seguir enlaces evita salir de la carpeta analizada y borrar algo ajeno.
 /// Enlace o unión (reparse point en Windows, enlace simbólico en Linux y macOS): nunca se sigue.
 #[cfg(windows)]
 fn is_link(m: &std::fs::Metadata) -> bool {

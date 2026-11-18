@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/unix/thumbs.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Miniaturas en Linux y macOS.
 //!
 //! Las imágenes (PNG, JPG, GIF, BMP, WebP) las decodifica NEXO. Para PDF y videos se usa

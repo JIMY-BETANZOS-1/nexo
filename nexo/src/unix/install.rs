@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/unix/install.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Instalación ligera en el perfil del usuario (sin contraseña) en Linux y macOS.
 //!
 //! Linux: copia en ~/.local/share/nexo, acceso en el menú de aplicaciones (archivo .desktop)

@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/unix/notify.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Notificaciones en Linux (`notify-send`, estándar freedesktop) y macOS (Centro de
 //! notificaciones mediante `osascript`).
 

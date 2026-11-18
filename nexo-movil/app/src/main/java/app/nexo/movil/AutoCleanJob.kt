@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo-movil/app/src/main/java/app/nexo/movil/AutoCleanJob.kt
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 package app.nexo.movil
 
 import android.app.Notification

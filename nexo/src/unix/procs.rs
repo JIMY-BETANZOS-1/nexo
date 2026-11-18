@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/unix/procs.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Parte de Linux y macOS de `procs`: lista de procesos, CPU y cierre.
 //!
 //! Linux: se lee `/proc` (memoria, tiempo de CPU y lectura/escritura de disco por proceso).

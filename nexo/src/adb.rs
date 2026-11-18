@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/adb.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Modo potenciado (fase 4): NEXO controla los celulares desde la laptop con ADB,
 //! por USB o por WiFi local (depuración inalámbrica de Android 11). Sin internet.
 //!

@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/procs.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Programas en ejecución: memoria, CPU, actividad de disco y cuán "importantes" son.
 //!
 //! Nada aquí cierra un programa por su cuenta. Cerrar siempre lo pide el usuario, y
@@ -188,6 +193,8 @@ impl AppGroup {
         self.cpu_pct < 1.5 && !self.io_active()
     }
 
+    // jimy-betanzos: solo se compacta lo que el usuario no está usando; nunca procesos del
+    // sistema, la ventana activa ni un programa que se está instalando.
     /// Se puede compactar sin molestar: segundo plano, inactivo y no del sistema.
     pub fn can_trim(&self) -> bool {
         plat::PER_APP_TRIM && !self.system && !self.foreground && !self.installing && self.accessible && self.idle()

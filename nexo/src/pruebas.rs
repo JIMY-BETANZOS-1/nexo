@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/pruebas.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Pruebas automatizadas de NEXO (`cargo test`).
 //!
 //! Trabajan solo dentro de carpetas temporales creadas por cada prueba: nunca tocan

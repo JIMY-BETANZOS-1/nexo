@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/procs_win.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Parte de Windows de `procs`: lista de procesos, ventanas y compactación (API Win32).
 
 use std::ffi::c_void;

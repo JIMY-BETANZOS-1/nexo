@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/ui/mod.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 mod app;
 mod theme;
 mod thumbcache;
@@ -17,7 +22,8 @@ pub fn run(start_page: Option<String>) {
             return;
         }
     }
-    if !crate::sys::claim_single_instance() {
+    // El modo de capturas (documentación) abre una ventana aparte aunque NEXO ya esté abierto.
+    if std::env::var_os("NEXO_CAPTURA").is_none() && !crate::sys::claim_single_instance() {
         return;
     }
     let options = eframe::NativeOptions {

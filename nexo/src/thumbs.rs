@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/thumbs.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Miniaturas de archivos con el mismo sistema que usa el Explorador de Windows.
 //!
 //! Sirve para fotos, videos, PDF y documentos (Windows ya las tiene en su caché).

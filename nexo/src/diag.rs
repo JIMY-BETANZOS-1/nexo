@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/diag.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Diagnóstico general (fase 3): nota de 0 a 100 por áreas y recomendaciones.
 //!
 //! La recogida de datos es de solo lectura (script de PowerShell incluido en el
@@ -40,6 +45,8 @@ impl StartupItem {
     pub fn missing(&self) -> bool {
         self.signature == "missing"
     }
+    // jimy-betanzos: un programa sin firma digital no es malicioso por sí mismo, pero se
+    // marca para que el usuario lo revise.
     pub fn signed(&self) -> bool {
         // "n/a": Linux y macOS no usan firmas Authenticode en los programas de inicio.
         self.signature == "Valid" || self.signature == "n/a"

@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/schedule.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Tarea programada de Windows para el modo automático.
 //! La app no queda residente: Windows la lanza, limpia y se cierra (0 MB en reposo).
 
