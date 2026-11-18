@@ -10,8 +10,10 @@
 //! usuario: activar/desactivar programas de inicio, cambiar el plan de energía,
 //! lanzar un análisis de Defender.
 
+// jimy-betanzos · dependencia: guardar y leer datos en JSON (serde)
 use serde::{Deserialize, Serialize};
 
+// jimy-betanzos · dependencia: módulo propio
 use crate::{config, fmt, sys};
 
 #[cfg(windows)]
@@ -21,8 +23,10 @@ mod plat;
 #[path = "unix/diag.rs"]
 mod plat;
 
+// jimy-betanzos · dependencia: módulo propio de la plataforma (Windows o Linux/macOS)
 pub use plat::{active_power_plan, battery_report, open, quick_scan, quick_scan_available, set_power_plan, set_startup_enabled, setting, txt, BALANCED};
 
+/// jimy-betanzos · Programa que se abre al iniciar sesión.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct StartupItem {
@@ -38,26 +42,31 @@ pub struct StartupItem {
     pub suspicious: bool,
 }
 
+/// jimy-betanzos · Métodos de StartupItem.
 impl StartupItem {
+    /// jimy-betanzos · Indica si el programa de inicio es para todos los usuarios.
     pub fn machine_wide(&self) -> bool {
         self.hive.starts_with("HKLM")
     }
+    /// jimy-betanzos · Indica si el archivo del programa de inicio ya no existe.
     pub fn missing(&self) -> bool {
         self.signature == "missing"
     }
     // jimy-betanzos: un programa sin firma digital no es malicioso por sí mismo, pero se
     // marca para que el usuario lo revise.
+    /// jimy-betanzos · Indica si el programa de inicio tiene firma digital válida.
     pub fn signed(&self) -> bool {
         // "n/a": Linux y macOS no usan firmas Authenticode en los programas de inicio.
         self.signature == "Valid" || self.signature == "n/a"
     }
-    /// El propio vigía de NEXO: es de confianza aunque no tenga firma comercial.
+    /// jimy-betanzos · El propio vigía de NEXO: es de confianza aunque no tenga firma comercial.
     pub fn is_nexo(&self) -> bool {
         let ours = crate::install::installed_exe().to_string_lossy().to_lowercase();
         self.name == "NEXO Vigia" && self.exe.to_lowercase() == ours
     }
 }
 
+/// jimy-betanzos · Datos de un disco: tamaño, espacio libre, tipo y salud.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct Disk {
@@ -70,6 +79,7 @@ pub struct Disk {
     pub hours: Option<i64>,
 }
 
+/// jimy-betanzos · Datos de la batería: capacidad de diseño y capacidad actual.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct Battery {
@@ -78,12 +88,15 @@ pub struct Battery {
     pub cycles: i64,
 }
 
+/// jimy-betanzos · Métodos de Battery.
 impl Battery {
+    /// jimy-betanzos · Salud de la batería en porcentaje (actual / diseño).
     pub fn health(&self) -> Option<f32> {
         (self.design > 0 && self.full > 0).then(|| (self.full as f32 / self.design as f32 * 100.0).min(100.0))
     }
 }
 
+/// jimy-betanzos · Estado del antivirus: protección, firmas y último análisis.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct Defender {
@@ -95,6 +108,7 @@ pub struct Defender {
     pub tamper: bool,
 }
 
+/// jimy-betanzos · Estado del firewall en un perfil de red.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct Firewall {
@@ -102,6 +116,7 @@ pub struct Firewall {
     pub enabled: bool,
 }
 
+/// jimy-betanzos · Tarea programada encontrada en el equipo.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct Task {
@@ -111,6 +126,7 @@ pub struct Task {
     pub why: String,
 }
 
+/// jimy-betanzos · Datos crudos que se leen del sistema antes de calificarlos.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct Raw {
@@ -131,6 +147,7 @@ pub struct Raw {
     pub tasks_total: i64,
 }
 
+/// jimy-betanzos · Acción que ofrece una recomendación (botón).
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
 pub enum Action {
     GoClean,
@@ -141,7 +158,9 @@ pub enum Action {
     Open(String),
 }
 
+/// jimy-betanzos · Métodos de Action.
 impl Action {
+    /// jimy-betanzos · Texto del botón de la acción.
     pub fn label(&self) -> &'static str {
         match self {
             Action::GoClean => "Ir a Limpieza",
@@ -156,6 +175,7 @@ impl Action {
     }
 }
 
+/// jimy-betanzos · Recomendación: gravedad, área, título, detalle y acción.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Rec {
     /// 0 consejo · 1 conviene revisar · 2 importante
@@ -166,6 +186,7 @@ pub struct Rec {
     pub action: Option<Action>,
 }
 
+/// jimy-betanzos · Resultado completo del diagnóstico con notas por área.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct Report {
@@ -186,6 +207,7 @@ pub struct Report {
 pub const AREAS: [&str; 5] = ["Seguridad", "Almacenamiento", "Memoria", "Arranque", "Batería"];
 const WEIGHTS: [f32; 5] = [30.0, 25.0, 15.0, 15.0, 15.0];
 
+/// jimy-betanzos · Convierte la nota de 0 a 100 en una palabra (Excelente, Bueno…).
 pub fn grade(score: u8) -> &'static str {
     match score {
         90..=100 => "Excelente",
@@ -195,13 +217,15 @@ pub fn grade(score: u8) -> &'static str {
     }
 }
 
-/// Avance del diagnóstico en milésimas (0–1000).
+/// jimy-betanzos · Avance del diagnóstico en milésimas (0–1000).
 pub type Progress = std::sync::atomic::AtomicU32;
 
+/// jimy-betanzos · Hace el diagnóstico completo sin mostrar avance.
 pub fn run() -> Result<Report, String> {
     run_with_progress(&Progress::new(0))
 }
 
+/// jimy-betanzos · Hace el diagnóstico completo informando el avance.
 pub fn run_with_progress(progress: &Progress) -> Result<Report, String> {
     let raw = plat::run_script(progress)?;
     progress.store(950, std::sync::atomic::Ordering::Relaxed);
@@ -225,11 +249,12 @@ pub fn run_with_progress(progress: &Progress) -> Result<Report, String> {
     Ok(rep)
 }
 
+/// jimy-betanzos · Agrega una recomendación a la lista.
 fn rec(v: &mut Vec<Rec>, severity: u8, area: &str, title: String, detail: String, action: Option<Action>) {
     v.push(Rec { severity, area: area.into(), title, detail, action });
 }
 
-/// Entradas de `hosts` que no vienen de herramientas conocidas (Docker, Laragon, WSL...)
+/// jimy-betanzos · Entradas de `hosts` que no vienen de herramientas conocidas (Docker, Laragon, WSL...)
 /// ni apuntan al propio equipo.
 pub fn unknown_hosts(hosts: &[String]) -> Vec<String> {
     const KNOWN: &[&str] = &[
@@ -247,6 +272,7 @@ pub fn unknown_hosts(hosts: &[String]) -> Vec<String> {
         .collect()
 }
 
+/// jimy-betanzos · Califica los datos y genera las recomendaciones.
 pub fn analyze(rep: &mut Report) {
     let r = &rep.raw;
     let mut v: Vec<Rec> = Vec::new();
@@ -394,10 +420,12 @@ pub fn analyze(rep: &mut Report) {
     rep.recs = v;
 }
 
+/// jimy-betanzos · Ruta del archivo donde se guarda el último diagnóstico.
 fn path() -> std::path::PathBuf {
     config::data_dir().join("diagnostico.json")
 }
 
+/// jimy-betanzos · Guarda el diagnóstico en disco.
 pub fn save(rep: &Report) {
     let _ = std::fs::create_dir_all(config::data_dir());
     if let Ok(s) = serde_json::to_string(rep) {
@@ -405,6 +433,7 @@ pub fn save(rep: &Report) {
     }
 }
 
+/// jimy-betanzos · Lee el último diagnóstico guardado.
 pub fn load() -> Option<Report> {
     std::fs::read_to_string(path()).ok().and_then(|s| serde_json::from_str(&s).ok())
 }

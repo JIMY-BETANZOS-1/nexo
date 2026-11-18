@@ -8,8 +8,10 @@ mod theme;
 mod thumbcache;
 mod widgets;
 
+// jimy-betanzos · dependencia: ventana e interfaz gráfica (eframe/egui)
 use eframe::egui;
 
+/// jimy-betanzos · Abre la ventana de NEXO.
 pub fn run(start_page: Option<String>) {
     // La ventana de NEXO trabaja siempre como administrador (para limpiar también lo de
     // Windows). Si el usuario rechaza el aviso, se abre igual con permisos normales.

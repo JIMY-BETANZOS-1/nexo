@@ -6,6 +6,7 @@
 //! Notificaciones en Linux (`notify-send`, estándar freedesktop) y macOS (Centro de
 //! notificaciones mediante `osascript`).
 
+/// jimy-betanzos · Muestra una notificación del sistema.
 pub fn toast(title: &str, line1: &str, line2: &str) {
     let body = if line2.is_empty() { line1.to_string() } else { format!("{}\n{}", line1, line2) };
     #[cfg(target_os = "macos")]

@@ -8,15 +8,23 @@
 //! - Categorías seguras (basura del sistema): borrado definitivo.
 //! - Revisión y protegidos (capturas, descargas, videos, documentos): a la Papelera.
 
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (fs)
 use std::fs;
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
 use std::path::{Path, PathBuf};
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
 use std::sync::Mutex;
 
+// jimy-betanzos · dependencia: módulo propio rules
 use crate::rules::{is_inside, protection, CategoryDef, Env, Kind, Protect, Special, Target};
+// jimy-betanzos · dependencia: módulo propio scan
 use crate::scan::{blocked_by, walk, CatResult, Ctx};
+// jimy-betanzos · dependencia: módulo propio sys
 use crate::sys;
 
+/// jimy-betanzos · Resultado de una limpieza: archivos, espacio liberado y errores.
 #[derive(Default, Clone)]
 pub struct CleanReport {
     pub freed: u64,
@@ -26,6 +34,7 @@ pub struct CleanReport {
     pub per_cat: Vec<(String, u64)>,
 }
 
+/// jimy-betanzos · Borra un archivo aunque sea de solo lectura.
 fn remove_file_force(p: &Path) -> std::io::Result<()> {
     match fs::remove_file(p) {
         Ok(()) => Ok(()),
@@ -45,7 +54,7 @@ fn remove_file_force(p: &Path) -> std::io::Result<()> {
     }
 }
 
-/// Borra la basura de un destino seguro. Devuelve (liberado, archivos, omitidos).
+/// jimy-betanzos · Borra la basura de un destino seguro. Devuelve (liberado, archivos, omitidos).
 fn clean_target(t: &Target, env: &Env, ctx: &Ctx, files_total: &AtomicU64, bytes_total: &AtomicU64) -> (u64, u64, u64) {
     let (mut freed, mut files, mut skipped) = (0u64, 0u64, 0u64);
     let mut dirs: Vec<PathBuf> = Vec::new();
@@ -91,6 +100,7 @@ fn clean_target(t: &Target, env: &Env, ctx: &Ctx, files_total: &AtomicU64, bytes
 
 // jimy-betanzos: lo «Para revisar» y lo «Protegido» va a la Papelera (se puede recuperar);
 // solo la basura del sistema se elimina de forma definitiva.
+/// jimy-betanzos · Limpia las categorías seleccionadas y devuelve el resumen.
 pub fn clean(defs: &[CategoryDef], results: &[CatResult], env: &Env, ctx: &Ctx) -> CleanReport {
     let mut rep = CleanReport::default();
     let selected: Vec<(&CatResult, &CategoryDef)> = results

@@ -8,30 +8,37 @@
 //! En Linux se lee `/proc` y `/sys`; en macOS se usan `sysctl`, `vm_stat` y `pmset`.
 //! Todo es de solo lectura salvo vaciar la Papelera.
 
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (collections)
 use std::collections::HashSet;
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
 use std::path::{Path, PathBuf};
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (process)
 use std::process::Command;
 
+/// jimy-betanzos · Carpeta personal del usuario.
 fn home() -> PathBuf {
     std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/"))
 }
 
+/// jimy-betanzos · Ejecuta un comando y devuelve su salida.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn run(program: &str, args: &[&str]) -> Option<String> {
     let out = Command::new(program).args(args).output().ok()?;
     out.status.success().then(|| String::from_utf8_lossy(&out.stdout).to_string())
 }
 
+/// jimy-betanzos · Lee un archivo de texto del sistema.
 #[cfg_attr(target_os = "macos", allow(dead_code))]
 fn read(p: &str) -> Option<String> {
     std::fs::read_to_string(p).ok()
 }
 
+/// jimy-betanzos · Indica si NEXO se ejecuta como administrador (root).
 pub fn is_admin() -> bool {
     unsafe { libc::geteuid() == 0 }
 }
 
-/// Nombres de los programas en marcha, en minúsculas (p. ej. "firefox", "google chrome").
+/// jimy-betanzos · Nombres de los programas en marcha, en minúsculas (p. ej. "firefox", "google chrome").
 pub fn running_processes() -> HashSet<String> {
     let mut set = HashSet::new();
     #[cfg(target_os = "linux")]
@@ -51,12 +58,14 @@ pub fn running_processes() -> HashSet<String> {
     set
 }
 
+/// jimy-betanzos · Estado de la energía: batería, porcentaje y cargador.
 pub struct Power {
     pub on_ac: bool,
     pub percent: Option<u8>,
     pub has_battery: bool,
 }
 
+/// jimy-betanzos · Lee el estado de la batería y el cargador.
 pub fn power() -> Power {
     #[cfg(target_os = "linux")]
     {
@@ -86,12 +95,13 @@ pub fn power() -> Power {
     }
 }
 
-/// Juego o video en pantalla completa. Linux y macOS no lo exponen de forma estándar:
+/// jimy-betanzos · Juego o video en pantalla completa. Linux y macOS no lo exponen de forma estándar:
 /// se responde «no» y el modo automático se apoya en la batería y las instalaciones.
 pub fn user_busy() -> bool {
     false
 }
 
+/// jimy-betanzos · Carpetas de Papelera del usuario.
 fn trash_dirs() -> Vec<PathBuf> {
     #[cfg(target_os = "macos")]
     return vec![home().join(".Trash")];
@@ -102,7 +112,7 @@ fn trash_dirs() -> Vec<PathBuf> {
     }
 }
 
-/// (bytes, elementos) en la Papelera del usuario.
+/// jimy-betanzos · (bytes, elementos) en la Papelera del usuario.
 pub fn recycle_bin() -> (u64, u64) {
     let (mut size, mut count) = (0u64, 0u64);
     let dirs = trash_dirs();
@@ -119,6 +129,7 @@ pub fn recycle_bin() -> (u64, u64) {
     (size, count)
 }
 
+/// jimy-betanzos · Vacía la Papelera.
 pub fn empty_recycle_bin() -> bool {
     #[cfg(target_os = "macos")]
     {
@@ -140,8 +151,9 @@ pub fn empty_recycle_bin() -> bool {
     }
 }
 
-/// (libre, total) en bytes del sistema de archivos que contiene `p`.
+/// jimy-betanzos · (libre, total) en bytes del sistema de archivos que contiene `p`.
 pub fn disk_space(p: &Path) -> (u64, u64) {
+    // jimy-betanzos · dependencia: biblioteca estándar de Rust (os)
     use std::os::unix::ffi::OsStrExt;
     let Ok(c) = std::ffi::CString::new(p.as_os_str().as_bytes()) else { return (0, 0) };
     unsafe {
@@ -154,6 +166,7 @@ pub fn disk_space(p: &Path) -> (u64, u64) {
     }
 }
 
+/// jimy-betanzos · Estado de la memoria RAM y de intercambio.
 pub struct Mem {
     pub load: u32,
     pub total: u64,
@@ -163,7 +176,9 @@ pub struct Mem {
     pub commit_avail: u64,
 }
 
+/// jimy-betanzos · Métodos de Mem.
 impl Mem {
+    /// jimy-betanzos · Porcentaje de memoria de intercambio en uso.
     pub fn commit_pct(&self) -> f32 {
         if self.commit_total == 0 {
             0.0
@@ -173,6 +188,7 @@ impl Mem {
     }
 }
 
+/// jimy-betanzos · Lee el estado de la memoria del equipo.
 pub fn memory() -> Mem {
     #[cfg(target_os = "linux")]
     {
@@ -214,11 +230,12 @@ pub fn memory() -> Mem {
     }
 }
 
+/// jimy-betanzos · Carpeta raíz del sistema (/).
 pub fn system_drive() -> PathBuf {
     PathBuf::from("/")
 }
 
-/// Programas que arrancan al iniciar sesión (autostart de Linux o LaunchAgents de macOS).
+/// jimy-betanzos · Programas que arrancan al iniciar sesión (autostart de Linux o LaunchAgents de macOS).
 pub fn startup_entries() -> HashSet<String> {
     let mut set = HashSet::new();
     #[cfg(target_os = "macos")]
@@ -235,6 +252,7 @@ pub fn startup_entries() -> HashSet<String> {
     set
 }
 
+/// jimy-betanzos · Marca y modelo del equipo.
 pub fn machine_model() -> String {
     #[cfg(target_os = "macos")]
     {
@@ -257,17 +275,18 @@ pub fn machine_model() -> String {
     }
 }
 
-/// En Linux y macOS NEXO no se reinicia elevado: las tareas del sistema piden la
+/// jimy-betanzos · En Linux y macOS NEXO no se reinicia elevado: las tareas del sistema piden la
 /// contraseña en el momento (pkexec u osascript).
 pub fn relaunch_as_admin() -> bool {
     false
 }
 
+/// jimy-betanzos · En Linux y macOS no se reabre como administrador.
 pub fn relaunch_as_admin_with(_params: &str) -> bool {
     false
 }
 
-/// Ejecuta un comando de shell con permisos de administrador, pidiendo la contraseña con
+/// jimy-betanzos · Ejecuta un comando de shell con permisos de administrador, pidiendo la contraseña con
 /// el diálogo del sistema. Devuelve la salida estándar.
 pub fn run_as_admin(shell_cmd: &str) -> Result<String, String> {
     #[cfg(target_os = "macos")]
@@ -284,16 +303,17 @@ pub fn run_as_admin(shell_cmd: &str) -> Result<String, String> {
     }
 }
 
+/// jimy-betanzos · En Linux y macOS no hace falta ajustar la prioridad.
 pub fn interactive_thread() {}
 
-/// Baja la prioridad del proceso: el usuario no nota el trabajo en segundo plano.
+/// jimy-betanzos · Baja la prioridad del proceso: el usuario no nota el trabajo en segundo plano.
 pub fn background_thread() {
     unsafe {
         libc::setpriority(libc::PRIO_PROCESS, 0, 10);
     }
 }
 
-/// Devuelve al sistema la memoria propia que NEXO ya no usa.
+/// jimy-betanzos · Devuelve al sistema la memoria propia que NEXO ya no usa.
 pub fn trim_own_memory() {
     #[cfg(all(target_os = "linux", target_env = "gnu"))]
     unsafe {
@@ -301,11 +321,12 @@ pub fn trim_own_memory() {
     }
 }
 
+/// jimy-betanzos · Baja la prioridad de NEXO para no frenar el equipo.
 pub fn background_process() {
     background_thread();
 }
 
-/// Unix (segundos) -> (año, mes, día, hora, minuto) en hora local.
+/// jimy-betanzos · Unix (segundos) -> (año, mes, día, hora, minuto) en hora local.
 pub fn local_time(unix: u64) -> (u16, u16, u16, u16, u16) {
     unsafe {
         let t = unix as libc::time_t;
@@ -315,8 +336,9 @@ pub fn local_time(unix: u64) -> (u16, u16, u16, u16, u16) {
     }
 }
 
-/// Una sola ventana de NEXO: se bloquea un archivo de la carpeta de datos.
+/// jimy-betanzos · Una sola ventana de NEXO: se bloquea un archivo de la carpeta de datos.
 pub fn claim_single_instance() -> bool {
+    // jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
     use std::sync::OnceLock;
     static LOCK: OnceLock<std::fs::File> = OnceLock::new();
     let dir = crate::config::data_dir();
@@ -329,11 +351,12 @@ pub fn claim_single_instance() -> bool {
     true
 }
 
+/// jimy-betanzos · Prepara un comando del sistema.
 pub fn hidden_cmd(program: &str) -> Command {
     Command::new(program)
 }
 
-/// Abre un archivo con su programa. Los ejecutables y scripts nunca se lanzan: solo se
+/// jimy-betanzos · Abre un archivo con su programa. Los ejecutables y scripts nunca se lanzan: solo se
 /// muestran en su carpeta.
 pub fn open_file(p: &Path) {
     const RISKY: &[&str] = &["sh", "bash", "zsh", "command", "app", "pkg", "dmg", "run", "bin", "appimage", "deb", "rpm", "py", "pl", "jar", "desktop", "exe", "msi", "bat", "ps1"];
@@ -348,7 +371,7 @@ pub fn open_file(p: &Path) {
     }
 }
 
-/// Muestra el archivo en el Finder (macOS) o abre su carpeta (Linux).
+/// jimy-betanzos · Muestra el archivo en el Finder (macOS) o abre su carpeta (Linux).
 pub fn reveal_in_explorer(p: &Path) {
     #[cfg(target_os = "macos")]
     let _ = Command::new("open").arg("-R").arg(p).spawn();

@@ -9,11 +9,16 @@
 //!   al desplazarte rápido no se pierde tiempo en lo que ya no estás viendo.
 //! - Memoria acotada: como mucho 300 miniaturas pequeñas y 24 vistas grandes.
 
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (collections)
 use std::collections::{HashMap, HashSet, VecDeque};
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
 use std::path::{Path, PathBuf};
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
 use std::sync::mpsc::{channel, Receiver};
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
 use std::sync::{Arc, Condvar, Mutex};
 
+// jimy-betanzos · dependencia: ventana e interfaz gráfica (eframe/egui)
 use eframe::egui::{self, ColorImage, TextureHandle, TextureOptions};
 
 pub const SMALL: u32 = 64;
@@ -22,13 +27,16 @@ const MAX_SMALL: usize = 300;
 const MAX_BIG: usize = 24;
 const MAX_QUEUE: usize = 160;
 
+/// jimy-betanzos · Clave de una miniatura: archivo y tamaño.
 type Key = (PathBuf, u32);
 
+/// jimy-betanzos · Cola de miniaturas pendientes.
 struct Queue {
     jobs: Mutex<Vec<Key>>,
     signal: Condvar,
 }
 
+/// jimy-betanzos · Caché de miniaturas de la interfaz.
 pub struct ThumbCache {
     queue: Arc<Queue>,
     rx: Receiver<(Key, Option<ColorImage>)>,
@@ -38,7 +46,9 @@ pub struct ThumbCache {
     order_big: VecDeque<Key>,
 }
 
+/// jimy-betanzos · Métodos de ThumbCache.
 impl ThumbCache {
+    /// jimy-betanzos · Crea la caché y sus hilos de trabajo.
     pub fn new() -> Self {
         let queue = Arc::new(Queue { jobs: Mutex::new(Vec::new()), signal: Condvar::new() });
         let (tx, rx) = channel();
@@ -76,7 +86,7 @@ impl ThumbCache {
         }
     }
 
-    /// Recoge las miniaturas terminadas. Devuelve si aún hay trabajo pendiente.
+    /// jimy-betanzos · Recoge las miniaturas terminadas. Devuelve si aún hay trabajo pendiente.
     pub fn poll(&mut self, ctx: &egui::Context) -> bool {
         while let Ok((key, img)) = self.rx.try_recv() {
             self.pending.remove(&key);
@@ -94,7 +104,7 @@ impl ThumbCache {
         !self.pending.is_empty()
     }
 
-    /// La miniatura si ya está lista; si no, la pide y devuelve None (aún cargando).
+    /// jimy-betanzos · La miniatura si ya está lista; si no, la pide y devuelve None (aún cargando).
     pub fn get(&mut self, path: &Path, size: u32) -> Option<Option<TextureHandle>> {
         let key = (path.to_path_buf(), size);
         if let Some(t) = self.tex.get(&key) {

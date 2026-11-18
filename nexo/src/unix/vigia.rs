@@ -10,34 +10,45 @@
 //! A diferencia de Windows, no muestra un icono junto al reloj (eso exigiría bibliotecas
 //! gráficas distintas en cada escritorio de Linux): se controla desde NEXO › Memoria RAM.
 
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (collections)
 use std::collections::{HashMap, HashSet, VecDeque};
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
 use std::path::PathBuf;
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (time)
 use std::time::{Duration, Instant, SystemTime};
 
+// jimy-betanzos · dependencia: módulo propio config
 use crate::config::{self, Config};
+// jimy-betanzos · dependencia: módulo propio procs
 use crate::procs::{AppGroup, Sampler};
+// jimy-betanzos · dependencia: módulo propio
 use crate::{fmt, install, notify, sys};
 
 const TICK: Duration = Duration::from_secs(30);
 const LEAK_SAMPLES: usize = 20; // 20 × 30 s = 10 min
 const LEAK_BYTES: u64 = 1 << 30;
 
+/// jimy-betanzos · Archivo donde el vigía guarda su número de proceso.
 fn pid_file() -> PathBuf {
     config::data_dir().join("vigia.pid")
 }
 
+/// jimy-betanzos · Indica si un proceso sigue vivo.
 fn alive(pid: i32) -> bool {
     pid > 0 && unsafe { libc::kill(pid, 0) } == 0
 }
 
+/// jimy-betanzos · Lee el número de proceso del vigía.
 fn read_pid() -> Option<i32> {
     std::fs::read_to_string(pid_file()).ok()?.trim().parse().ok().filter(|&p| alive(p))
 }
 
+/// jimy-betanzos · Indica si el vigía está en marcha.
 pub fn is_running() -> bool {
     read_pid().is_some()
 }
 
+/// jimy-betanzos · Arranca el vigía en segundo plano.
 pub fn start() -> bool {
     std::process::Command::new(install::installed_exe())
         .arg("--vigia")
@@ -48,7 +59,7 @@ pub fn start() -> bool {
         .is_ok()
 }
 
-/// Detiene el vigía y espera a que termine. Devuelve si estaba activo.
+/// jimy-betanzos · Detiene el vigía y espera a que termine. Devuelve si estaba activo.
 pub fn stop_and_wait() -> bool {
     let Some(pid) = read_pid() else { return false };
     unsafe {
@@ -64,6 +75,7 @@ pub fn stop_and_wait() -> bool {
     true
 }
 
+/// jimy-betanzos · Texto con los programas que más memoria usan.
 fn top_consumers(groups: &[AppGroup], n: usize) -> String {
     groups
         .iter()
@@ -74,6 +86,7 @@ fn top_consumers(groups: &[AppGroup], n: usize) -> String {
         .join(" · ")
 }
 
+/// jimy-betanzos · Estado del vigía entre una revisión y la siguiente.
 struct State {
     sampler: Sampler,
     cfg: Config,
@@ -86,7 +99,9 @@ struct State {
     startup: Option<HashSet<String>>,
 }
 
+/// jimy-betanzos · Métodos de State.
 impl State {
+    /// jimy-betanzos · Envía un aviso si no se repitió hace poco.
     fn alert(&mut self, key: &str, cooldown: Duration, title: &str, text: &str) {
         if self.last_alert.get(key).is_some_and(|t| t.elapsed() < cooldown) {
             return;
@@ -96,6 +111,7 @@ impl State {
         config::push_alert(key.split(':').next().unwrap_or(key), &format!("{}: {}", title, text));
     }
 
+    /// jimy-betanzos · Revisión periódica de memoria, CPU y disco.
     fn tick(&mut self) {
         let mtime = config::config_mtime();
         if mtime != self.cfg_mtime {
@@ -201,6 +217,7 @@ impl State {
     }
 }
 
+/// jimy-betanzos · Bucle principal del vigía.
 pub fn run() {
     if is_running() {
         return;

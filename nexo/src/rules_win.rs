@@ -5,20 +5,26 @@
 
 //! Reglas de Windows: carpetas de basura conocidas y carpetas personales prohibidas.
 
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
 use std::path::PathBuf;
 
+// jimy-betanzos · dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::UI::Shell::{
     FOLDERID_Desktop, FOLDERID_Documents, FOLDERID_Downloads, FOLDERID_Music, FOLDERID_Pictures,
     FOLDERID_Screenshots, FOLDERID_Videos,
 };
 
+// jimy-betanzos · dependencia: módulo propio de la interfaz
 use super::*;
+// jimy-betanzos · dependencia: módulo propio sys
 use crate::sys;
 
+/// jimy-betanzos · Lee una carpeta de una variable de entorno de Windows.
 fn env_path(var: &str, fallback: &str) -> PathBuf {
     std::env::var_os(var).map(PathBuf::from).unwrap_or_else(|| PathBuf::from(fallback))
 }
 
+/// jimy-betanzos · Detecta las carpetas de Windows del usuario y del sistema.
 pub fn detect() -> Env {
     let profile = env_path("USERPROFILE", "C:\\Users\\Default");
     let pictures = sys::known_folder(&FOLDERID_Pictures);
@@ -76,6 +82,7 @@ const CHROMIUM: &[(&str, &[&str])] = &[
 
 const CACHE_DIRS: &[&str] = &["Cache", "Code Cache", "GPUCache"];
 
+/// jimy-betanzos · Carpetas de caché de los navegadores instalados.
 fn browser_targets(env: &Env) -> Vec<Target> {
     let mut out = Vec::new();
     for (rel, procs) in CHROMIUM {
@@ -122,6 +129,7 @@ fn browser_targets(env: &Env) -> Vec<Target> {
     out
 }
 
+/// jimy-betanzos · Carpetas de caché de aplicaciones conocidas.
 fn app_cache_targets(env: &Env) -> Vec<Target> {
     let r = &env.roaming;
     let l = &env.local;
@@ -148,6 +156,7 @@ fn app_cache_targets(env: &Env) -> Vec<Target> {
 
 const UPDATE_PROCS: &[&str] = &["tiworker.exe", "trustedinstaller.exe", "wuauclt.exe"];
 
+/// jimy-betanzos · Lista completa de categorías de limpieza de Windows.
 pub fn categories(env: &Env) -> Vec<CategoryDef> {
     let w = &env.windir;
     let l = &env.local;
@@ -310,11 +319,12 @@ pub fn categories(env: &Env) -> Vec<CategoryDef> {
 }
 
 
-/// En Windows no hay categorías que dependan de un comando del sistema.
+/// jimy-betanzos · En Windows no hay categorías que dependan de un comando del sistema.
 pub fn system_size(_id: &str) -> (u64, u64) {
     (0, 0)
 }
 
+/// jimy-betanzos · Limpieza de sistema especial (en Windows no se usa).
 pub fn system_clean(_id: &str) -> Result<u64, String> {
     Err("No disponible en Windows.".into())
 }

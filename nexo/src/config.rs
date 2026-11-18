@@ -3,10 +3,13 @@
 //  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
 // ════════════════════════════════════════════════════════════════════════
 
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
 use std::path::PathBuf;
 
+// jimy-betanzos · dependencia: guardar y leer datos en JSON (serde)
 use serde::{Deserialize, Serialize};
 
+/// jimy-betanzos · Frecuencia de la limpieza automática: diaria, semanal o mensual.
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Frequency {
     Daily,
@@ -14,7 +17,9 @@ pub enum Frequency {
     Monthly,
 }
 
+/// jimy-betanzos · Métodos de Frequency.
 impl Frequency {
+    /// jimy-betanzos · Nombre en español de la frecuencia.
     pub fn label(self) -> &'static str {
         match self {
             Frequency::Daily => "Diario",
@@ -24,6 +29,7 @@ impl Frequency {
     }
 }
 
+/// jimy-betanzos · Configuración del usuario guardada en config.json.
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct Config {
@@ -47,7 +53,9 @@ pub struct Config {
     pub defender_scan_secs: u64,
 }
 
+/// jimy-betanzos · Implementación de Default para Config.
 impl Default for Config {
+    /// jimy-betanzos · Valores iniciales seguros de la configuración.
     fn default() -> Self {
         Config {
             vigia_enabled: false,
@@ -72,7 +80,7 @@ impl Default for Config {
     }
 }
 
-/// Carpeta de datos de NEXO: %APPDATA%/NEXO (Windows), ~/.config/nexo (Linux) o
+/// jimy-betanzos · Carpeta de datos de NEXO: %APPDATA%/NEXO (Windows), ~/.config/nexo (Linux) o
 /// ~/Library/Application Support/NEXO (macOS).
 pub fn data_dir() -> PathBuf {
     #[cfg(windows)]
@@ -87,7 +95,9 @@ pub fn data_dir() -> PathBuf {
     dir.unwrap_or_else(|| std::env::temp_dir().join("NEXO"))
 }
 
+/// jimy-betanzos · Métodos de Config.
 impl Config {
+    /// jimy-betanzos · Lee la configuración guardada (o usa la inicial).
     pub fn load() -> Config {
         std::fs::read_to_string(data_dir().join("config.json"))
             .ok()
@@ -95,6 +105,7 @@ impl Config {
             .unwrap_or_default()
     }
 
+    /// jimy-betanzos · Guarda la configuración en disco.
     pub fn save(&self) {
         let d = data_dir();
         let _ = std::fs::create_dir_all(&d);
@@ -104,6 +115,7 @@ impl Config {
     }
 }
 
+/// jimy-betanzos · Registro de una limpieza en el historial.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct HistoryEntry {
@@ -122,6 +134,7 @@ pub struct HistoryEntry {
 
 const HISTORY_MAX: usize = 300;
 
+/// jimy-betanzos · Aviso del vigía guardado para mostrarlo en la ventana.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct AlertEntry {
@@ -131,6 +144,7 @@ pub struct AlertEntry {
     pub text: String,
 }
 
+/// jimy-betanzos · Lee los últimos avisos del vigía.
 pub fn load_alerts() -> Vec<AlertEntry> {
     std::fs::read_to_string(data_dir().join("avisos.json"))
         .ok()
@@ -138,6 +152,7 @@ pub fn load_alerts() -> Vec<AlertEntry> {
         .unwrap_or_default()
 }
 
+/// jimy-betanzos · Agrega un aviso del vigía (se guardan los más recientes).
 pub fn push_alert(kind: &str, text: &str) {
     let mut a = load_alerts();
     a.push(AlertEntry { ts: crate::fmt::now(), kind: kind.into(), text: text.into() });
@@ -152,10 +167,12 @@ pub fn push_alert(kind: &str, text: &str) {
     }
 }
 
+/// jimy-betanzos · Fecha de la última modificación de la configuración.
 pub fn config_mtime() -> Option<std::time::SystemTime> {
     std::fs::metadata(data_dir().join("config.json")).and_then(|m| m.modified()).ok()
 }
 
+/// jimy-betanzos · Lee el historial de limpiezas.
 pub fn load_history() -> Vec<HistoryEntry> {
     std::fs::read_to_string(data_dir().join("historial.json"))
         .ok()
@@ -163,6 +180,7 @@ pub fn load_history() -> Vec<HistoryEntry> {
         .unwrap_or_default()
 }
 
+/// jimy-betanzos · Agrega una limpieza al historial y lo guarda.
 pub fn push_history(e: HistoryEntry) -> Vec<HistoryEntry> {
     let mut h = load_history();
     h.push(e);

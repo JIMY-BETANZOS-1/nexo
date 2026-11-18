@@ -3,6 +3,7 @@
 //  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
 // ════════════════════════════════════════════════════════════════════════
 
+// jimy-betanzos · dependencia: ventana e interfaz gráfica (eframe/egui)
 use eframe::egui::{self, Color32, FontData, FontDefinitions, FontFamily, FontId, TextStyle};
 
 // jimy-betanzos: un solo color de acento y grises: la interfaz no distrae y los avisos
@@ -20,21 +21,23 @@ pub const MUTED: Color32 = Color32::from_rgb(138, 146, 155);
 /// Texto sobre botones rellenos del color de acento.
 pub const LIGHT: Color32 = Color32::from_rgb(245, 247, 249);
 
-/// Transparencia mezclada en espacio gamma: los brillos suaves se quedan suaves.
+/// jimy-betanzos · Transparencia mezclada en espacio gamma: los brillos suaves se quedan suaves.
 pub fn alpha(c: Color32, a: u8) -> Color32 {
     let m = |v: u8| ((v as u16 * a as u16) / 255) as u8;
     Color32::from_rgba_premultiplied(m(c.r()), m(c.g()), m(c.b()), a)
 }
 
+/// jimy-betanzos · Familia de fuente para títulos y cifras.
 pub fn display() -> FontFamily {
     FontFamily::Name("display".into())
 }
 
+/// jimy-betanzos · Fuente de títulos del tamaño indicado.
 pub fn font(size: f32) -> FontId {
     FontId::new(size, display())
 }
 
-/// Usa fuentes que ya trae el sistema: nada que descargar ni empaquetar.
+/// jimy-betanzos · Usa fuentes que ya trae el sistema: nada que descargar ni empaquetar.
 /// Windows: Segoe UI y Cascadia · macOS: Helvetica Neue y Menlo · Linux: DejaVu.
 pub fn setup(ctx: &egui::Context) {
     let mut fonts = FontDefinitions::default();

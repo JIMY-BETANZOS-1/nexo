@@ -55,6 +55,7 @@ mod vigia;
 #[path = "unix/vigia.rs"]
 mod vigia;
 
+/// jimy-betanzos · Punto de entrada: decide el modo según los argumentos y abre la ventana.
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|a| a == "--vigia") {

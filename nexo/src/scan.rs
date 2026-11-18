@@ -5,24 +5,34 @@
 
 //! Motor de escaneo. Solo lee: nunca borra nada.
 
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (collections)
 use std::collections::HashSet;
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
 use std::path::{Path, PathBuf};
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
 use std::sync::atomic::{AtomicBool, Ordering};
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
 use std::sync::{Arc, Mutex};
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (time)
 use std::time::SystemTime;
 
+// jimy-betanzos · dependencia: recorrer carpetas (walkdir)
 use walkdir::WalkDir;
 
+// jimy-betanzos · dependencia: módulo propio rules
 use crate::rules::{protection, CategoryDef, Filter, Kind, Protect, Special, Target};
+// jimy-betanzos · dependencia: módulo propio sys
 use crate::sys;
 
 // jimy-betanzos: no seguir enlaces evita salir de la carpeta analizada y borrar algo ajeno.
 /// Enlace o unión (reparse point en Windows, enlace simbólico en Linux y macOS): nunca se sigue.
 #[cfg(windows)]
 fn is_link(m: &std::fs::Metadata) -> bool {
+    // jimy-betanzos · dependencia: biblioteca estándar de Rust (os)
     use std::os::windows::fs::MetadataExt;
     m.file_attributes() & 0x400 != 0
 }
+/// jimy-betanzos · Indica si una entrada es un enlace o unión.
 #[cfg(unix)]
 fn is_link(m: &std::fs::Metadata) -> bool {
     m.file_type().is_symlink()
@@ -31,6 +41,7 @@ fn is_link(m: &std::fs::Metadata) -> bool {
 const SAMPLE: usize = 40;
 const REVIEW_LIMIT: usize = 5000;
 
+/// jimy-betanzos · Avance del escaneo: archivos vistos y carpeta actual.
 #[derive(Default, Clone)]
 pub struct Progress {
     pub label: String,
@@ -43,8 +54,10 @@ pub struct Progress {
     pub total_bytes: u64,
 }
 
+/// jimy-betanzos · Avance compartido entre los hilos del escaneo.
 pub type Shared = Arc<Mutex<Progress>>;
 
+/// jimy-betanzos · Archivo encontrado con su tamaño y fecha.
 #[derive(Clone)]
 pub struct FoundItem {
     pub path: PathBuf,
@@ -53,6 +66,7 @@ pub struct FoundItem {
     pub origin: &'static str,
 }
 
+/// jimy-betanzos · Resultado del escaneo de una categoría.
 #[derive(Clone)]
 pub struct CatResult {
     pub id: &'static str,
@@ -71,12 +85,14 @@ pub struct CatResult {
     pub preview: Option<usize>,
 }
 
+/// jimy-betanzos · Métodos de CatResult.
 impl CatResult {
-    /// Categorías que se marcan como bloque (no archivo por archivo).
+    /// jimy-betanzos · Categorías que se marcan como bloque (no archivo por archivo).
     pub fn whole(&self) -> bool {
         self.kind == Kind::Safe || self.special != Special::None
     }
 
+    /// jimy-betanzos · Tamaño de lo que está seleccionado para limpiar.
     pub fn selected_size(&self) -> u64 {
         if self.whole() {
             if self.selected { self.size } else { 0 }
@@ -85,6 +101,7 @@ impl CatResult {
         }
     }
 
+    /// jimy-betanzos · Cantidad de archivos seleccionados para limpiar.
     pub fn selected_count(&self) -> u64 {
         if self.whole() {
             if self.selected { self.count } else { 0 }
@@ -94,6 +111,7 @@ impl CatResult {
     }
 }
 
+/// jimy-betanzos · Contexto del escaneo: avance, cancelación y procesos abiertos.
 pub struct Ctx<'a> {
     pub admin: bool,
     pub procs: &'a HashSet<String>,
@@ -101,10 +119,12 @@ pub struct Ctx<'a> {
     pub cancel: &'a AtomicBool,
 }
 
+/// jimy-betanzos · Programa abierto que impide tocar un destino.
 pub fn blocked_by(t: &Target, procs: &HashSet<String>) -> Option<&'static str> {
     t.blocked_by.iter().find(|p| procs.contains(**p)).copied()
 }
 
+/// jimy-betanzos · Indica si un archivo cumple el filtro del destino.
 fn matches(filter: &Filter, p: &Path) -> bool {
     match filter {
         Filter::All => true,
@@ -117,12 +137,13 @@ fn matches(filter: &Filter, p: &Path) -> bool {
     }
 }
 
+/// jimy-betanzos · Antigüedad de un archivo en segundos.
 fn age_secs(m: &std::fs::Metadata, now: SystemTime) -> Option<u64> {
     let mt = m.modified().ok()?;
     Some(now.duration_since(mt).map(|d| d.as_secs()).unwrap_or(0))
 }
 
-/// Recorre un destino aplicando filtro y antigüedad. Nunca sigue enlaces ni uniones.
+/// jimy-betanzos · Recorre un destino aplicando filtro y antigüedad. Nunca sigue enlaces ni uniones.
 pub fn walk(
     t: &Target,
     cancel: &AtomicBool,
@@ -164,12 +185,12 @@ pub fn walk(
     }
 }
 
-/// Hilos para recorrer carpetas a la vez (el SSD aguanta muchas lecturas en paralelo).
+/// jimy-betanzos · Hilos para recorrer carpetas a la vez (el SSD aguanta muchas lecturas en paralelo).
 pub fn workers() -> usize {
     std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(2, 8)
 }
 
-/// Divide un destino recursivo en "archivos sueltos de la raíz" + una tarea por subcarpeta,
+/// jimy-betanzos · Divide un destino recursivo en "archivos sueltos de la raíz" + una tarea por subcarpeta,
 /// para que varios hilos lo recorran a la vez. Las reglas (filtro, antigüedad, programas
 /// que lo bloquean) son las mismas: solo cambia quién recorre cada parte.
 pub fn split_target(t: &Target) -> Vec<Target> {
@@ -188,7 +209,7 @@ pub fn split_target(t: &Target) -> Vec<Target> {
     v
 }
 
-/// Lo que encuentra un hilo en un destino; luego se une con el resto de su categoría.
+/// jimy-betanzos · Lo que encuentra un hilo en un destino; luego se une con el resto de su categoría.
 #[derive(Default)]
 struct Partial {
     size: u64,
@@ -197,7 +218,9 @@ struct Partial {
     set_aside: Vec<FoundItem>,
 }
 
+/// jimy-betanzos · Escanea todas las categorías en paralelo (solo lectura).
 pub fn scan_all(defs: &[CategoryDef], only: Option<&[String]>, ctx: &Ctx) -> Vec<CatResult> {
+    // jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
     use std::sync::atomic::{AtomicU64, AtomicUsize};
 
     let chosen: Vec<&CategoryDef> = defs

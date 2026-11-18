@@ -8,13 +8,20 @@
 //! Solo limpia basura real (categorías seguras). Capturas, descargas, videos y
 //! documentos NUNCA se tocan aquí: solo se cuentan para avisarte.
 
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
 use std::sync::atomic::AtomicBool;
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
 use std::sync::{Arc, Mutex};
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (time)
 use std::time::Duration;
 
+// jimy-betanzos · dependencia: módulo propio config
 use crate::config::{push_history, Config, HistoryEntry};
+// jimy-betanzos · dependencia: módulo propio rules
 use crate::rules::{categories, Env, Kind};
+// jimy-betanzos · dependencia: módulo propio scan
 use crate::scan::{scan_all, Ctx, Progress};
+// jimy-betanzos · dependencia: módulo propio
 use crate::{clean, fmt, sys};
 
 /// Instalaciones o actualizaciones en curso (Windows, Linux y macOS).
@@ -27,7 +34,7 @@ const RETRY_WAIT: Duration = Duration::from_secs(10 * 60);
 
 // jimy-betanzos: la limpieza automática se pospone si molestaría al usuario: batería baja,
 // pantalla completa (juego, video, presentación) o una instalación en curso.
-/// Devuelve el motivo por el que conviene esperar, o None si se puede limpiar ya.
+/// jimy-betanzos · Devuelve el motivo por el que conviene esperar, o None si se puede limpiar ya.
 pub fn wait_reason() -> Option<String> {
     let pw = sys::power();
     if pw.has_battery && !pw.on_ac && pw.percent.is_some_and(|p| p < 40) {
@@ -43,7 +50,7 @@ pub fn wait_reason() -> Option<String> {
     None
 }
 
-/// Escaneo completo de solo lectura volcado a un archivo de texto.
+/// jimy-betanzos · Escaneo completo de solo lectura volcado a un archivo de texto.
 pub fn report(out: &std::path::Path) {
     let env = Env::detect();
     let defs = categories(&env);
@@ -67,7 +74,7 @@ pub fn report(out: &std::path::Path) {
     let _ = std::fs::write(out, s);
 }
 
-/// Recorre todo el camino del modo automático sin borrar nada (para comprobarlo).
+/// jimy-betanzos · Recorre todo el camino del modo automático sin borrar nada (para comprobarlo).
 pub fn simulate() -> String {
     let env = Env::detect();
     let defs = categories(&env);
@@ -99,6 +106,7 @@ pub fn simulate() -> String {
     s
 }
 
+/// jimy-betanzos · Ejecuta la limpieza automática completa y la anota en el historial.
 pub fn run() {
     sys::background_process();
     let mut cfg = Config::load();

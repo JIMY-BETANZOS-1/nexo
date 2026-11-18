@@ -9,14 +9,18 @@
 //! la herramienta del sistema si existe: Vista rápida (`qlmanage`) en macOS, y
 //! `pdftoppm` o `ffmpegthumbnailer` en Linux. Si no hay miniatura, el visor muestra un icono.
 
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
 use std::path::Path;
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (process)
 use std::process::Command;
 
+// jimy-betanzos · dependencia: módulo propio bmp
 pub use crate::bmp::bmp;
 
-/// Linux y macOS no necesitan preparar el hilo (en Windows se inicializa COM).
+/// jimy-betanzos · Linux y macOS no necesitan preparar el hilo (en Windows se inicializa COM).
 pub fn init_thread() {}
 
+/// jimy-betanzos · Lee una imagen y la reduce al tamaño de miniatura.
 fn decode(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
     let img = image::open(path).ok()?.thumbnail(size, size).to_rgba8();
     let (w, h) = (img.width() as usize, img.height() as usize);
@@ -31,7 +35,7 @@ fn decode(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
     Some((w, h, px))
 }
 
-/// Genera la miniatura con una herramienta del sistema en una carpeta temporal.
+/// jimy-betanzos · Genera la miniatura con una herramienta del sistema en una carpeta temporal.
 fn external(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
     let tmp = std::env::temp_dir().join(format!("nexo_mini_{}_{}", std::process::id(), size));
     let _ = std::fs::create_dir_all(&tmp);
@@ -64,7 +68,7 @@ fn external(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
     r
 }
 
-/// (ancho, alto, RGBA premultiplicado) de la miniatura, del lado mayor `size`.
+/// jimy-betanzos · (ancho, alto, RGBA premultiplicado) de la miniatura, del lado mayor `size`.
 pub fn shell_thumbnail(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
     decode(path, size).or_else(|| external(path, size))
 }

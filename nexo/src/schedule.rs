@@ -6,15 +6,19 @@
 //! Tarea programada de Windows para el modo automático.
 //! La app no queda residente: Windows la lanza, limpia y se cierra (0 MB en reposo).
 
+// jimy-betanzos · dependencia: módulo propio config
 use crate::config::{Config, Frequency};
+// jimy-betanzos · dependencia: módulo propio
 use crate::{install, sys};
 
 pub const TASK: &str = "NEXO\\LimpiezaAutomatica";
 
+/// jimy-betanzos · Escapa caracteres especiales para el XML de la tarea.
 fn xml_escape(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
 
+/// jimy-betanzos · Arma la definición XML de la tarea programada.
 fn task_xml(cfg: &Config, exe: &str, admin: bool) -> String {
     let start = format!("2025-01-05T{:02}:00:00", cfg.hour);
     let schedule = match cfg.frequency {
@@ -55,6 +59,7 @@ fn task_xml(cfg: &Config, exe: &str, admin: bool) -> String {
     )
 }
 
+/// jimy-betanzos · Crea o actualiza la tarea programada de limpieza.
 pub fn enable(cfg: &Config, admin: bool) -> Result<(), String> {
     // Copia estable del ejecutable: la tarea no depende de dónde se abrió NEXO.
     let exe = install::install()?;
@@ -80,6 +85,7 @@ pub fn enable(cfg: &Config, admin: bool) -> Result<(), String> {
     }
 }
 
+/// jimy-betanzos · Borra la tarea programada de limpieza.
 pub fn disable() -> Result<(), String> {
     if !is_registered() {
         return Ok(());
@@ -95,6 +101,7 @@ pub fn disable() -> Result<(), String> {
     }
 }
 
+/// jimy-betanzos · Indica si la tarea programada existe.
 pub fn is_registered() -> bool {
     sys::hidden_cmd("schtasks")
         .args(["/Query", "/TN", TASK])
