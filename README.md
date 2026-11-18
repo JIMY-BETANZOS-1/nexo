@@ -1,7 +1,7 @@
 # NEXO
 
 Limpieza segura, memoria, diagnóstico y protección. **100 % local, sin internet.**
-Autor: **Chatta Betanzos, Jimy Alexander**.
+Autor: **Chatta Betanzos, Jimy Alexander** (`jimy-betanzos`).
 
 [![NEXO](https://github.com/JIMY-BETANZOS-1/nexo/actions/workflows/nexo.yml/badge.svg)](https://github.com/JIMY-BETANZOS-1/nexo/actions/workflows/nexo.yml)
 
@@ -30,10 +30,10 @@ Para publicarla en la App Store o TestFlight hace falta el Apple Developer Progr
 
 ## Capturas
 
-| Linux | macOS | iPhone |
+| Panel | Limpieza | Memoria RAM |
 |---|---|---|
-| ![Linux](capturas/linux/panel.png) | ![macOS](capturas/macos/panel.png) | <img src="capturas/ios/inicio_panel.png" width="220"> |
-| ![Linux limpieza](capturas/linux/limpieza.png) | ![macOS RAM](capturas/macos/ram.png) | <img src="capturas/ios/limpiar.png" width="220"> |
+| ![Panel](capturas/windows/panel.png) | ![Limpieza](capturas/windows/limpieza_resultados.png) | ![Memoria RAM](capturas/windows/ram.png) |
+| ![Automático](capturas/windows/automatico.png) | ![Diagnóstico](capturas/windows/diagnostico.png) | ![Protección](capturas/windows/proteccion.png) |
 
 ## Qué hay en el repositorio
 

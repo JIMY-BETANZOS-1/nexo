@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/clean.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Limpieza. Solo actúa sobre lo que el usuario dejó seleccionado.
 //!
 //! - Categorías seguras (basura del sistema): borrado definitivo.
@@ -84,6 +89,8 @@ fn clean_target(t: &Target, env: &Env, ctx: &Ctx, files_total: &AtomicU64, bytes
     (freed, files, skipped)
 }
 
+// jimy-betanzos: lo «Para revisar» y lo «Protegido» va a la Papelera (se puede recuperar);
+// solo la basura del sistema se elimina de forma definitiva.
 pub fn clean(defs: &[CategoryDef], results: &[CatResult], env: &Env, ctx: &Ctx) -> CleanReport {
     let mut rep = CleanReport::default();
     let selected: Vec<(&CatResult, &CategoryDef)> = results

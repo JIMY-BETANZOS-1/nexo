@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/diag_win.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Parte de Windows del diagnóstico: script de PowerShell, plan de energía, programas de
 //! inicio (StartupApproved), Microsoft Defender e informe de batería.
 

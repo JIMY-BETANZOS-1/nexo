@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/unix/schedule.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Limpieza automática programada en Linux (temporizador de systemd del usuario, o cron
 //! si systemd no está disponible) y macOS (LaunchAgent con calendario de launchd).
 //! NEXO no queda residente: el sistema lo lanza con `--auto`, limpia y se cierra.

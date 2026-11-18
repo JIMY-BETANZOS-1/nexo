@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/unix/vigia.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Vigía en Linux y macOS: proceso mínimo en segundo plano (sin ventana) que cada 30 s
 //! revisa RAM, memoria de intercambio, CPU, fugas de memoria, disco y programas nuevos al
 //! inicio, y avisa con notificaciones del sistema. Nunca cierra nada por su cuenta.

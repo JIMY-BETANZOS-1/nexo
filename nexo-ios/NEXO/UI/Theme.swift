@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo-ios/NEXO/UI/Theme.swift
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 import SwiftUI
 
 /// Estética HUD de neón, la misma de NEXO en escritorio y Android.

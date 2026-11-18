@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/bmp.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Codificador BMP común a todas las plataformas.
 
 /// Codifica píxeles RGBA (fila a fila, de arriba abajo) como un BMP de 32 bits.

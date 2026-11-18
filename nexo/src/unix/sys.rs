@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/unix/sys.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Llamadas al sistema en Linux y macOS (misma interfaz que `sys.rs` de Windows).
 //!
 //! En Linux se lee `/proc` y `/sys`; en macOS se usan `sysctl`, `vm_stat` y `pmset`.

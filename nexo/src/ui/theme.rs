@@ -1,17 +1,24 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/ui/theme.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 use eframe::egui::{self, Color32, FontData, FontDefinitions, FontFamily, FontId, TextStyle};
 
-// Paleta "cabina mecha": azul holográfico sobre acero oscuro, naranja de advertencia.
-pub const BG: Color32 = Color32::from_rgb(3, 7, 13);
-pub const PANEL: Color32 = Color32::from_rgb(7, 15, 26);
-pub const PANEL_HI: Color32 = Color32::from_rgb(13, 27, 44);
-pub const CYAN: Color32 = Color32::from_rgb(56, 200, 255);
-pub const ORANGE: Color32 = Color32::from_rgb(255, 138, 30);
-pub const MAGENTA: Color32 = Color32::from_rgb(255, 72, 196);
-pub const GREEN: Color32 = Color32::from_rgb(60, 255, 180);
-pub const AMBER: Color32 = Color32::from_rgb(255, 196, 48);
-pub const RED: Color32 = Color32::from_rgb(255, 48, 72);
-pub const TEXT: Color32 = Color32::from_rgb(212, 236, 255);
-pub const MUTED: Color32 = Color32::from_rgb(108, 136, 166);
+// jimy-betanzos: un solo color de acento y grises: la interfaz no distrae y los avisos
+// (ámbar y rojo) resaltan solo cuando de verdad hay algo que revisar.
+// Paleta sobria de un solo color: grises neutros y azul acero como único acento.
+// El ámbar y el rojo (apagados) se reservan para avisos reales: disco lleno, archivo sospechoso.
+pub const BG: Color32 = Color32::from_rgb(22, 25, 29);
+pub const PANEL: Color32 = Color32::from_rgb(30, 34, 39);
+pub const PANEL_HI: Color32 = Color32::from_rgb(44, 50, 56);
+pub const ACCENT: Color32 = Color32::from_rgb(122, 151, 180);
+pub const WARN: Color32 = Color32::from_rgb(192, 164, 108);
+pub const DANGER: Color32 = Color32::from_rgb(196, 112, 112);
+pub const TEXT: Color32 = Color32::from_rgb(214, 217, 221);
+pub const MUTED: Color32 = Color32::from_rgb(138, 146, 155);
+/// Texto sobre botones rellenos del color de acento.
+pub const LIGHT: Color32 = Color32::from_rgb(245, 247, 249);
 
 /// Transparencia mezclada en espacio gamma: los brillos suaves se quedan suaves.
 pub fn alpha(c: Color32, a: u8) -> Color32 {
@@ -28,18 +35,19 @@ pub fn font(size: f32) -> FontId {
 }
 
 /// Usa fuentes que ya trae el sistema: nada que descargar ni empaquetar.
-/// Windows: Bahnschrift y Cascadia · macOS: DIN Alternate y Menlo · Linux: DejaVu.
+/// Windows: Segoe UI y Cascadia · macOS: Helvetica Neue y Menlo · Linux: DejaVu.
 pub fn setup(ctx: &egui::Context) {
     let mut fonts = FontDefinitions::default();
     let windows_fonts = std::env::var_os("WINDIR")
         .map(|w| std::path::PathBuf::from(w).join("Fonts"))
         .unwrap_or_else(|| "C:\\Windows\\Fonts".into());
     let display_candidates = [
-        windows_fonts.join("bahnschrift.ttf"),
-        "/System/Library/Fonts/Supplemental/DIN Alternate Bold.ttf".into(),
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf".into(),
-        "/usr/share/fonts/dejavu-sans-fonts/DejaVuSansCondensed.ttf".into(),
+        windows_fonts.join("segoeuisb.ttf"),
+        "/System/Library/Fonts/HelveticaNeue.ttc".into(),
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf".into(),
+        "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans-Bold.ttf".into(),
     ];
+    let body_candidates = [windows_fonts.join("segoeui.ttf")];
     let mono_candidates = [
         windows_fonts.join("CascadiaMono.ttf"),
         "/System/Library/Fonts/Menlo.ttc".into(),
@@ -50,18 +58,18 @@ pub fn setup(ctx: &egui::Context) {
 
     let mut display_list = Vec::new();
     if let Some(b) = first(&display_candidates) {
-        fonts.font_data.insert("bahn".into(), FontData::from_owned(b));
-        // En Windows es también la fuente de todo el texto; en Linux y macOS solo de títulos y cifras.
-        if cfg!(windows) {
-            fonts.families.get_mut(&FontFamily::Proportional).unwrap().insert(0, "bahn".into());
-        }
-        display_list.push("bahn".to_string());
+        fonts.font_data.insert("titulo".into(), FontData::from_owned(b));
+        display_list.push("titulo".to_string());
+    }
+    if let Some(b) = first(&body_candidates) {
+        fonts.font_data.insert("segoe".into(), FontData::from_owned(b));
+        fonts.families.get_mut(&FontFamily::Proportional).unwrap().insert(0, "segoe".into());
     }
     if let Some(b) = first(&mono_candidates) {
         fonts.font_data.insert("cascadia".into(), FontData::from_owned(b));
         fonts.families.get_mut(&FontFamily::Monospace).unwrap().insert(0, "cascadia".into());
     }
-    display_list.extend(fonts.families[&FontFamily::Proportional].iter().filter(|&n| n != "bahn").cloned());
+    display_list.extend(fonts.families[&FontFamily::Proportional].iter().filter(|&n| n != "titulo").cloned());
     fonts.families.insert(display(), display_list);
     ctx.set_fonts(fonts);
 
@@ -84,29 +92,29 @@ pub fn setup(ctx: &egui::Context) {
     v.override_text_color = Some(TEXT);
     v.panel_fill = Color32::TRANSPARENT;
     v.window_fill = PANEL;
-    v.extreme_bg_color = Color32::from_rgb(4, 7, 14);
+    v.extreme_bg_color = Color32::from_rgb(18, 21, 24);
     v.faint_bg_color = PANEL_HI;
-    v.hyperlink_color = CYAN;
-    v.selection.bg_fill = alpha(CYAN, 70);
-    v.selection.stroke = egui::Stroke::new(1.0_f32, CYAN);
-    v.window_rounding = 2.0.into();
-    v.window_stroke = egui::Stroke::new(1.0_f32, alpha(CYAN, 60));
+    v.hyperlink_color = ACCENT;
+    v.selection.bg_fill = alpha(ACCENT, 70);
+    v.selection.stroke = egui::Stroke::new(1.0_f32, ACCENT);
+    v.window_rounding = 4.0.into();
+    v.window_stroke = egui::Stroke::new(1.0_f32, alpha(ACCENT, 60));
     for w in [&mut v.widgets.inactive, &mut v.widgets.noninteractive] {
         w.bg_fill = PANEL_HI;
         w.weak_bg_fill = PANEL_HI;
-        w.rounding = 2.0.into();
+        w.rounding = 4.0.into();
     }
-    v.widgets.inactive.bg_stroke = egui::Stroke::new(1.0_f32, alpha(CYAN, 50));
+    v.widgets.inactive.bg_stroke = egui::Stroke::new(1.0_f32, alpha(ACCENT, 50));
     v.widgets.inactive.fg_stroke = egui::Stroke::new(1.5_f32, TEXT);
-    v.widgets.hovered.bg_fill = alpha(CYAN, 40);
-    v.widgets.hovered.weak_bg_fill = alpha(CYAN, 40);
-    v.widgets.hovered.bg_stroke = egui::Stroke::new(1.0_f32, CYAN);
-    v.widgets.hovered.fg_stroke = egui::Stroke::new(1.5_f32, CYAN);
-    v.widgets.hovered.rounding = 2.0.into();
-    v.widgets.active.bg_fill = alpha(CYAN, 80);
-    v.widgets.active.weak_bg_fill = alpha(CYAN, 80);
+    v.widgets.hovered.bg_fill = alpha(ACCENT, 40);
+    v.widgets.hovered.weak_bg_fill = alpha(ACCENT, 40);
+    v.widgets.hovered.bg_stroke = egui::Stroke::new(1.0_f32, ACCENT);
+    v.widgets.hovered.fg_stroke = egui::Stroke::new(1.5_f32, ACCENT);
+    v.widgets.hovered.rounding = 4.0.into();
+    v.widgets.active.bg_fill = alpha(ACCENT, 80);
+    v.widgets.active.weak_bg_fill = alpha(ACCENT, 80);
     v.widgets.active.fg_stroke = egui::Stroke::new(2.0_f32, Color32::WHITE);
-    v.widgets.active.rounding = 2.0.into();
+    v.widgets.active.rounding = 4.0.into();
     v.widgets.open.bg_fill = PANEL_HI;
     v.widgets.open.weak_bg_fill = PANEL_HI;
     ctx.set_style(style);

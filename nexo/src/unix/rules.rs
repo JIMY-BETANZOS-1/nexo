@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/unix/rules.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Reglas de Linux y macOS: carpetas de basura conocidas y carpetas personales prohibidas.
 //!
 //! Las mismas clases y garantías que en Windows: la basura segura se borra, lo del usuario

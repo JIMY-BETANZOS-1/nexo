@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/ui/thumbcache.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Miniaturas para la interfaz: se generan en varios hilos y se guardan como texturas.
 //!
 //! - Solo se piden las filas visibles; las más recientes se atienden primero, así

@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/vigia.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Vigía: proceso diminuto en la bandeja del sistema (junto al reloj).
 //!
 //! Cada 30 s revisa RAM, memoria virtual, CPU, fugas de memoria y disco. Avisa con
@@ -206,6 +211,7 @@ impl State {
         config::push_alert(key.split(':').next().unwrap_or(key), &format!("{}: {}", title, text));
     }
 
+    // jimy-betanzos: el vigía solo actúa con la RAM en nivel crítico y nunca cierra programas.
     fn stabilize(&mut self, groups: &[AppGroup]) -> (usize, u64) {
         self.last_stabilize = Some(Instant::now());
         procs::trim_idle(groups)

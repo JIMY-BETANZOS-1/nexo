@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/main.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 // Sin ventana de consola: la app gráfica y el modo automático corren en silencio.
 #![cfg_attr(windows, windows_subsystem = "windows")]
 

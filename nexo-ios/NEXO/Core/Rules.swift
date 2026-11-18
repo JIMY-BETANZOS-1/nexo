@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo-ios/NEXO/Core/Rules.swift
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 import Foundation
 
 /// Reglas de NEXO para iPhone. Es lógica pura (sin acceso a Fotos) para poder probarla.

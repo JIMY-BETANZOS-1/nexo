@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/auto.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Modo automático (lo lanza el Programador de tareas con `--auto`).
 //!
 //! Solo limpia basura real (categorías seguras). Capturas, descargas, videos y
@@ -20,6 +25,8 @@ const BUSY_PROCS: &[&str] = &[
 const RETRIES: u32 = 12;
 const RETRY_WAIT: Duration = Duration::from_secs(10 * 60);
 
+// jimy-betanzos: la limpieza automática se pospone si molestaría al usuario: batería baja,
+// pantalla completa (juego, video, presentación) o una instalación en curso.
 /// Devuelve el motivo por el que conviene esperar, o None si se puede limpiar ya.
 pub fn wait_reason() -> Option<String> {
     let pw = sys::power();

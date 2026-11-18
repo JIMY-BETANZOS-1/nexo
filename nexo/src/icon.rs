@@ -1,4 +1,10 @@
-//! Icono de NEXO (hexágono de neón) generado en código, para la ventana, la bandeja y Windows.
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/icon.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
+//! Icono de NEXO (hexágono azul acero) generado en código, para la ventana, la bandeja,
+//! el ejecutable de Windows (build.rs) y los instaladores de Linux y macOS.
 
 use std::f32::consts::{FRAC_PI_2, TAU};
 
@@ -20,11 +26,11 @@ pub fn rgba(n: u32) -> Vec<u8> {
             let mid = (1.0 - ((d - 13.0 * s).abs() / (1.7 * s).max(0.9))).clamp(0.0, 1.0);
             let i = ((y * n + x) * 4) as usize;
             let (r, g, b, a) = if ring > 0.0 || core > 0.0 {
-                (0.0, 229.0, 255.0, ring.max(core))
+                (122.0, 151.0, 180.0, ring.max(core))
             } else if mid > 0.0 {
-                (139.0, 92.0, 246.0, mid)
+                (122.0, 151.0, 180.0, mid * 0.55)
             } else {
-                (8.0, 14.0, 28.0, if hex < 26.0 * s { 1.0 } else { 0.0 })
+                (30.0, 34.0, 39.0, if hex < 26.0 * s { 1.0 } else { 0.0 })
             };
             out[i] = r as u8;
             out[i + 1] = g as u8;

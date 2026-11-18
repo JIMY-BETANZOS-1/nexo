@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/unix/diag.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Parte de Linux y macOS del diagnóstico. Recoge los mismos datos que el script de
 //! PowerShell de Windows, en solo lectura, leyendo archivos del sistema y con comandos
 //! estándar (lsblk, systemctl, ss, fdesetup, socketfilterfw, ioreg, pmset…). Cada parte

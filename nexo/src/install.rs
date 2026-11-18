@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/install.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 //! Instalación ligera en el perfil del usuario (sin permisos de administrador):
 //! copia estable del programa, acceso en el menú Inicio, nombre propio en las
 //! notificaciones y arranque del vigía al iniciar sesión.

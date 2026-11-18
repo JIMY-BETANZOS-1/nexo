@@ -1,3 +1,8 @@
+// ════════════════════════════════════════════════════════════════════════
+//  NEXO · nexo/src/ui/app.rs
+//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
+// ════════════════════════════════════════════════════════════════════════
+
 use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -296,23 +301,23 @@ impl NexoApp {
                 Busy::Clean => format!("Limpiando · {} liberados", fmt::bytes(p.bytes)),
                 Busy::Simulate => "Simulando la limpieza automática".to_string(),
             };
-            rows.push((label, Some(frac), self.busy_started, if b == Busy::Clean { GREEN } else { CYAN }));
+            rows.push((label, Some(frac), self.busy_started, ACCENT));
         }
         if self.diag_rx.is_some() {
             let f = self.diag_prog.load(Ordering::Relaxed) as f32 / 1000.0;
-            rows.push(("Diagnóstico y protección".into(), Some(f), self.diag_started, ORANGE));
+            rows.push(("Diagnóstico y protección".into(), Some(f), self.diag_started, ACCENT));
         }
         if self.mpscan_rx.is_some() {
             let est = if self.cfg.defender_scan_secs > 0 { self.cfg.defender_scan_secs as f64 } else { 240.0 };
             let f = ((now - self.mp_started) / est).min(0.95) as f32;
-            rows.push((format!("Análisis de {} (tiempo estimado)", diag::txt("av")), Some(f), self.mp_started, GREEN));
+            rows.push((format!("Análisis de {} (tiempo estimado)", diag::txt("av")), Some(f), self.mp_started, ACCENT));
         }
         if let Some(b) = &self.adb_busy {
-            rows.push((b.clone(), None, self.adb_started, CYAN));
+            rows.push((b.clone(), None, self.adb_started, ACCENT));
         }
         for op in &self.ops {
             let v = op.frac.load(Ordering::Relaxed);
-            rows.push((op.label.clone(), if v == INDET { None } else { Some(v as f32 / 1000.0) }, op.started, CYAN));
+            rows.push((op.label.clone(), if v == INDET { None } else { Some(v as f32 / 1000.0) }, op.started, ACCENT));
         }
         if rows.is_empty() {
             return;
@@ -323,9 +328,9 @@ impl NexoApp {
             .anchor(Align2::RIGHT_TOP, vec2(-22.0, 50.0))
             .interactable(false)
             .show(ctx, |ui| {
-                tinted_card(CYAN).fill(alpha(PANEL, 245)).inner_margin(Margin::same(12.0)).show(ui, |ui| {
+                tinted_card(ACCENT).fill(alpha(PANEL, 245)).inner_margin(Margin::same(12.0)).show(ui, |ui| {
                     ui.set_width(330.0);
-                    ui.label(RichText::new("EN CURSO").font(font(11.0)).color(ORANGE));
+                    ui.label(RichText::new("En curso").font(font(11.0)).color(ACCENT));
                     for (label, frac, started, col) in rows {
                         let elapsed = (now - started).max(0.0);
                         ui.horizontal(|ui| {
@@ -392,7 +397,7 @@ impl NexoApp {
                     details: rep.per_cat.clone(),
                     ..Default::default()
                 });
-                self.show_toast(format!("Limpieza completada · {} liberados", fmt::bytes(rep.freed)), GREEN, now);
+                self.show_toast(format!("Limpieza completada · {} liberados", fmt::bytes(rep.freed)), ACCENT, now);
                 self.report = Some(rep);
                 self.results = None;
                 self.snap = snapshot(now);
@@ -468,21 +473,21 @@ impl NexoApp {
                     ctx.send_viewport_cmd(ViewportCommand::Maximized(!maximized));
                 }
                 ui.horizontal_centered(|ui| {
-                    ui.label(RichText::new("NEXO").font(font(13.0)).color(CYAN));
-                    ui.label(RichText::new("//  CONTROL LOCAL DEL SISTEMA").font(font(12.0)).color(MUTED));
+                    ui.label(RichText::new("NEXO").font(font(13.0)).color(ACCENT));
+                    ui.label(RichText::new("Control local del sistema").font(font(12.0)).color(MUTED));
                     ui.add_space(14.0);
                     let (r, _) = ui.allocate_exact_size(vec2(8.0, 8.0), Sense::hover());
-                    ui.painter().circle_filled(r.center(), 3.5, GREEN);
-                    ui.painter().circle_filled(r.center(), 7.0, alpha(GREEN, 40));
-                    ui.label(RichText::new("OFFLINE · 100 % LOCAL").font(font(11.0)).color(alpha(GREEN, 220)));
+                    ui.painter().circle_filled(r.center(), 3.5, ACCENT);
+                    ui.painter().circle_filled(r.center(), 7.0, alpha(ACCENT, 40));
+                    ui.label(RichText::new("Sin conexión · 100 % local").font(font(11.0)).color(alpha(ACCENT, 220)));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if title_btn(ui, "×", RED).clicked() {
+                        if title_btn(ui, "×", DANGER).clicked() {
                             ctx.send_viewport_cmd(ViewportCommand::Close);
                         }
-                        if title_btn(ui, if maximized { "❐" } else { "☐" }, CYAN).clicked() {
+                        if title_btn(ui, if maximized { "❐" } else { "☐" }, ACCENT).clicked() {
                             ctx.send_viewport_cmd(ViewportCommand::Maximized(!maximized));
                         }
-                        if title_btn(ui, "—", CYAN).clicked() {
+                        if title_btn(ui, "—", ACCENT).clicked() {
                             ctx.send_viewport_cmd(ViewportCommand::Minimized(true));
                         }
                     });
@@ -498,15 +503,15 @@ impl NexoApp {
             .frame(
                 egui::Frame::none()
                     .fill(alpha(PANEL, 175))
-                    .stroke(Stroke::new(1.0_f32, alpha(CYAN, 28)))
+                    .stroke(Stroke::new(1.0_f32, alpha(ACCENT, 28)))
                     .inner_margin(Margin { left: 14.0, right: 14.0, top: 14.0, bottom: 14.0 }),
             )
             .show(ctx, |ui| {
                 let (r, _) = ui.allocate_exact_size(vec2(ui.available_width(), 72.0), Sense::hover());
                 let p = ui.painter();
                 logo(p, r.left_center() + vec2(28.0, 0.0), 21.0);
-                p.text(r.left_center() + vec2(62.0, -9.0), Align2::LEFT_CENTER, "N E X O", font(27.0), TEXT);
-                p.text(r.left_center() + vec2(63.0, 17.0), Align2::LEFT_CENTER, "OPTIMIZACIÓN INTELIGENTE", font(9.5), CYAN);
+                p.text(r.left_center() + vec2(62.0, -9.0), Align2::LEFT_CENTER, "NEXO", font(27.0), TEXT);
+                p.text(r.left_center() + vec2(63.0, 17.0), Align2::LEFT_CENTER, "Optimización inteligente", font(9.5), ACCENT);
                 ui.add_space(12.0);
 
                 let pages: [(Page, &str, &str, Option<&str>); 8] = [
@@ -530,7 +535,7 @@ impl NexoApp {
 
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
                     ui.label(RichText::new(concat!("v", env!("CARGO_PKG_VERSION"), " · sin conexión a internet")).size(11.0).color(MUTED));
-                    let (txt, col) = if cfg!(unix) { ("• MODO USUARIO", CYAN) } else if self.admin { ("• ACCESO TOTAL", GREEN) } else { ("• ACCESO LIMITADO", AMBER) };
+                    let (txt, col) = if cfg!(unix) { ("• Modo usuario", ACCENT) } else if self.admin { ("• Acceso total", ACCENT) } else { ("• Acceso limitado", WARN) };
                     tinted_card(col).inner_margin(Margin::symmetric(12.0, 8.0)).show(ui, |ui| {
                         ui.set_width(ui.available_width());
                         ui.label(RichText::new(txt).font(font(12.0)).color(col));
@@ -542,7 +547,7 @@ impl NexoApp {
     // ───────────────────────────── páginas ─────────────────────────────
 
     fn page_panel(&mut self, ui: &mut Ui) {
-        header(ui, "› CENTRO DE CONTROL", &self.model, "Estado de tu equipo en tiempo real. Todo se analiza aquí mismo, sin internet.");
+        header(ui, "› Centro de control", &self.model, "Estado de tu equipo en tiempo real. Todo se analiza aquí mismo, sin internet.");
         let s = &self.snap;
         let disk_used = 1.0 - s.disk_free as f32 / s.disk_total.max(1) as f32;
         let mem = s.mem.load as f32 / 100.0;
@@ -557,16 +562,16 @@ impl NexoApp {
         let mut scan_now = false;
 
         ui.columns(4, |c| {
-            stat_card(&mut c[0], "💾", "DISCO DEL SISTEMA", &format!("{} libres", fmt::bytes(disk_free)),
+            stat_card(&mut c[0], "💾", "Disco del sistema", &format!("{} libres", fmt::bytes(disk_free)),
                 &format!("de {} · {:.0} % usado", fmt::bytes(disk_total), disk_used * 100.0), level_color(disk_used), Some(disk_used));
-            stat_card(&mut c[1], "📊", "MEMORIA RAM", &format!("{} %", mem_load),
+            stat_card(&mut c[1], "📊", "Memoria RAM", &format!("{} %", mem_load),
                 &format!("{} libres de {}", fmt::bytes(mem_avail), fmt::bytes(mem_total)), level_color(mem), Some(mem));
             let bat = pct.unwrap_or(100) as f32 / 100.0;
-            let bcol = if bat < 0.3 && !on_ac { AMBER } else { GREEN };
-            stat_card(&mut c[2], "🔋", "ENERGÍA", if on_ac { "Enchufado" } else { "Con batería" },
+            let bcol = if bat < 0.3 && !on_ac { WARN } else { ACCENT };
+            stat_card(&mut c[2], "🔋", "Energía", if on_ac { "Enchufado" } else { "Con batería" },
                 &if has_bat { format!("{} % de carga", pct.unwrap_or(0)) } else { "Sin batería detectada".into() }, bcol, has_bat.then_some(bat));
-            stat_card(&mut c[3], "⏰", "MODO AUTOMÁTICO", if auto_on { "ACTIVO" } else { "APAGADO" },
-                &if auto_on { auto_sub.clone() } else { "Configúralo en Automático".into() }, if auto_on { ORANGE } else { MUTED }, None);
+            stat_card(&mut c[3], "⏰", "Modo automático", if auto_on { "Activo" } else { "Apagado" },
+                &if auto_on { auto_sub.clone() } else { "Configúralo en Automático".into() }, if auto_on { ACCENT } else { MUTED }, None);
         });
         ui.add_space(10.0);
 
@@ -577,23 +582,23 @@ impl NexoApp {
                 let col = level_color(disk_used);
                 ring(ui.painter(), r.center(), 88.0, disk_used, col, 10.0);
                 ui.painter().text(r.center() - vec2(0.0, 10.0), Align2::CENTER_CENTER, format!("{:.0}%", disk_used * 100.0), font(44.0), TEXT);
-                ui.painter().text(r.center() + vec2(0.0, 26.0), Align2::CENTER_CENTER, "DISCO USADO", font(12.0), col);
+                ui.painter().text(r.center() + vec2(0.0, 26.0), Align2::CENTER_CENTER, "Disco usado", font(12.0), col);
                 ui.vertical_centered(|ui| {
                     if disk_used >= 0.75 {
-                        ui.label(RichText::new("Tu disco está por encima del 75 %. Una limpieza puede ayudar.").size(13.0).color(AMBER));
+                        ui.label(RichText::new("Tu disco está por encima del 75 %. Una limpieza puede ayudar.").size(13.0).color(WARN));
                     } else {
                         ui.label(RichText::new("Espacio en buen estado.").size(13.0).color(MUTED));
                     }
                     ui.add_space(6.0);
-                    if neon_button(ui, "🔍  ESCANEAR AHORA", CYAN, vec2(ui.available_width().min(340.0), 48.0), idle).clicked() {
+                    if button(ui, "🔍  Escanear ahora", ACCENT, vec2(ui.available_width().min(340.0), 48.0), idle).clicked() {
                         scan_now = true;
                     }
                 });
             });
             let ui = &mut c[1];
-            tinted_card(MAGENTA).show(ui, |ui| {
+            tinted_card(ACCENT).show(ui, |ui| {
                 ui.set_width(ui.available_width());
-                ui.label(RichText::new("🛡  GARANTÍAS DE NEXO").font(font(15.0)).color(MAGENTA));
+                ui.label(RichText::new("🛡  Garantías de NEXO").font(font(15.0)).color(ACCENT));
                 ui.add_space(4.0);
                 for g in [
                     "Videos y documentos: jamás se borran solos.",
@@ -609,10 +614,10 @@ impl NexoApp {
             ui.add_space(8.0);
             card().show(ui, |ui| {
                 ui.set_width(ui.available_width());
-                ui.label(RichText::new("ÚLTIMA ACTIVIDAD").font(font(12.0)).color(MUTED));
+                ui.label(RichText::new("Última actividad").font(font(12.0)).color(MUTED));
                 match &last {
                     Some(h) => {
-                        ui.label(RichText::new(format!("{} liberados", fmt::bytes(h.freed))).font(font(24.0)).color(GREEN));
+                        ui.label(RichText::new(format!("{} liberados", fmt::bytes(h.freed))).font(font(24.0)).color(ACCENT));
                         ui.label(RichText::new(format!(
                             "Limpieza {} · {} · {} archivos",
                             if h.mode == "auto" { "automática" } else { "manual" },
@@ -625,7 +630,7 @@ impl NexoApp {
                     }
                 }
                 ui.add_space(6.0);
-                ui.label(RichText::new("SALUD DEL EQUIPO").font(font(12.0)).color(MUTED));
+                ui.label(RichText::new("Salud del equipo").font(font(12.0)).color(MUTED));
                 match health {
                     Some((score, ts)) => {
                         ui.horizontal(|ui| {
@@ -650,13 +655,13 @@ impl NexoApp {
         if self.admin || cfg!(unix) {
             return;
         }
-        tinted_card(AMBER).inner_margin(Margin::symmetric(16.0, 10.0)).show(ui, |ui| {
+        tinted_card(WARN).inner_margin(Margin::symmetric(16.0, 10.0)).show(ui, |ui| {
             ui.set_width(ui.available_width());
             ui.horizontal(|ui| {
-                ui.label(RichText::new("⚡").color(AMBER).size(16.0));
+                ui.label(RichText::new("⚡").color(WARN).size(16.0));
                 ui.label(RichText::new("Rechazaste el permiso de Windows: se omiten Windows Update, temporales de Windows y registros del sistema.").size(13.0));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if link(ui, "Volver a pedir permiso", AMBER).clicked() && sys::relaunch_as_admin() {
+                    if link(ui, "Volver a pedir permiso", WARN).clicked() && sys::relaunch_as_admin() {
                         ctx.send_viewport_cmd(ViewportCommand::Close);
                     }
                 });
@@ -666,7 +671,7 @@ impl NexoApp {
     }
 
     fn page_clean(&mut self, ui: &mut Ui, t: f32) {
-        header(ui, "› LIMPIEZA INTELIGENTE", "Buscar y eliminar basura", "Nada se borra sin que lo veas primero. Tus videos y documentos quedan protegidos.");
+        header(ui, "› Limpieza inteligente", "Buscar y eliminar basura", "Nada se borra sin que lo veas primero. Tus videos y documentos quedan protegidos.");
         let ctx = ui.ctx().clone();
         self.admin_banner(ui, &ctx);
         match self.busy {
@@ -679,14 +684,14 @@ impl NexoApp {
     fn busy_view(&mut self, ui: &mut Ui, t: f32) {
         let p = self.progress.lock().map(|p| p.clone()).unwrap_or_default();
         let cleaning = self.busy == Some(Busy::Clean);
-        let col = if cleaning { GREEN } else { CYAN };
+        let col = ACCENT;
         let mut cancel = false;
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
             let (r, _) = ui.allocate_exact_size(vec2(ui.available_width(), 300.0), Sense::hover());
             scanner(ui.painter(), r.center(), 112.0, t, col);
             ui.vertical_centered(|ui| {
-                ui.label(RichText::new(if cleaning { "LIMPIANDO…" } else { "ESCANEANDO…" }).font(font(26.0)).color(col));
+                ui.label(RichText::new(if cleaning { "Limpiando…" } else { "Escaneando…" }).font(font(26.0)).color(col));
                 let frac = if cleaning && p.total_bytes > 0 {
                     (p.bytes as f32 / p.total_bytes as f32).min(0.99)
                 } else if p.steps > 0 {
@@ -709,7 +714,7 @@ impl NexoApp {
                 ui.label(RichText::new(line).size(13.0).color(MUTED));
                 ui.label(RichText::new(fmt::short_path(Path::new(&p.current), 96)).monospace().size(11.0).color(alpha(MUTED, 170)));
                 ui.add_space(8.0);
-                if neon_button(ui, "CANCELAR", RED, vec2(170.0, 38.0), true).clicked() {
+                if button(ui, "Cancelar", DANGER, vec2(170.0, 38.0), true).clicked() {
                     cancel = true;
                 }
             });
@@ -721,24 +726,24 @@ impl NexoApp {
 
     fn idle_view(&mut self, ui: &mut Ui) {
         if let Some(rep) = &self.report {
-            tinted_card(GREEN).show(ui, |ui| {
+            tinted_card(ACCENT).show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("✔  LIMPIEZA COMPLETADA").font(font(18.0)).color(GREEN));
+                    ui.label(RichText::new("✔  Limpieza completada").font(font(18.0)).color(ACCENT));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.label(RichText::new(fmt::bytes(rep.freed)).font(font(30.0)).color(GREEN));
+                        ui.label(RichText::new(fmt::bytes(rep.freed)).font(font(30.0)).color(ACCENT));
                     });
                 });
                 ui.label(format!("{} archivos eliminados o movidos.", fmt::count(rep.files)));
                 if rep.recycled > 0 {
-                    ui.label(RichText::new(format!("♻ {} elementos enviados a la Papelera: puedes recuperarlos desde allí.", fmt::count(rep.recycled))).color(AMBER));
+                    ui.label(RichText::new(format!("♻ {} elementos enviados a la Papelera: puedes recuperarlos desde allí.", fmt::count(rep.recycled))).color(WARN));
                 }
                 if rep.skipped > 0 {
                     ui.label(RichText::new(format!("{} archivos estaban en uso y se dejaron intactos.", fmt::count(rep.skipped))).color(MUTED));
                 }
                 ui.horizontal_wrapped(|ui| {
                     for (n, b) in rep.per_cat.iter().filter(|(_, b)| *b > 0) {
-                        badge(ui, &format!("{} · {}", n, fmt::bytes(*b)), CYAN);
+                        badge(ui, &format!("{} · {}", n, fmt::bytes(*b)), ACCENT);
                     }
                 });
             });
@@ -748,12 +753,12 @@ impl NexoApp {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
             let (r, _) = ui.allocate_exact_size(vec2(ui.available_width(), 260.0), Sense::hover());
-            scanner(ui.painter(), r.center(), 100.0, 0.8, alpha(CYAN, 170));
+            scanner(ui.painter(), r.center(), 100.0, 0.8, alpha(ACCENT, 170));
             ui.vertical_centered(|ui| {
                 ui.label(RichText::new("Listo para escanear").font(font(22.0)));
                 ui.label(RichText::new("El escaneo solo mira: no borra nada. Después tú eliges qué limpiar.").size(13.5).color(MUTED));
                 ui.add_space(8.0);
-                if neon_button(ui, "🔍  INICIAR ESCANEO", CYAN, vec2(300.0, 50.0), true).clicked() {
+                if button(ui, "🔍  Iniciar escaneo", ACCENT, vec2(300.0, 50.0), true).clicked() {
                     go = true;
                 }
             });
@@ -782,9 +787,9 @@ impl NexoApp {
             ui.set_width(ui.available_width());
             ui.columns(3, |c| {
                 for (k, (title, value, sub, col)) in [
-                    ("BASURA ELIMINABLE", fmt::bytes(safe), format!("{} temporales y caché", fmt::count(safe_n)), GREEN),
-                    ("PARA REVISAR", fmt::bytes(review), "Papelera, capturas, instaladores".to_string(), AMBER),
-                    ("VIDEOS Y DOCUMENTOS", fmt::bytes(prot), format!("{} protegidos", fmt::count(prot_n)), MAGENTA),
+                    ("Basura eliminable", fmt::bytes(safe), format!("{} temporales y caché", fmt::count(safe_n)), ACCENT),
+                    ("Para revisar", fmt::bytes(review), "Papelera, capturas, instaladores".to_string(), WARN),
+                    ("Videos y documentos", fmt::bytes(prot), format!("{} protegidos", fmt::count(prot_n)), ACCENT),
                 ]
                 .into_iter()
                 .enumerate()
@@ -809,9 +814,9 @@ impl NexoApp {
         let thumbs = &mut self.thumbs;
         ScrollArea::vertical().max_height(list_h).auto_shrink([false, false]).show(ui, |ui| {
             for (kind, title, sub, col) in [
-                (Kind::Safe, "LIMPIEZA SEGURA", "basura del sistema · se elimina definitivamente", GREEN),
-                (Kind::Review, "PARA REVISAR", "van a la Papelera de reciclaje · recuperables", AMBER),
-                (Kind::Protected, "PROTEGIDOS", "videos y documentos · nunca en automático · a la Papelera", MAGENTA),
+                (Kind::Safe, "Limpieza segura", "basura del sistema · se elimina definitivamente", ACCENT),
+                (Kind::Review, "Para revisar", "van a la Papelera de reciclaje · recuperables", WARN),
+                (Kind::Protected, "Protegidos", "videos y documentos · nunca en automático · a la Papelera", ACCENT),
             ] {
                 section(ui, title, sub, col);
                 for r in results.iter_mut().filter(|r| r.kind == kind) {
@@ -826,15 +831,15 @@ impl NexoApp {
             ui.set_width(ui.available_width());
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
-                    ui.label(RichText::new("SELECCIONADO").font(font(11.0)).color(MUTED));
-                    ui.label(RichText::new(fmt::bytes(sel)).font(font(26.0)).color(if sel > 0 { GREEN } else { MUTED }));
+                    ui.label(RichText::new("Seleccionado").font(font(11.0)).color(MUTED));
+                    ui.label(RichText::new(fmt::bytes(sel)).font(font(26.0)).color(if sel > 0 { ACCENT } else { MUTED }));
                 });
                 ui.label(RichText::new(format!("en {} categorías", sel_cats)).color(MUTED));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if neon_button(ui, "🗑  LIMPIAR SELECCIÓN", GREEN, vec2(250.0, 44.0), sel > 0).clicked() {
+                    if button(ui, "🗑  Limpiar selección", ACCENT, vec2(250.0, 44.0), sel > 0).clicked() {
                         open_confirm = true;
                     }
-                    if neon_button(ui, "⟳  RE-ESCANEAR", CYAN, vec2(170.0, 44.0), true).clicked() {
+                    if button(ui, "⟳  Re-escanear", ACCENT, vec2(170.0, 44.0), true).clicked() {
                         rescan = true;
                     }
                 });
@@ -851,7 +856,7 @@ impl NexoApp {
     }
 
     fn page_auto(&mut self, ui: &mut Ui, t: f32) {
-        header(ui, "› PILOTO AUTOMÁTICO", "Limpieza automática", &format!("{} abre NEXO a la hora elegida, limpia la basura y lo cierra. En reposo consume 0 MB de RAM.", diag::txt("os")));
+        header(ui, "› Piloto automático", "Limpieza automática", &format!("{} abre NEXO a la hora elegida, limpia la basura y lo cierra. En reposo consume 0 MB de RAM.", diag::txt("os")));
         let mut apply = false;
         let mut simulate = false;
         let idle = self.busy.is_none() && self.pending_actions == 0;
@@ -875,14 +880,14 @@ impl NexoApp {
                         ui.label(RichText::new("Limpieza automática").font(font(19.0)));
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                             if registered {
-                                badge(ui, "PROGRAMADA", GREEN);
+                                badge(ui, "Programada", ACCENT);
                             } else {
-                                badge(ui, "NO PROGRAMADA", MUTED);
+                                badge(ui, "No programada", MUTED);
                             }
                         });
                     });
                     ui.add_space(10.0);
-                    ui.label(RichText::new("FRECUENCIA").font(font(12.0)).color(MUTED));
+                    ui.label(RichText::new("Frecuencia").font(font(12.0)).color(MUTED));
                     ui.horizontal(|ui| {
                         for f in [Frequency::Daily, Frequency::Weekly, Frequency::Monthly] {
                             if chip(ui, f.label(), cfg.frequency == f).clicked() {
@@ -896,7 +901,7 @@ impl NexoApp {
                         Frequency::Monthly => "El día 1 de cada mes.",
                     }).size(12.5).color(MUTED));
                     ui.add_space(6.0);
-                    ui.label(RichText::new("HORA").font(font(12.0)).color(MUTED));
+                    ui.label(RichText::new("Hora").font(font(12.0)).color(MUTED));
                     egui::ComboBox::from_id_salt("hour")
                         .selected_text(format!("{:02}:00", cfg.hour))
                         .width(120.0)
@@ -907,7 +912,7 @@ impl NexoApp {
                         });
                     ui.label(RichText::new("Si el equipo está apagado a esa hora, se hará en cuanto lo enciendas.").size(12.5).color(MUTED));
                     ui.add_space(8.0);
-                    ui.label(RichText::new("QUÉ LIMPIA · solo basura del sistema").font(font(12.0)).color(MUTED));
+                    ui.label(RichText::new("Qué limpia · solo basura del sistema").font(font(12.0)).color(MUTED));
                     for d in rules::auto_eligible(&defs) {
                         let mut on = cfg.auto_categories.iter().any(|x| x == d.id);
                         let label = if d.admin_only() && !admin {
@@ -924,14 +929,14 @@ impl NexoApp {
                         }
                     }
                     if !admin {
-                        ui.label(RichText::new("Para incluir las categorías de administrador, abre NEXO como administrador y vuelve a aplicar.").size(12.0).color(AMBER));
+                        ui.label(RichText::new("Para incluir las categorías de administrador, abre NEXO como administrador y vuelve a aplicar.").size(12.0).color(WARN));
                     }
                     ui.add_space(10.0);
                     ui.horizontal(|ui| {
-                        if neon_button(ui, "💾  GUARDAR Y APLICAR", CYAN, vec2(220.0, 44.0), idle).clicked() {
+                        if button(ui, "💾  Guardar y aplicar", ACCENT, vec2(220.0, 44.0), idle).clicked() {
                             apply = true;
                         }
-                        if neon_button(ui, "▶  SIMULAR AHORA", ORANGE, vec2(190.0, 44.0), idle).clicked() {
+                        if button(ui, "▶  Simular ahora", ACCENT, vec2(190.0, 44.0), idle).clicked() {
                             simulate = true;
                         }
                     });
@@ -940,16 +945,16 @@ impl NexoApp {
 
                 // Columna sin justificar: evita que el texto se estire palabra a palabra.
                 c[1].with_layout(Layout::top_down(Align::Min), |ui| {
-                tinted_card(MAGENTA).show(ui, |ui| {
+                tinted_card(ACCENT).show(ui, |ui| {
                     ui.set_width(ui.available_width());
-                    ui.label(RichText::new("🛡  TUS ARCHIVOS ESTÁN A SALVO").font(font(15.0)).color(MAGENTA));
+                    ui.label(RichText::new("🛡  Tus archivos están a salvo").font(font(15.0)).color(ACCENT));
                     ui.label("En automático NUNCA se tocan videos, documentos, capturas ni descargas.");
                     ui.label(RichText::new("Si encuentra algo así, solo te avisa con una notificación para que tú decidas en la pestaña Limpieza.").size(13.0).color(MUTED));
                 });
                 ui.add_space(8.0);
                 card().show(ui, |ui| {
                     ui.set_width(ui.available_width());
-                    ui.label(RichText::new("CONDICIONES INTELIGENTES").font(font(13.0)).color(CYAN));
+                    ui.label(RichText::new("Condiciones inteligentes").font(font(13.0)).color(ACCENT));
                     for line in [
                         "Enchufado o con más del 40 % de batería.",
                         "Sin juegos, videos ni presentaciones en pantalla completa.",
@@ -965,18 +970,18 @@ impl NexoApp {
                     card().show(ui, |ui| {
                         ui.set_width(ui.available_width());
                         let (r, _) = ui.allocate_exact_size(vec2(ui.available_width(), 120.0), Sense::hover());
-                        scanner(ui.painter(), r.center(), 46.0, t, ORANGE);
-                        ui.vertical_centered(|ui| ui.label(RichText::new("Simulando limpieza automática…").color(ORANGE)));
+                        scanner(ui.painter(), r.center(), 46.0, t, ACCENT);
+                        ui.vertical_centered(|ui| ui.label(RichText::new("Simulando limpieza automática…").color(ACCENT)));
                     });
                 } else if let Some((freed, files, per)) = sim {
-                    tinted_card(ORANGE).show(ui, |ui| {
+                    tinted_card(ACCENT).show(ui, |ui| {
                         ui.set_width(ui.available_width());
-                        ui.label(RichText::new("RESULTADO DE LA SIMULACIÓN (no se borró nada)").font(font(12.0)).color(ORANGE));
+                        ui.label(RichText::new("Resultado de la simulación (no se borró nada)").font(font(12.0)).color(ACCENT));
                         ui.label(RichText::new(format!("Liberaría {}", fmt::bytes(*freed))).font(font(26.0)));
                         ui.label(RichText::new(format!("{} archivos de basura · 0 videos o documentos", fmt::count(*files))).color(MUTED));
                         ui.horizontal_wrapped(|ui| {
                             for (n, b) in per {
-                                badge(ui, &format!("{} · {}", n, fmt::bytes(*b)), ORANGE);
+                                badge(ui, &format!("{} · {}", n, fmt::bytes(*b)), ACCENT);
                             }
                         });
                     });
@@ -985,11 +990,11 @@ impl NexoApp {
                     ui.add_space(8.0);
                     card().show(ui, |ui| {
                         ui.set_width(ui.available_width());
-                        ui.label(RichText::new("ÚLTIMA EJECUCIÓN AUTOMÁTICA").font(font(12.0)).color(MUTED));
+                        ui.label(RichText::new("Última ejecución automática").font(font(12.0)).color(MUTED));
                         if h.mode == "pospuesta" {
-                            ui.label(RichText::new(&h.note).color(AMBER));
+                            ui.label(RichText::new(&h.note).color(WARN));
                         } else {
-                            ui.label(RichText::new(format!("{} liberados · {}", fmt::bytes(h.freed), fmt::ago(h.ts))).font(font(18.0)).color(GREEN));
+                            ui.label(RichText::new(format!("{} liberados · {}", fmt::bytes(h.freed), fmt::ago(h.ts))).font(font(18.0)).color(ACCENT));
                         }
                         ui.label(RichText::new(fmt::date(h.ts)).size(12.0).color(MUTED));
                     });
@@ -997,10 +1002,10 @@ impl NexoApp {
                 ui.add_space(8.0);
                 card().show(ui, |ui| {
                     ui.set_width(ui.available_width());
-                    ui.label(RichText::new("QUITAR NEXO DE WINDOWS").font(font(12.0)).color(MUTED));
+                    ui.label(RichText::new("Quitar NEXO de Windows").font(font(12.0)).color(MUTED));
                     ui.label(RichText::new("Borra la tarea automática, el vigía, el acceso directo y la copia instalada. Tu historial se conserva.").size(12.5).color(MUTED));
                     let label = if armed { "¿Seguro? Pulsa otra vez para quitarlo" } else { "Quitar NEXO del sistema" };
-                    if link(ui, label, if armed { RED } else { AMBER }).clicked() {
+                    if link(ui, label, if armed { DANGER } else { WARN }).clicked() {
                         uninstall_click = true;
                     }
                 });
@@ -1012,7 +1017,7 @@ impl NexoApp {
         if uninstall_click {
             if self.uninstall_armed {
                 self.uninstall_armed = false;
-                self.show_toast("Quitando NEXO del sistema…".into(), CYAN, now);
+                self.show_toast("Quitando NEXO del sistema…".into(), ACCENT, now);
                 self.bg_action("Quitando NEXO del sistema", move |_progress| {
                     let done = install::uninstall();
                     let reg = schedule::is_registered();
@@ -1022,7 +1027,7 @@ impl NexoApp {
                         a.cfg.vigia_enabled = false;
                         a.cfg.save();
                         a.vigia_running = false;
-                        a.show_toast(format!("NEXO quitado del sistema · {}", done.join(" · ")), AMBER, now);
+                        a.show_toast(format!("NEXO quitado del sistema · {}", done.join(" · ")), WARN, now);
                     })
                 });
             } else {
@@ -1032,7 +1037,7 @@ impl NexoApp {
         if apply {
             self.cfg.save();
             let (cfg, admin) = (self.cfg.clone(), self.admin);
-            self.show_toast("Aplicando…".into(), CYAN, now);
+            self.show_toast("Aplicando…".into(), ACCENT, now);
             self.bg_action("Programando la limpieza automática", move |_progress| {
                 let res = if cfg.auto_enabled { schedule::enable(&cfg, admin) } else { schedule::disable() };
                 let reg = schedule::is_registered();
@@ -1041,10 +1046,10 @@ impl NexoApp {
                     match res {
                         Ok(()) if cfg.auto_enabled => {
                             let msg = format!("Modo automático activado · {} a las {:02}:00", cfg.frequency.label(), cfg.hour);
-                            a.show_toast(msg, GREEN, now);
+                            a.show_toast(msg, ACCENT, now);
                         }
-                        Ok(()) => a.show_toast("Modo automático desactivado".into(), AMBER, now),
-                        Err(e) => a.show_toast(format!("No se pudo programar la tarea: {}", e), RED, now),
+                        Ok(()) => a.show_toast("Modo automático desactivado".into(), WARN, now),
+                        Err(e) => a.show_toast(format!("No se pudo programar la tarea: {}", e), DANGER, now),
                     }
                 })
             });
@@ -1057,7 +1062,7 @@ impl NexoApp {
     }
 
     fn page_history(&mut self, ui: &mut Ui) {
-        header(ui, "› REGISTRO", "Historial de limpiezas", "Cada limpieza, manual o automática, queda anotada aquí.");
+        header(ui, "› Registro", "Historial de limpiezas", "Cada limpieza, manual o automática, queda anotada aquí.");
         if self.history.is_empty() {
             card().show(ui, |ui| {
                 ui.set_width(ui.available_width());
@@ -1067,7 +1072,7 @@ impl NexoApp {
             return;
         }
         let total: u64 = self.history.iter().map(|h| h.freed).sum();
-        ui.label(RichText::new(format!("Total liberado con NEXO: {}", fmt::bytes(total))).font(font(16.0)).color(GREEN));
+        ui.label(RichText::new(format!("Total liberado con NEXO: {}", fmt::bytes(total))).font(font(16.0)).color(ACCENT));
         ui.add_space(4.0);
         ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
             for h in self.history.iter().rev() {
@@ -1075,20 +1080,20 @@ impl NexoApp {
                     ui.set_width(ui.available_width());
                     ui.horizontal(|ui| {
                         match h.mode.as_str() {
-                            "auto" => badge(ui, "AUTOMÁTICA", ORANGE),
-                            "pospuesta" => badge(ui, "POSPUESTA", AMBER),
-                            _ => badge(ui, "MANUAL", CYAN),
+                            "auto" => badge(ui, "Automática", ACCENT),
+                            "pospuesta" => badge(ui, "Pospuesta", WARN),
+                            _ => badge(ui, "Manual", ACCENT),
                         }
                         ui.label(RichText::new(fmt::date(h.ts)).font(font(14.0)));
                         ui.label(RichText::new(fmt::ago(h.ts)).size(12.0).color(MUTED));
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                             if h.mode != "pospuesta" {
-                                ui.label(RichText::new(fmt::bytes(h.freed)).font(font(22.0)).color(GREEN));
+                                ui.label(RichText::new(fmt::bytes(h.freed)).font(font(22.0)).color(ACCENT));
                             }
                         });
                     });
                     if !h.note.is_empty() {
-                        ui.label(RichText::new(&h.note).color(AMBER));
+                        ui.label(RichText::new(&h.note).color(WARN));
                     }
                     if h.mode != "pospuesta" {
                         ui.label(RichText::new(format!(
@@ -1099,11 +1104,11 @@ impl NexoApp {
                         )).size(12.5).color(MUTED));
                     }
                     if h.review_bytes > 0 {
-                        ui.label(RichText::new(format!("Quedó para revisar: {} (capturas, descargas, videos y documentos)", fmt::bytes(h.review_bytes))).size(12.5).color(MAGENTA));
+                        ui.label(RichText::new(format!("Quedó para revisar: {} (capturas, descargas, videos y documentos)", fmt::bytes(h.review_bytes))).size(12.5).color(ACCENT));
                     }
                     ui.horizontal_wrapped(|ui| {
                         for (n, b) in h.details.iter().filter(|(_, b)| *b > 0) {
-                            badge(ui, &format!("{} · {}", n, fmt::bytes(*b)), CYAN);
+                            badge(ui, &format!("{} · {}", n, fmt::bytes(*b)), ACCENT);
                         }
                     });
                 });
@@ -1142,18 +1147,18 @@ impl NexoApp {
             .order(egui::Order::Foreground)
             .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
             .show(ctx, |ui| {
-                card().fill(PANEL).stroke(Stroke::new(1.5_f32, alpha(CYAN, 150))).inner_margin(Margin::same(24.0)).show(ui, |ui| {
+                card().fill(PANEL).stroke(Stroke::new(1.5_f32, alpha(ACCENT, 150))).inner_margin(Margin::same(24.0)).show(ui, |ui| {
                     ui.set_width(580.0);
-                    ui.label(RichText::new("› CONFIRMAR LIMPIEZA").font(font(12.0)).color(CYAN));
+                    ui.label(RichText::new("› Confirmar limpieza").font(font(12.0)).color(ACCENT));
                     ui.label(RichText::new("Esto es lo que se va a hacer").font(font(24.0)));
                     ui.add_space(6.0);
                     ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
                         for r in &chosen {
                             let (col, dest) = match (r.kind, r.special) {
-                                (_, Special::RecycleBin) => (AMBER, "Se vacía la Papelera (definitivo)".to_string()),
-                                (Kind::Safe, _) => (GREEN, "Eliminación definitiva · basura del sistema".to_string()),
-                                (Kind::Protected, _) => (MAGENTA, format!("{} elementos → Papelera (recuperables)", r.selected_count())),
-                                _ => (AMBER, format!("{} elementos → Papelera (recuperables)", r.selected_count())),
+                                (_, Special::RecycleBin) => (WARN, "Se vacía la Papelera (definitivo)".to_string()),
+                                (Kind::Safe, _) => (ACCENT, "Eliminación definitiva · basura del sistema".to_string()),
+                                (Kind::Protected, _) => (ACCENT, format!("{} elementos → Papelera (recuperables)", r.selected_count())),
+                                _ => (WARN, format!("{} elementos → Papelera (recuperables)", r.selected_count())),
                             };
                             ui.horizontal(|ui| {
                                 let (d, _) = ui.allocate_exact_size(vec2(8.0, 8.0), Sense::hover());
@@ -1170,31 +1175,31 @@ impl NexoApp {
                     });
                     ui.separator();
                     ui.horizontal(|ui| {
-                        ui.label(RichText::new("TOTAL").font(font(13.0)).color(MUTED));
+                        ui.label(RichText::new("Total").font(font(13.0)).color(MUTED));
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            ui.label(RichText::new(fmt::bytes(total)).font(font(22.0)).color(GREEN));
+                            ui.label(RichText::new(fmt::bytes(total)).font(font(22.0)).color(ACCENT));
                         });
                     });
                     if prot_n > 0 {
-                        tinted_card(MAGENTA).show(ui, |ui| {
+                        tinted_card(ACCENT).show(ui, |ui| {
                             ui.set_width(ui.available_width());
-                            ui.label(RichText::new(format!("⚠  Incluye {} videos/documentos ({}).", prot_n, fmt::bytes(prot_b))).color(MAGENTA).font(font(14.0)));
+                            ui.label(RichText::new(format!("⚠  Incluye {} videos/documentos ({}).", prot_n, fmt::bytes(prot_b))).color(ACCENT).font(font(14.0)));
                             ui.label(RichText::new("Irán a la Papelera de reciclaje: podrás recuperarlos desde allí.").size(13.0));
                             ui.checkbox(ack, "Sí, quiero botar estos videos y documentos");
                         });
                     }
                     if empties_bin {
-                        tinted_card(AMBER).show(ui, |ui| {
+                        tinted_card(WARN).show(ui, |ui| {
                             ui.set_width(ui.available_width());
-                            ui.label(RichText::new("⚠  Vaciar la Papelera borra su contenido para siempre.").color(AMBER));
+                            ui.label(RichText::new("⚠  Vaciar la Papelera borra su contenido para siempre.").color(WARN));
                         });
                     }
                     ui.add_space(8.0);
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if neon_button(ui, "✔  CONFIRMAR", GREEN, vec2(190.0, 44.0), prot_n == 0 || *ack).clicked() {
+                        if button(ui, "✔  Confirmar", ACCENT, vec2(190.0, 44.0), prot_n == 0 || *ack).clicked() {
                             go = true;
                         }
-                        if neon_button(ui, "CANCELAR", MUTED, vec2(150.0, 44.0), true).clicked() {
+                        if button(ui, "Cancelar", MUTED, vec2(150.0, 44.0), true).clicked() {
                             close = true;
                         }
                     });
@@ -1225,7 +1230,7 @@ impl NexoApp {
                     self.diag = Some(rep);
                     self.show_toast(format!("Diagnóstico listo · {}/100 · {}", s, diag::grade(s)), score_color(s), now);
                 }
-                Err(e) => self.show_toast(format!("No se pudo completar el diagnóstico: {}", e), RED, now),
+                Err(e) => self.show_toast(format!("No se pudo completar el diagnóstico: {}", e), DANGER, now),
             }
         }
         if let Some((r, secs)) = self.mpscan_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
@@ -1236,13 +1241,13 @@ impl NexoApp {
                 self.cfg.save();
             }
             let (msg, col) = match r {
-                Ok(0) => ("✔ Análisis rápido terminado: no se encontraron amenazas.".to_string(), GREEN),
-                Ok(2) => (format!("⚠ {} encontró amenazas. Revisa {}.", diag::txt("av"), diag::txt("security_app")), RED),
-                Ok(c) => (format!("El análisis terminó con el código {}. Revisa {}.", c, diag::txt("security_app")), AMBER),
-                Err(e) => (format!("No se pudo lanzar el análisis: {}", e), RED),
+                Ok(0) => ("✔ Análisis rápido terminado: no se encontraron amenazas.".to_string(), ACCENT),
+                Ok(2) => (format!("⚠ {} encontró amenazas. Revisa {}.", diag::txt("av"), diag::txt("security_app")), DANGER),
+                Ok(c) => (format!("El análisis terminó con el código {}. Revisa {}.", c, diag::txt("security_app")), WARN),
+                Err(e) => (format!("No se pudo lanzar el análisis: {}", e), DANGER),
             };
             notify::toast(&format!("Análisis de {}", diag::txt("av")), &msg, "");
-            if col == GREEN {
+            if col == ACCENT {
                 if let Some(d) = self.diag.as_mut() {
                     d.raw.defender.quick_age = 0;
                     diag::analyze(d);
@@ -1294,7 +1299,7 @@ impl NexoApp {
             Action::SetBalanced => self.set_balanced(true, now),
             Action::BatteryReport => {
                 std::thread::spawn(diag::battery_report);
-                self.show_toast("Abriendo el informe de batería…".into(), CYAN, now);
+                self.show_toast("Abriendo el informe de batería…".into(), ACCENT, now);
             }
             Action::Open(t) => diag::open(&t),
         }
@@ -1309,7 +1314,7 @@ impl NexoApp {
         if !on && prev.is_none() {
             return;
         }
-        self.show_toast("Cambiando el plan de energía…".into(), CYAN, now);
+        self.show_toast("Cambiando el plan de energía…".into(), ACCENT, now);
         self.bg_action("Cambiando el plan de energía", move |_progress| {
             let (cur, _) = diag::active_power_plan();
             let target = if on { diag::BALANCED.to_string() } else { prev.unwrap_or_default() };
@@ -1317,7 +1322,7 @@ impl NexoApp {
             let (g, n) = diag::active_power_plan();
             Box::new(move |a: &mut NexoApp, now| {
                 if !ok {
-                    a.show_toast("No se pudo cambiar el plan de energía.".into(), RED, now);
+                    a.show_toast("No se pudo cambiar el plan de energía.".into(), DANGER, now);
                     return;
                 }
                 if on && cur != diag::BALANCED {
@@ -1333,7 +1338,7 @@ impl NexoApp {
                     diag::analyze(d);
                     diag::save(d);
                 }
-                a.show_toast(format!("Plan de energía: {}", n), GREEN, now);
+                a.show_toast(format!("Plan de energía: {}", n), ACCENT, now);
             })
         });
     }
@@ -1353,10 +1358,10 @@ impl NexoApp {
         match result {
             Ok(name) => self.show_toast(
                 format!("{} {} al encender {}", name, if on { "se abrirá" } else { "ya no se abrirá" }, diag::txt("os")),
-                GREEN,
+                ACCENT,
                 now,
             ),
-            Err(e) => self.show_toast(e, RED, now),
+            Err(e) => self.show_toast(e, DANGER, now),
         }
     }
 
@@ -1364,29 +1369,29 @@ impl NexoApp {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
             let (r, _) = ui.allocate_exact_size(vec2(ui.available_width(), 280.0), Sense::hover());
-            scanner(ui.painter(), r.center(), 104.0, t, ORANGE);
+            scanner(ui.painter(), r.center(), 104.0, t, ACCENT);
             ui.vertical_centered(|ui| {
                 let f = self.diag_prog.load(std::sync::atomic::Ordering::Relaxed) as f32 / 1000.0;
-                ui.label(RichText::new("ANALIZANDO TU EQUIPO…").font(font(24.0)).color(ORANGE));
+                ui.label(RichText::new("Analizando tu equipo…").font(font(24.0)).color(ACCENT));
                 ui.label(RichText::new(format!("{:.0} %", f * 100.0)).font(font(30.0)).color(TEXT));
-                ui.allocate_ui(vec2(460.0, 12.0), |ui| progress_bar(ui, Some(f), ORANGE, t));
+                ui.allocate_ui(vec2(460.0, 12.0), |ui| progress_bar(ui, Some(f), ACCENT, t));
                 ui.label(RichText::new("Disco · batería · antivirus · firewall · actualizaciones · programas de inicio · tareas programadas").size(13.0));
                 ui.label(RichText::new(format!("{} transcurridos · solo lee: no cambia nada", fmt::secs((self.now - self.diag_started).max(0.0)))).size(12.5).color(MUTED));
             });
         });
     }
 
-    fn diag_hero(&mut self, ui: &mut Ui, title: &str, sub: &str, button: &str) {
+    fn diag_hero(&mut self, ui: &mut Ui, title: &str, sub: &str, action: &str) {
         let mut go = false;
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
             let (r, _) = ui.allocate_exact_size(vec2(ui.available_width(), 240.0), Sense::hover());
-            scanner(ui.painter(), r.center(), 92.0, 0.8, alpha(ORANGE, 170));
+            scanner(ui.painter(), r.center(), 92.0, 0.8, alpha(ACCENT, 170));
             ui.vertical_centered(|ui| {
                 ui.label(RichText::new(title).font(font(22.0)));
                 ui.label(RichText::new(sub).size(13.5).color(MUTED));
                 ui.add_space(8.0);
-                if neon_button(ui, button, ORANGE, vec2(320.0, 50.0), true).clicked() {
+                if button(ui, action, ACCENT, vec2(320.0, 50.0), true).clicked() {
                     go = true;
                 }
             });
@@ -1397,14 +1402,14 @@ impl NexoApp {
     }
 
     fn page_diag(&mut self, ui: &mut Ui, t: f32) {
-        header(ui, "› DIAGNÓSTICO", "Chequeo general", "Una nota de 0 a 100 por áreas, calculada aquí mismo y sin internet. Las mejoras se pueden deshacer.");
+        header(ui, "› Diagnóstico", "Chequeo general", "Una nota de 0 a 100 por áreas, calculada aquí mismo y sin internet. Las mejoras se pueden deshacer.");
         let now = ui.input(|i| i.time);
         if self.diag_rx.is_some() {
             self.diag_running_view(ui, t);
             return;
         }
         let Some(rep) = self.diag.clone() else {
-            self.diag_hero(ui, "Revisa la salud de tu equipo", "Disco, batería, memoria, seguridad y programas de inicio. Solo lee: no cambia nada.", "🔍  INICIAR DIAGNÓSTICO");
+            self.diag_hero(ui, "Revisa la salud de tu equipo", "Disco, batería, memoria, seguridad y programas de inicio. Solo lee: no cambia nada.", "🔍  Iniciar diagnóstico");
             return;
         };
         let admin = self.admin;
@@ -1432,7 +1437,7 @@ impl NexoApp {
                             let n1 = rep.recs.iter().filter(|r| r.severity == 1).count();
                             ui.label(RichText::new(format!("{} importantes · {} para revisar", n2, n1)).size(13.0));
                             ui.add_space(8.0);
-                            if neon_button(ui, "⟳  REPETIR", CYAN, vec2(160.0, 40.0), true).clicked() {
+                            if button(ui, "⟳  Repetir", ACCENT, vec2(160.0, 40.0), true).clicked() {
                                 rerun = true;
                             }
                         });
@@ -1440,7 +1445,7 @@ impl NexoApp {
                 });
                 card().show(&mut c[1], |ui| {
                     ui.set_width(ui.available_width());
-                    ui.label(RichText::new("NOTAS POR ÁREA").font(font(12.0)).color(MUTED));
+                    ui.label(RichText::new("Notas por área").font(font(12.0)).color(MUTED));
                     let w = ui.available_width() / rep.areas.len().max(1) as f32;
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing.x = 0.0;
@@ -1466,18 +1471,18 @@ impl NexoApp {
                 });
             });
 
-            section(ui, "RECOMENDACIONES", "ordenadas por importancia", CYAN);
+            section(ui, "Recomendaciones", "ordenadas por importancia", ACCENT);
             if rep.recs.is_empty() {
-                tinted_card(GREEN).show(ui, |ui| {
+                tinted_card(ACCENT).show(ui, |ui| {
                     ui.set_width(ui.available_width());
-                    ui.label(RichText::new("✔ Todo en orden: no hay nada que mejorar ahora mismo.").color(GREEN));
+                    ui.label(RichText::new("✔ Todo en orden: no hay nada que mejorar ahora mismo.").color(ACCENT));
                 });
             }
             for r in &rep.recs {
                 let (col, tag) = match r.severity {
-                    2 => (RED, "IMPORTANTE"),
-                    1 => (AMBER, "REVISAR"),
-                    _ => (CYAN, "CONSEJO"),
+                    2 => (DANGER, "Importante"),
+                    1 => (WARN, "Revisar"),
+                    _ => (ACCENT, "Consejo"),
                 };
                 card().stroke(Stroke::new(1.0_f32, alpha(col, 90))).inner_margin(Margin::symmetric(16.0, 10.0)).show(ui, |ui| {
                     ui.set_width(ui.available_width());
@@ -1486,14 +1491,14 @@ impl NexoApp {
                         ui.allocate_ui_with_layout(vec2(w, 0.0), Layout::top_down(Align::LEFT), |ui| {
                             ui.horizontal(|ui| {
                                 badge(ui, tag, col);
-                                badge(ui, &r.area.to_uppercase(), MUTED);
+                                badge(ui, &r.area, MUTED);
                                 ui.label(RichText::new(&r.title).font(font(15.0)));
                             });
                             ui.label(RichText::new(&r.detail).size(12.5).color(MUTED));
                         });
                         if let Some(a) = &r.action {
                             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                if neon_button(ui, a.label(), col, vec2(170.0, 36.0), true).clicked() {
+                                if button(ui, a.label(), col, vec2(170.0, 36.0), true).clicked() {
                                     action = Some(a.clone());
                                 }
                             });
@@ -1503,7 +1508,7 @@ impl NexoApp {
                 ui.add_space(2.0);
             }
 
-            section(ui, "PROGRAMAS DE INICIO", "desactivarlos no los desinstala · se pueden volver a activar", CYAN);
+            section(ui, "Programas de inicio", "desactivarlos no los desinstala · se pueden volver a activar", ACCENT);
             card().inner_margin(Margin::symmetric(16.0, 10.0)).show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 let on_count = rep.raw.startup.iter().filter(|s| s.enabled).count();
@@ -1518,14 +1523,14 @@ impl NexoApp {
                         let name: String = if s.name.chars().count() > 42 { s.name.chars().take(40).collect::<String>() + "…" } else { s.name.clone() };
                         ui.label(RichText::new(name).font(font(14.5)).color(if s.enabled { TEXT } else { MUTED })).on_hover_text(&s.command);
                         if s.suspicious {
-                            badge(ui, "SOSPECHOSO", RED);
+                            badge(ui, "Sospechoso", DANGER);
                         } else if s.missing() {
-                            badge(ui, "ROTO", AMBER);
+                            badge(ui, "Roto", WARN);
                         } else if !s.signed() && !s.is_nexo() {
-                            badge(ui, "SIN FIRMA", AMBER);
+                            badge(ui, "Sin firma", WARN);
                         }
                         if s.machine_wide() {
-                            badge(ui, "TODO EL EQUIPO", ORANGE);
+                            badge(ui, "Todo el equipo", ACCENT);
                         }
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                             let who = if !s.publisher.is_empty() {
@@ -1540,15 +1545,15 @@ impl NexoApp {
                     });
                 }
                 if !admin && rep.raw.startup.iter().any(|s| s.machine_wide()) {
-                    ui.label(RichText::new("Los de «todo el equipo» se cambian abriendo NEXO como administrador.").size(12.0).color(AMBER));
+                    ui.label(RichText::new("Los de «todo el equipo» se cambian abriendo NEXO como administrador.").size(12.0).color(WARN));
                 }
             });
 
-            section(ui, "DETALLES", "datos leídos de tu equipo", CYAN);
+            section(ui, "Detalles", "datos leídos de tu equipo", ACCENT);
             ui.columns(3, |c| {
                 card().show(&mut c[0], |ui| {
                     ui.set_width(ui.available_width());
-                    ui.label(RichText::new("DISCO").font(font(12.0)).color(MUTED));
+                    ui.label(RichText::new("Disco").font(font(12.0)).color(MUTED));
                     for d in &rep.raw.disks {
                         ui.label(RichText::new(&d.name).font(font(14.0)));
                         let health = if d.health == "Healthy" { "buena".to_string() } else { d.health.clone() };
@@ -1562,7 +1567,7 @@ impl NexoApp {
                 });
                 card().show(&mut c[1], |ui| {
                     ui.set_width(ui.available_width());
-                    ui.label(RichText::new("BATERÍA").font(font(12.0)).color(MUTED));
+                    ui.label(RichText::new("Batería").font(font(12.0)).color(MUTED));
                     let b = &rep.raw.battery;
                     match b.health() {
                         Some(h) => {
@@ -1576,22 +1581,22 @@ impl NexoApp {
                             ui.label(RichText::new("No se detectó batería.").color(MUTED));
                         }
                     }
-                    if link(ui, "Ver el informe completo del sistema", CYAN).clicked() {
+                    if link(ui, "Ver el informe completo del sistema", ACCENT).clicked() {
                         action = Some(Action::BatteryReport);
                     }
                 });
                 card().show(&mut c[2], |ui| {
                     ui.set_width(ui.available_width());
-                    ui.label(RichText::new("SISTEMA").font(font(12.0)).color(MUTED));
+                    ui.label(RichText::new("Sistema").font(font(12.0)).color(MUTED));
                     ui.label(RichText::new(&rep.raw.os).size(12.5));
                     ui.label(RichText::new(format!("Encendido desde hace {:.1} días", rep.raw.uptime_days)).size(12.5));
                     let upd = if rep.raw.last_update_days >= 0 { format!("Última actualización hace {} días", rep.raw.last_update_days) } else { "Última actualización: desconocida".into() };
                     ui.label(RichText::new(upd).size(12.5));
                     ui.label(RichText::new(format!("Plan de energía: {}", rep.power_name)).size(12.5));
-                    if rep.power_guid != diag::BALANCED && link(ui, "Usar «Equilibrado»", CYAN).clicked() {
+                    if rep.power_guid != diag::BALANCED && link(ui, "Usar «Equilibrado»", ACCENT).clicked() {
                         action = Some(Action::SetBalanced);
                     }
-                    if can_undo && link(ui, "Deshacer el cambio de plan", AMBER).clicked() {
+                    if can_undo && link(ui, "Deshacer el cambio de plan", WARN).clicked() {
                         undo_power = true;
                     }
                 });
@@ -1613,14 +1618,14 @@ impl NexoApp {
     }
 
     fn page_shield(&mut self, ui: &mut Ui, t: f32) {
-        header(ui, "› ESCUDO", "Protección", &format!("Revisa la seguridad de {} sin internet, apoyándose en {}.", diag::txt("os"), diag::txt("av")));
+        header(ui, "› Escudo", "Protección", &format!("Revisa la seguridad de {} sin internet, apoyándose en {}.", diag::txt("os"), diag::txt("av")));
         let now = ui.input(|i| i.time);
         if self.diag_rx.is_some() {
             self.diag_running_view(ui, t);
             return;
         }
         let Some(rep) = self.diag.clone() else {
-            self.diag_hero(ui, "Revisa la protección de tu equipo", "Antivirus, firewall, actualizaciones, programas de inicio y tareas sospechosas.", "🔒  REVISAR PROTECCIÓN");
+            self.diag_hero(ui, "Revisa la protección de tu equipo", "Antivirus, firewall, actualizaciones, programas de inicio y tareas sospechosas.", "🔒  Revisar protección");
             return;
         };
         let sec = rep.areas.iter().find(|(a, _)| a == "Seguridad").and_then(|(_, s)| *s).unwrap_or(0);
@@ -1649,11 +1654,11 @@ impl NexoApp {
                         ui.painter().text(rr.center() + vec2(0.0, 30.0), Align2::CENTER_CENTER, format!("{}/100", sec), font(13.0), col);
                         ui.vertical(|ui| {
                             ui.add_space(26.0);
-                            let (txt, col) = if sec >= 85 { ("PROTEGIDO", GREEN) } else if sec >= 60 { ("REVISAR", AMBER) } else { ("EN RIESGO", RED) };
+                            let (txt, col) = if sec >= 85 { ("Protegido", ACCENT) } else if sec >= 60 { ("Revisar", WARN) } else { ("En riesgo", DANGER) };
                             ui.label(RichText::new(txt).font(font(30.0)).color(col));
                             ui.label(RichText::new(format!("Revisado {}", fmt::ago(rep.ts))).size(12.5).color(MUTED));
                             ui.add_space(8.0);
-                            if link(ui, "⟳ Volver a revisar", CYAN).clicked() {
+                            if link(ui, "⟳ Volver a revisar", ACCENT).clicked() {
                                 rerun = true;
                             }
                         });
@@ -1661,28 +1666,28 @@ impl NexoApp {
                 });
                 card().show(&mut c[1], |ui| {
                     ui.set_width(ui.available_width());
-                    ui.label(RichText::new(diag::txt("av").to_uppercase()).font(font(13.0)).color(CYAN));
+                    ui.label(RichText::new(diag::txt("av")).font(font(13.0)).color(ACCENT));
                     if d.available {
                         let q = if d.quick_age >= 0 && d.quick_age < 10000 { format!("hace {} días", d.quick_age) } else { "nunca".into() };
                         ui.label(RichText::new(format!("Último análisis rápido: {}", q)).size(13.0));
                         ui.label(RichText::new(format!("Firmas actualizadas hace {} días · se actualizan con {}", d.sig_age, diag::txt("updater"))).size(12.5).color(MUTED));
                     } else {
-                        ui.label(RichText::new(diag::txt("av_missing_title")).color(AMBER));
+                        ui.label(RichText::new(diag::txt("av_missing_title")).color(WARN));
                     }
                     ui.add_space(6.0);
                     if scanning {
                         let f = ((now - mp_started) / mp_est).min(0.95) as f32;
                         ui.horizontal(|ui| {
-                            ui.label(RichText::new(format!("Analizando con {}…", diag::txt("av"))).color(GREEN).size(13.0));
+                            ui.label(RichText::new(format!("Analizando con {}…", diag::txt("av"))).color(ACCENT).size(13.0));
                             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                ui.label(RichText::new(format!("{:.0} %", f * 100.0)).font(font(15.0)).color(GREEN));
+                                ui.label(RichText::new(format!("{:.0} %", f * 100.0)).font(font(15.0)).color(ACCENT));
                             });
                         });
-                        progress_bar(ui, Some(f), GREEN, t);
+                        progress_bar(ui, Some(f), ACCENT, t);
                         ui.label(RichText::new(format!("{} de ≈ {} (estimado; el sistema no informa el avance real). Puedes seguir usando el equipo.", fmt::secs(now - mp_started), fmt::secs(mp_est))).size(11.5).color(MUTED));
                     } else {
                         let w = ui.available_width();
-                        if diag::quick_scan_available() && neon_button(ui, "🛡  ANÁLISIS RÁPIDO", GREEN, vec2(w, 44.0), true).clicked() {
+                        if diag::quick_scan_available() && button(ui, "🛡  Análisis rápido", ACCENT, vec2(w, 44.0), true).clicked() {
                             scan = true;
                         }
                     }
@@ -1692,7 +1697,7 @@ impl NexoApp {
                 });
             });
 
-            section(ui, "COMPROBACIONES", &format!("lectura local de la configuración de {}", diag::txt("os")), CYAN);
+            section(ui, "Comprobaciones", &format!("lectura local de la configuración de {}", diag::txt("os")), ACCENT);
             card().inner_margin(Margin::symmetric(16.0, 8.0)).show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 let fw: Vec<String> = r.firewall.iter().map(|f| format!("{} {}", match f.name.as_str() { "Domain" => "Dominio", "Private" => "Privada", "Public" => "Pública", n => n }, if f.enabled { "✔" } else { "✖" })).collect();
@@ -1703,7 +1708,7 @@ impl NexoApp {
                     (
                         if d.available && d.realtime && d.enabled { 0 } else { 2 },
                         "Antivirus en tiempo real".into(),
-                        if !d.available { diag::txt("av").to_string() + " no está disponible" } else if d.realtime { format!("{} te protege mientras usas el equipo", diag::txt("av")) } else { "DESACTIVADO: actívalo cuanto antes".into() },
+                        if !d.available { diag::txt("av").to_string() + " no está disponible" } else if d.realtime { format!("{} te protege mientras usas el equipo", diag::txt("av")) } else { "Desactivado: actívalo cuanto antes".into() },
                         open("realtime"),
                     ),
                     (if d.sig_age <= 7 { 0 } else { 1 }, "Firmas del antivirus".into(), format!("Actualizadas hace {} días", d.sig_age), open("updates")),
@@ -1749,7 +1754,7 @@ impl NexoApp {
             });
 
             if !r.tasks.is_empty() || r.startup.iter().any(|s| s.enabled && (s.suspicious || (!s.signed() && !s.missing() && !s.is_nexo()))) {
-                section(ui, "PARA REVISAR", "si no reconoces algo, desactívalo en Diagnóstico › Programas de inicio", AMBER);
+                section(ui, "Para revisar", "si no reconoces algo, desactívalo en Diagnóstico › Programas de inicio", WARN);
                 card().show(ui, |ui| {
                     ui.set_width(ui.available_width());
                     for s in r.startup.iter().filter(|s| s.enabled && (s.suspicious || (!s.signed() && !s.missing() && !s.is_nexo()))) {
@@ -1757,20 +1762,20 @@ impl NexoApp {
                         ui.label(RichText::new(&s.exe).monospace().size(11.5).color(MUTED));
                     }
                     for tk in &r.tasks {
-                        ui.label(RichText::new(format!("Tarea «{}» · {}", tk.name, tk.why)).font(font(14.0)).color(RED));
+                        ui.label(RichText::new(format!("Tarea «{}» · {}", tk.name, tk.why)).font(font(14.0)).color(DANGER));
                         ui.label(RichText::new(&tk.exe).monospace().size(11.5).color(MUTED));
                     }
                 });
             }
 
-            section(ui, "VIGILANCIA CONTINUA", "el vigía revisa esto cada 30 segundos", CYAN);
+            section(ui, "Vigilancia continua", "el vigía revisa esto cada 30 segundos", ACCENT);
             card().show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 cfg_changed |= ui.checkbox(&mut cfg.alert_security, format!("Avisar si {} se apaga o si un programa nuevo se añade al inicio de {}", diag::txt("av"), diag::txt("os"))).changed();
                 let (txt, col) = if vigia_running {
-                    ("✔ El vigía está en marcha.", GREEN)
+                    ("✔ El vigía está en marcha.", ACCENT)
                 } else {
-                    ("El vigía está detenido: actívalo en Memoria RAM para recibir estos avisos.", AMBER)
+                    ("El vigía está detenido: actívalo en Memoria RAM para recibir estos avisos.", WARN)
                 };
                 ui.label(RichText::new(txt).size(12.5).color(col));
             });
@@ -1839,12 +1844,12 @@ impl NexoApp {
                     }
                 }
             }
-            AdbMsg::Devices(Err(e)) => self.adb_msg = Some((format!("ADB: {}", e), RED)),
+            AdbMsg::Devices(Err(e)) => self.adb_msg = Some((format!("ADB: {}", e), DANGER)),
             AdbMsg::Loaded(serial, info, bloat, usage) => {
                 if self.dev_sel.as_deref() == Some(serial.as_str()) {
                     match info {
                         Ok(i) => self.dev_info = Some(i),
-                        Err(e) => self.adb_msg = Some((format!("No se pudo leer el celular: {}", e), RED)),
+                        Err(e) => self.adb_msg = Some((format!("No se pudo leer el celular: {}", e), DANGER)),
                     }
                     self.dev_bloat = bloat;
                     self.dev_usage = usage;
@@ -1853,10 +1858,10 @@ impl NexoApp {
             AdbMsg::Done(res, rescan) => {
                 match res {
                     Ok(m) => {
-                        self.show_toast(m.clone(), GREEN, now);
-                        self.adb_msg = Some((m, GREEN));
+                        self.show_toast(m.clone(), ACCENT, now);
+                        self.adb_msg = Some((m, ACCENT));
                     }
-                    Err(e) => self.adb_msg = Some((e, RED)),
+                    Err(e) => self.adb_msg = Some((e, DANGER)),
                 }
                 if rescan {
                     self.adb_refresh();
@@ -1868,11 +1873,11 @@ impl NexoApp {
     }
 
     fn page_mobile(&mut self, ui: &mut Ui, t: f32) {
-        header(ui, "› ENLACE MÓVIL", "Celulares", "Realme C11 2021 y Honor X7 · por USB o WiFi local, sin internet.");
+        header(ui, "› Enlace móvil", "Celulares", "Realme C11 2021 y Honor X7 · por USB o WiFi local, sin internet.");
         if adb::adb_path().is_none() {
-            tinted_card(AMBER).show(ui, |ui| {
+            tinted_card(WARN).show(ui, |ui| {
                 ui.set_width(ui.available_width());
-                ui.label(RichText::new("No se encontró ADB (Android platform-tools).").color(AMBER).font(font(15.0)));
+                ui.label(RichText::new("No se encontró ADB (Android platform-tools).").color(WARN).font(font(15.0)));
                 ui.label("Copia la carpeta «platform-tools» junto a NEXO para usar el modo potenciado.");
             });
             return;
@@ -1906,9 +1911,9 @@ impl NexoApp {
                 card().show(&mut c[0], |ui| {
                     ui.set_width(ui.available_width());
                     ui.horizontal(|ui| {
-                        ui.label(RichText::new("TUS CELULARES").font(font(13.0)).color(CYAN));
+                        ui.label(RichText::new("Tus celulares").font(font(13.0)).color(ACCENT));
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            if busy.is_none() && link(ui, "⟳ Buscar", CYAN).clicked() {
+                            if busy.is_none() && link(ui, "⟳ Buscar", ACCENT).clicked() {
                                 act = Some(Act::Refresh);
                             }
                         });
@@ -1918,16 +1923,16 @@ impl NexoApp {
                     }
                     for d in &devices {
                         let selected = sel.as_deref() == Some(d.serial.as_str());
-                        let frame = if selected { tinted_card(CYAN) } else { card() };
+                        let frame = if selected { tinted_card(ACCENT) } else { card() };
                         let r = frame.inner_margin(Margin::symmetric(12.0, 8.0)).show(ui, |ui| {
                             ui.set_width(ui.available_width());
                             ui.horizontal(|ui| {
                                 ui.label(RichText::new("📱").size(18.0));
                                 ui.label(RichText::new(if d.model.is_empty() { d.serial.clone() } else { d.model.clone() }).font(font(15.0)));
-                                badge(ui, if d.wifi() { "WIFI" } else { "USB" }, ORANGE);
+                                badge(ui, if d.wifi() { "WiFi" } else { "USB" }, ACCENT);
                                 match d.state.as_str() {
-                                    "device" => badge(ui, "LISTO", GREEN),
-                                    "unauthorized" => badge(ui, "ACEPTA EL AVISO EN EL CELULAR", AMBER),
+                                    "device" => badge(ui, "Listo", ACCENT),
+                                    "unauthorized" => badge(ui, "Acepta el aviso en el celular", WARN),
                                     s => badge(ui, s, MUTED),
                                 }
                             });
@@ -1938,8 +1943,8 @@ impl NexoApp {
                     }
                     if let Some(b) = &busy {
                         let (rr, _) = ui.allocate_exact_size(vec2(ui.available_width(), 70.0), Sense::hover());
-                        scanner(ui.painter(), rr.center(), 24.0, t, CYAN);
-                        ui.vertical_centered(|ui| ui.label(RichText::new(b).color(CYAN)));
+                        scanner(ui.painter(), rr.center(), 24.0, t, ACCENT);
+                        ui.vertical_centered(|ui| ui.label(RichText::new(b).color(ACCENT)));
                     }
                     if let Some((m, col)) = &msg {
                         ui.label(RichText::new(m).color(*col).size(13.0));
@@ -1947,17 +1952,17 @@ impl NexoApp {
                 });
                 card().show(&mut c[1], |ui| {
                     ui.set_width(ui.available_width());
-                    ui.label(RichText::new("CONECTAR POR WIFI (ANDROID 11)").font(font(13.0)).color(CYAN));
+                    ui.label(RichText::new("Conectar por WiFi (Android 11)").font(font(13.0)).color(ACCENT));
                     ui.label(RichText::new("En el celular: Opciones de desarrollador › Depuración inalámbrica › «Vincular con código».").size(12.5).color(MUTED));
                     ui.add(egui::TextEdit::singleline(pair_addr).hint_text(RichText::new("IP:puerto de vinculación  (ej. 192.168.1.40:37123)").color(alpha(MUTED, 160))).desired_width(f32::INFINITY));
                     ui.add(egui::TextEdit::singleline(pair_code).hint_text(RichText::new("Código de 6 dígitos").color(alpha(MUTED, 160))).desired_width(f32::INFINITY));
-                    if neon_button(ui, "VINCULAR", ORANGE, vec2(ui.available_width(), 36.0), busy.is_none() && !pair_addr.trim().is_empty() && !pair_code.trim().is_empty()).clicked() {
+                    if button(ui, "Vincular", ACCENT, vec2(ui.available_width(), 36.0), busy.is_none() && !pair_addr.trim().is_empty() && !pair_code.trim().is_empty()).clicked() {
                         act = Some(Act::Pair);
                     }
                     ui.add_space(4.0);
                     ui.label(RichText::new("Después, con la IP y el puerto de «Depuración inalámbrica» (no los de vincular):").size(12.5).color(MUTED));
                     ui.add(egui::TextEdit::singleline(conn_addr).hint_text(RichText::new("IP:puerto  (ej. 192.168.1.40:41235)").color(alpha(MUTED, 160))).desired_width(f32::INFINITY));
-                    if neon_button(ui, "CONECTAR", CYAN, vec2(ui.available_width(), 36.0), busy.is_none() && !conn_addr.trim().is_empty()).clicked() {
+                    if button(ui, "Conectar", ACCENT, vec2(ui.available_width(), 36.0), busy.is_none() && !conn_addr.trim().is_empty()).clicked() {
                         act = Some(Act::Connect);
                     }
                     ui.label(RichText::new("Por USB: activa «Depuración USB», conecta el cable y acepta el aviso en el celular.").size(12.0).color(MUTED));
@@ -1965,15 +1970,15 @@ impl NexoApp {
             });
 
             let Some(i) = &info else { return };
-            section(ui, &format!("{} {} · Android {}", i.brand.to_uppercase(), i.model, i.android), "datos leídos del celular ahora mismo", CYAN);
+            section(ui, &format!("{} {} · Android {}", i.brand, i.model, i.android), "datos leídos del celular ahora mismo", ACCENT);
             ui.columns(3, |c| {
                 let used = 1.0 - i.data_free as f32 / i.data_total.max(1) as f32;
                 let ram = 1.0 - i.ram_avail as f32 / i.ram_total.max(1) as f32;
                 let bat = i.battery as f32 / 100.0;
                 for (k, (frac, col, big, label, sub)) in [
-                    (used, level_color(used), format!("{:.0}%", used * 100.0), "ALMACENAMIENTO", format!("{} libres de {}", fmt::bytes(i.data_free), fmt::bytes(i.data_total))),
+                    (used, level_color(used), format!("{:.0}%", used * 100.0), "Almacenamiento", format!("{} libres de {}", fmt::bytes(i.data_free), fmt::bytes(i.data_total))),
                     (ram, level_color(ram), format!("{:.0}%", ram * 100.0), "RAM", format!("{} libres de {}", fmt::bytes(i.ram_avail), fmt::bytes(i.ram_total))),
-                    (bat, if bat < 0.2 { RED } else if bat < 0.4 { AMBER } else { GREEN }, format!("{}%", i.battery), "BATERÍA", format!("{:.1} °C · salud {}", i.temp_c, i.health)),
+                    (bat, if bat < 0.2 { DANGER } else if bat < 0.4 { WARN } else { ACCENT }, format!("{}%", i.battery), "Batería", format!("{:.1} °C · salud {}", i.temp_c, i.health)),
                 ]
                 .into_iter()
                 .enumerate()
@@ -1989,21 +1994,21 @@ impl NexoApp {
                 }
             });
             ui.columns(2, |c| {
-                tinted_card(CYAN).show(&mut c[0], |ui| {
+                tinted_card(ACCENT).show(&mut c[0], |ui| {
                     ui.set_width(ui.available_width());
-                    ui.label(RichText::new("⚡ LIMPIEZA PROFUNDA").font(font(15.0)).color(CYAN));
+                    ui.label(RichText::new("⚡ Limpieza profunda").font(font(15.0)).color(ACCENT));
                     ui.label(RichText::new("Borra la caché de TODAS las apps de una vez, algo que Android 11 no deja hacer desde el propio celular.").size(12.5));
-                    ui.label(RichText::new("No toca fotos, videos, mensajes, cuentas ni datos de las apps.").size(12.0).color(GREEN));
-                    if neon_button(ui, "BORRAR CACHÉ DE TODAS LAS APPS", CYAN, vec2(ui.available_width(), 42.0), busy.is_none()).clicked() {
+                    ui.label(RichText::new("No toca fotos, videos, mensajes, cuentas ni datos de las apps.").size(12.0).color(ACCENT));
+                    if button(ui, "Borrar caché de todas las apps", ACCENT, vec2(ui.available_width(), 42.0), busy.is_none()).clicked() {
                         act = Some(Act::Trim);
                     }
-                    if apk.is_some() && neon_button(ui, "INSTALAR / ACTUALIZAR NEXO MÓVIL", ORANGE, vec2(ui.available_width(), 42.0), busy.is_none()).clicked() {
+                    if apk.is_some() && button(ui, "Instalar / actualizar NEXO móvil", ACCENT, vec2(ui.available_width(), 42.0), busy.is_none()).clicked() {
                         act = Some(Act::Install);
                     }
                 });
                 card().show(&mut c[1], |ui| {
                     ui.set_width(ui.available_width());
-                    ui.label(RichText::new("BATERÍA POR APP · DESDE LA ÚLTIMA CARGA").font(font(13.0)).color(CYAN));
+                    ui.label(RichText::new("Batería por app · desde la última carga").font(font(13.0)).color(ACCENT));
                     if usage.is_empty() {
                         ui.label(RichText::new("Sin datos todavía (se acumulan con el uso).").color(MUTED));
                     }
@@ -2012,14 +2017,14 @@ impl NexoApp {
                         ui.horizontal(|ui| {
                             ui.label(RichText::new(name).size(12.5));
                             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                ui.label(RichText::new(format!("{:.0} mAh", mah)).size(12.5).color(AMBER));
+                                ui.label(RichText::new(format!("{:.0} mAh", mah)).size(12.5).color(WARN));
                             });
                         });
-                        bar(ui, (*mah / max) as f32, AMBER, 4.0);
+                        bar(ui, (*mah / max) as f32, WARN, 4.0);
                     }
                 });
             });
-            section(ui, "APPS PREINSTALADAS", "desactivarlas es reversible: no se borran y se pueden volver a activar", AMBER);
+            section(ui, "Apps preinstaladas", "desactivarlas es reversible: no se borran y se pueden volver a activar", WARN);
             card().show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 if bloat.is_empty() {
@@ -2101,7 +2106,7 @@ impl NexoApp {
         if self.pending_actions > 0 {
             return;
         }
-        self.show_toast(if on { "Activando el vigía…" } else { "Deteniendo el vigía…" }.into(), CYAN, now);
+        self.show_toast(if on { "Activando el vigía…" } else { "Deteniendo el vigía…" }.into(), ACCENT, now);
         self.bg_action("Configurando el vigía", move |_progress| {
             let res: Result<(), String> = if on {
                 install::install().map(|_| {
@@ -2125,19 +2130,19 @@ impl NexoApp {
                         a.cfg.vigia_enabled = on;
                         a.cfg.save();
                         if on {
-                            a.show_toast("Vigía activado: busca el icono de NEXO junto al reloj".into(), GREEN, now);
+                            a.show_toast("Vigía activado: busca el icono de NEXO junto al reloj".into(), ACCENT, now);
                         } else {
-                            a.show_toast("Vigía desactivado".into(), AMBER, now);
+                            a.show_toast("Vigía desactivado".into(), WARN, now);
                         }
                     }
-                    Err(e) => a.show_toast(format!("No se pudo activar el vigía: {}", e), RED, now),
+                    Err(e) => a.show_toast(format!("No se pudo activar el vigía: {}", e), DANGER, now),
                 }
             })
         });
     }
 
     fn page_ram(&mut self, ui: &mut Ui) {
-        header(ui, "› ESTABILIZADOR", "Memoria RAM", "Vigila la memoria y actúa solo cuando hay un problema real. Nunca cierra nada sin tu permiso.");
+        header(ui, "› Estabilizador", "Memoria RAM", "Vigila la memoria y actúa solo cuando hay un problema real. Nunca cierra nada sin tu permiso.");
         let now = ui.input(|i| i.time);
         let mem_load = self.snap.mem.load;
         let frac = mem_load as f32 / 100.0;
@@ -2165,40 +2170,40 @@ impl NexoApp {
                     let col = level_color(frac);
                     ring(ui.painter(), r.center(), 70.0, frac, col, 9.0);
                     ui.painter().text(r.center() - vec2(0.0, 8.0), Align2::CENTER_CENTER, format!("{}%", mem_load), font(36.0), TEXT);
-                    ui.painter().text(r.center() + vec2(0.0, 22.0), Align2::CENTER_CENTER, "RAM EN USO", font(11.0), col);
+                    ui.painter().text(r.center() + vec2(0.0, 22.0), Align2::CENTER_CENTER, "RAM en uso", font(11.0), col);
                     ui.vertical_centered(|ui| {
                         ui.label(RichText::new(format!("{} libres de {}", fmt::bytes(avail), fmt::bytes(total))).size(12.5).color(MUTED));
                     });
                 });
                 card().show(&mut c[1], |ui| {
                     ui.set_width(ui.available_width());
-                    ui.label(RichText::new("MEMORIA VIRTUAL").font(font(12.0)).color(MUTED));
+                    ui.label(RichText::new("Memoria virtual").font(font(12.0)).color(MUTED));
                     ui.label(RichText::new(format!("{:.0} %", commit)).font(font(20.0)));
                     bar(ui, commit / 100.0, level_color(commit / 100.0), 6.0);
-                    ui.label(RichText::new("PROCESADOR").font(font(12.0)).color(MUTED));
+                    ui.label(RichText::new("Procesador").font(font(12.0)).color(MUTED));
                     ui.label(RichText::new(format!("{:.0} %", cpu)).font(font(20.0)));
                     bar(ui, cpu / 100.0, level_color(cpu / 100.0), 6.0);
                     ui.label(RichText::new(format!("RAM · últimos 3 min · {} programas con ventana", apps)).size(11.5).color(MUTED));
-                    sparkline(ui, &hist, CYAN);
+                    sparkline(ui, &hist, ACCENT);
                 });
                 c[2].with_layout(Layout::top_down(Align::Min), |ui| {
-                    tinted_card(CYAN).show(ui, |ui| {
+                    tinted_card(ACCENT).show(ui, |ui| {
                         ui.set_width(ui.available_width());
-                        ui.label(RichText::new("⚡ ESTABILIZAR").font(font(16.0)).color(CYAN));
+                        ui.label(RichText::new("⚡ Estabilizar").font(font(16.0)).color(ACCENT));
                         ui.label(RichText::new(if cfg!(windows) { "Compacta los programas inactivos de segundo plano: su memoria pasa a la reserva de Windows y vuelve sola si la necesitan." } else { "Libera la caché de memoria del sistema (archivos guardados por si acaso). Te pedirá tu contraseña." }).size(12.5));
                         ui.add_space(2.0);
-                        ui.label(RichText::new("No cierra nada · no pierdes datos · no toca la app que usas.").size(12.0).color(GREEN));
+                        ui.label(RichText::new("No cierra nada · no pierdes datos · no toca la app que usas.").size(12.0).color(ACCENT));
                         ui.add_space(8.0);
                         let w = ui.available_width();
-                        let label = if cfg!(windows) { format!("ESTABILIZAR AHORA · {}", trimmable) } else { "ESTABILIZAR AHORA".to_string() };
-                        if neon_button(ui, &label, CYAN, vec2(w, 46.0), trimmable > 0 || cfg!(unix)).clicked() {
+                        let label = if cfg!(windows) { format!("Estabilizar ahora · {}", trimmable) } else { "Estabilizar ahora".to_string() };
+                        if button(ui, &label, ACCENT, vec2(w, 46.0), trimmable > 0 || cfg!(unix)).clicked() {
                             do_stabilize = true;
                         }
                     });
                 });
             });
 
-            section(ui, "PROGRAMAS QUE MÁS MEMORIA USAN", "agrupados por programa · se actualiza cada 2 s", CYAN);
+            section(ui, "Programas que más memoria usan", "agrupados por programa · se actualiza cada 2 s", ACCENT);
             card().inner_margin(Margin::symmetric(16.0, 10.0)).show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 if groups.is_empty() {
@@ -2213,30 +2218,30 @@ impl NexoApp {
                                 ui.label(RichText::new(format!("×{}", g.pids.len())).size(11.5).color(MUTED));
                             }
                             if g.system {
-                                badge(ui, "SISTEMA", MUTED);
+                                badge(ui, "Sistema", MUTED);
                             }
                             if g.foreground {
-                                badge(ui, "EN USO", CYAN);
+                                badge(ui, "En uso", ACCENT);
                             }
                             if g.unsaved {
-                                badge(ui, "SIN GUARDAR", MAGENTA);
+                                badge(ui, "Sin guardar", ACCENT);
                             } else if g.editor {
-                                badge(ui, "TRABAJO", ORANGE);
+                                badge(ui, "Trabajo", ACCENT);
                             }
                             if g.installing {
-                                badge(ui, "INSTALANDO", AMBER);
+                                badge(ui, "Instalando", WARN);
                             }
                             if g.io_active() {
-                                badge(ui, "ACTIVO", AMBER);
+                                badge(ui, "Activo", WARN);
                             } else if g.can_trim() {
-                                badge(ui, "INACTIVO", alpha(GREEN, 210));
+                                badge(ui, "Inactivo", alpha(ACCENT, 210));
                             }
                         });
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            if !g.system && (!g.windows.is_empty() || g.accessible) && link(ui, "Cerrar", RED).on_hover_text("Antes te avisa si hay algo importante").clicked() {
+                            if !g.system && (!g.windows.is_empty() || g.accessible) && link(ui, "Cerrar", DANGER).on_hover_text("Antes te avisa si hay algo importante").clicked() {
                                 action = Some((g.exe.clone(), true));
                             }
-                            if g.can_trim() && link(ui, "Compactar", CYAN).clicked() {
+                            if g.can_trim() && link(ui, "Compactar", ACCENT).clicked() {
                                 action = Some((g.exe.clone(), false));
                             }
                             ui.label(RichText::new(format!("{:.0} % CPU", g.cpu_pct)).size(12.0).color(MUTED));
@@ -2259,17 +2264,17 @@ impl NexoApp {
                         ui.label(RichText::new("Vigía en segundo plano").font(font(18.0)));
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                             if vigia_running {
-                                badge(ui, "EN MARCHA", GREEN);
+                                badge(ui, "En marcha", ACCENT);
                             } else {
-                                badge(ui, "DETENIDO", MUTED);
+                                badge(ui, "Detenido", MUTED);
                             }
                         });
                     });
                     ui.label(RichText::new(format!("{} que revisa cada 30 s y te avisa. Ocupa unos pocos MB y arranca con {}.", if cfg!(windows) { "Un icono junto al reloj" } else { "Un proceso en segundo plano" }, diag::txt("os"))).size(12.5).color(MUTED));
                     ui.add_space(6.0);
-                    ui.label(RichText::new("AVISO DE RAM ALTA").font(font(12.0)).color(MUTED));
+                    ui.label(RichText::new("Aviso de RAM alta").font(font(12.0)).color(MUTED));
                     cfg_changed |= ui.add(egui::Slider::new(&mut cfg.ram_warn, 70..=95).suffix(" %")).changed();
-                    ui.label(RichText::new("RAM CRÍTICA").font(font(12.0)).color(MUTED));
+                    ui.label(RichText::new("RAM crítica").font(font(12.0)).color(MUTED));
                     let lo = cfg.ram_warn + 2;
                     cfg.ram_critical = cfg.ram_critical.max(lo);
                     cfg_changed |= ui.add(egui::Slider::new(&mut cfg.ram_critical, lo..=98).suffix(" %")).changed();
@@ -2278,25 +2283,25 @@ impl NexoApp {
                     cfg_changed |= ui.checkbox(&mut cfg.alert_cpu, "Avisar si el procesador pasa 3 min al máximo").changed();
                     cfg_changed |= ui.checkbox(&mut cfg.alert_disk, "Avisar si el disco baja del 10 % libre").changed();
                     ui.label(RichText::new("En pantalla completa (juegos, videos) solo llegan los avisos críticos.").size(12.0).color(MUTED));
-                    if link(ui, "Probar una notificación", CYAN).clicked() {
+                    if link(ui, "Probar una notificación", ACCENT).clicked() {
                         test_toast = true;
                     }
                 });
                 c[1].with_layout(Layout::top_down(Align::Min), |ui| {
                     card().show(ui, |ui| {
                         ui.set_width(ui.available_width());
-                        ui.label(RichText::new("ÚLTIMOS AVISOS DEL VIGÍA").font(font(13.0)).color(CYAN));
+                        ui.label(RichText::new("Últimos avisos del vigía").font(font(13.0)).color(ACCENT));
                         if alerts.is_empty() {
                             ui.label(RichText::new("Sin avisos todavía.").color(MUTED));
                         }
                         for a in alerts.iter().rev().take(8) {
                             ui.horizontal(|ui| {
                                 let col = match a.kind.as_str() {
-                                    "critica" | "virtual" | "fuga" | "defensor" | "inicio" => RED,
-                                    "estabilizada" => GREEN,
-                                    _ => AMBER,
+                                    "critica" | "virtual" | "fuga" | "defensor" | "inicio" => DANGER,
+                                    "estabilizada" => ACCENT,
+                                    _ => WARN,
                                 };
-                                badge(ui, &a.kind.to_uppercase(), col);
+                                badge(ui, &a.kind, col);
                                 ui.label(RichText::new(fmt::ago(a.ts)).size(11.5).color(MUTED));
                             });
                             ui.label(RichText::new(&a.text).size(12.5));
@@ -2309,7 +2314,7 @@ impl NexoApp {
 
         if do_stabilize {
             let groups = self.groups.clone();
-            self.show_toast("Estabilizando…".into(), CYAN, now);
+            self.show_toast("Estabilizando…".into(), ACCENT, now);
             self.bg_action("Estabilizando la memoria", move |progress| {
                 let (n, freed) = procs::trim_idle_progress(&groups, &progress);
                 let text = if cfg!(windows) {
@@ -2321,7 +2326,7 @@ impl NexoApp {
                 };
                 config::push_alert("estabilizada", &text);
                 Box::new(move |a: &mut NexoApp, now| {
-                    a.show_toast(text, GREEN, now);
+                    a.show_toast(text, ACCENT, now);
                     a.last_sample = -10.0;
                 })
             });
@@ -2334,7 +2339,7 @@ impl NexoApp {
                     self.bg_action("Compactando el programa", move |_progress| {
                         let f = procs::trim(&g);
                         Box::new(move |a: &mut NexoApp, now| {
-                            a.show_toast(format!("{} compactado · {} recuperados", g.name, fmt::bytes(f)), GREEN, now);
+                            a.show_toast(format!("{} compactado · {} recuperados", g.name, fmt::bytes(f)), ACCENT, now);
                             a.last_sample = -10.0;
                         })
                     });
@@ -2379,33 +2384,33 @@ impl NexoApp {
             .order(egui::Order::Foreground)
             .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
             .show(ctx, |ui| {
-                card().fill(PANEL).stroke(Stroke::new(1.5_f32, alpha(CYAN, 150))).inner_margin(Margin::same(24.0)).show(ui, |ui| {
+                card().fill(PANEL).stroke(Stroke::new(1.5_f32, alpha(ACCENT, 150))).inner_margin(Margin::same(24.0)).show(ui, |ui| {
                     ui.set_width(580.0);
-                    ui.label(RichText::new("› CERRAR PROGRAMA").font(font(12.0)).color(CYAN));
+                    ui.label(RichText::new("› Cerrar programa").font(font(12.0)).color(ACCENT));
                     ui.label(RichText::new(format!("Cerrar {}", g.name)).font(font(24.0)));
                     ui.label(RichText::new(format!("{} procesos · {} en memoria", g.pids.len(), fmt::bytes(g.private))).color(MUTED));
                     ui.add_space(6.0);
 
                     if let Some(msg) = &st.done {
-                        tinted_card(GREEN).show(ui, |ui| {
+                        tinted_card(ACCENT).show(ui, |ui| {
                             ui.set_width(ui.available_width());
-                            ui.label(RichText::new(msg).color(GREEN).font(font(15.0)));
+                            ui.label(RichText::new(msg).color(ACCENT).font(font(15.0)));
                         });
                         ui.add_space(8.0);
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            if neon_button(ui, "LISTO", GREEN, vec2(140.0, 44.0), true).clicked() {
+                            if button(ui, "Listo", ACCENT, vec2(140.0, 44.0), true).clicked() {
                                 cancel = true;
                             }
                         });
                         return;
                     }
                     if g.system {
-                        ui.label(RichText::new(format!("Es parte de {}: NEXO no lo cierra.", diag::txt("os"))).color(AMBER));
+                        ui.label(RichText::new(format!("Es parte de {}: NEXO no lo cierra.", diag::txt("os"))).color(WARN));
                     }
                     if important {
-                        tinted_card(MAGENTA).show(ui, |ui| {
+                        tinted_card(ACCENT).show(ui, |ui| {
                             ui.set_width(ui.available_width());
-                            ui.label(RichText::new("⚠  ANTES DE CERRAR").font(font(14.0)).color(MAGENTA));
+                            ui.label(RichText::new("⚠  Antes de cerrar").font(font(14.0)).color(ACCENT));
                             for r in &reasons {
                                 ui.label(RichText::new(format!("•  {}", r)).size(13.0));
                             }
@@ -2420,32 +2425,32 @@ impl NexoApp {
                             ui.label(RichText::new("Cerrar normalmente es como pulsar la X: si hay algo sin guardar, el programa te preguntará.").size(13.0).color(MUTED));
                         }
                         None => {
-                            ui.label(RichText::new("No tiene ventana abierta: solo puede cerrarse a la fuerza.").color(AMBER));
+                            ui.label(RichText::new("No tiene ventana abierta: solo puede cerrarse a la fuerza.").color(WARN));
                         }
                         Some(s) if s < 4.0 => {
-                            ui.label(RichText::new("Pidiendo que se cierre… si te pregunta si guardar, respóndele.").color(CYAN));
+                            ui.label(RichText::new("Pidiendo que se cierre… si te pregunta si guardar, respóndele.").color(ACCENT));
                         }
                         Some(_) => {
-                            ui.label(RichText::new("Sigue abierto: puede estar esperando tu respuesta (guardar / no guardar) o no responde.").color(AMBER));
+                            ui.label(RichText::new("Sigue abierto: puede estar esperando tu respuesta (guardar / no guardar) o no responde.").color(WARN));
                         }
                     }
                     let show_force = !g.system && (!has_win || waited.is_some_and(|s| s >= 4.0));
                     if show_force {
-                        tinted_card(RED).show(ui, |ui| {
+                        tinted_card(DANGER).show(ui, |ui| {
                             ui.set_width(ui.available_width());
-                            ui.label(RichText::new("Forzar el cierre pierde todo lo que no esté guardado.").color(RED));
+                            ui.label(RichText::new("Forzar el cierre pierde todo lo que no esté guardado.").color(DANGER));
                             ui.checkbox(&mut st.force_ack, "Sí, forzar el cierre aunque pierda cambios");
                         });
                     }
                     ui.add_space(8.0);
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if show_force && neon_button(ui, "FORZAR CIERRE", RED, vec2(180.0, 44.0), st.force_ack && (!important || st.ack || st.sent_at.is_some())).clicked() {
+                        if show_force && button(ui, "Forzar cierre", DANGER, vec2(180.0, 44.0), st.force_ack && (!important || st.ack || st.sent_at.is_some())).clicked() {
                             force = true;
                         }
-                        if !g.system && st.sent_at.is_none() && has_win && neon_button(ui, "CERRAR NORMALMENTE", CYAN, vec2(240.0, 44.0), !important || st.ack).clicked() {
+                        if !g.system && st.sent_at.is_none() && has_win && button(ui, "Cerrar normalmente", ACCENT, vec2(240.0, 44.0), !important || st.ack).clicked() {
                             send = true;
                         }
-                        if neon_button(ui, "CANCELAR", MUTED, vec2(140.0, 44.0), true).clicked() {
+                        if button(ui, "Cancelar", MUTED, vec2(140.0, 44.0), true).clicked() {
                             cancel = true;
                         }
                     });
@@ -2491,10 +2496,10 @@ impl NexoApp {
 
 fn score_color(s: u8) -> Color32 {
     match s {
-        85..=100 => GREEN,
-        70..=84 => CYAN,
-        55..=69 => AMBER,
-        _ => RED,
+        85..=100 => ACCENT,
+        70..=84 => ACCENT,
+        55..=69 => WARN,
+        _ => DANGER,
     }
 }
 
@@ -2502,10 +2507,10 @@ fn score_color(s: u8) -> Color32 {
 /// Devuelve si se pulsó su botón de acción.
 fn check_row(ui: &mut Ui, state: u8, title: &str, detail: &str, action: Option<&Action>) -> bool {
     let (icon, col) = match state {
-        0 => ("✔", GREEN),
-        1 => ("⚠", AMBER),
-        2 => ("⚠", RED),
-        _ => ("•", CYAN),
+        0 => ("✔", ACCENT),
+        1 => ("⚠", WARN),
+        2 => ("⚠", DANGER),
+        _ => ("•", ACCENT),
     };
     let mut clicked = false;
     ui.horizontal(|ui| {
@@ -2515,7 +2520,7 @@ fn check_row(ui: &mut Ui, state: u8, title: &str, detail: &str, action: Option<&
         if let Some(a) = action {
             if state != 0 {
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    clicked = link(ui, a.label(), CYAN).clicked();
+                    clicked = link(ui, a.label(), ACCENT).clicked();
                 });
             }
         }
@@ -2535,9 +2540,9 @@ fn title_btn(ui: &mut Ui, text: &str, hover: Color32) -> egui::Response {
 
 fn category_card(ui: &mut Ui, r: &mut CatResult, admin: bool, thumbs: &mut ThumbCache) {
     let color = match r.kind {
-        Kind::Safe => GREEN,
-        Kind::Review => AMBER,
-        Kind::Protected => MAGENTA,
+        Kind::Safe => ACCENT,
+        Kind::Review => WARN,
+        Kind::Protected => ACCENT,
     };
     let locked = r.admin_only && !admin;
     let has = r.size > 0 || (r.special == Special::RecycleBin && r.count > 0);
@@ -2560,17 +2565,17 @@ fn category_card(ui: &mut Ui, r: &mut CatResult, admin: bool, thumbs: &mut Thumb
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(r.name).font(font(16.0)));
                     match r.kind {
-                        Kind::Safe => badge(ui, "SEGURO", GREEN),
-                        Kind::Review => badge(ui, "REVISAR", AMBER),
-                        Kind::Protected => badge(ui, "PROTEGIDO", MAGENTA),
+                        Kind::Safe => badge(ui, "Seguro", ACCENT),
+                        Kind::Review => badge(ui, "Revisar", WARN),
+                        Kind::Protected => badge(ui, "Protegido", ACCENT),
                     }
                     if locked {
-                        badge(ui, "ADMIN", ORANGE);
+                        badge(ui, "Admin", ACCENT);
                     }
                 });
                 ui.label(RichText::new(r.desc).size(12.5).color(MUTED));
                 for n in &r.notes {
-                    ui.label(RichText::new(format!("⚠ {}", n)).size(12.0).color(AMBER));
+                    ui.label(RichText::new(format!("⚠ {}", n)).size(12.0).color(WARN));
                 }
             });
             ui.with_layout(Layout::top_down(Align::Max), |ui| {
@@ -2578,7 +2583,7 @@ fn category_card(ui: &mut Ui, r: &mut CatResult, admin: bool, thumbs: &mut Thumb
                     ui.label(RichText::new(fmt::bytes(r.size)).font(font(20.0)).color(color));
                     ui.label(RichText::new(format!("{} elementos", fmt::count(r.count))).size(12.0).color(MUTED));
                 } else if !locked {
-                    ui.label(RichText::new("✔ LIMPIO").font(font(14.0)).color(alpha(GREEN, 190)));
+                    ui.label(RichText::new("✔ Limpio").font(font(14.0)).color(alpha(ACCENT, 190)));
                 }
             });
         });
@@ -2593,7 +2598,7 @@ fn category_card(ui: &mut Ui, r: &mut CatResult, admin: bool, thumbs: &mut Thumb
                 } else {
                     "Ver y elegir archivos  ›"
                 };
-                if link(ui, lbl, CYAN).clicked() {
+                if link(ui, lbl, ACCENT).clicked() {
                     r.expanded = !r.expanded;
                 }
                 if r.expanded && !whole {
@@ -2627,11 +2632,11 @@ fn draw_thumb(ui: &Ui, rect: egui::Rect, tex: Option<Option<egui::TextureHandle>
         }
         other => {
             let ext = rules::ext_of(path).to_uppercase();
-            let col = if other.is_none() { alpha(CYAN, 120) } else { MUTED };
+            let col = if other.is_none() { alpha(ACCENT, 120) } else { MUTED };
             p.text(rect.center(), Align2::CENTER_CENTER, if ext.is_empty() { "?".into() } else { ext }, font(10.5), col);
         }
     }
-    p.rect_stroke(rect, 0.0, Stroke::new(1.0_f32, alpha(CYAN, 70)));
+    p.rect_stroke(rect, 0.0, Stroke::new(1.0_f32, alpha(ACCENT, 70)));
 }
 
 fn items_list(ui: &mut Ui, r: &mut CatResult, thumbs: &mut ThumbCache) {
@@ -2666,8 +2671,8 @@ fn items_list(ui: &mut Ui, r: &mut CatResult, thumbs: &mut ThumbCache) {
                             ui.allocate_ui_with_layout(vec2(w, 46.0), Layout::top_down(Align::LEFT), |ui| {
                                 let name = it.path.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
                                 let (icon, col) = match rules::protection(&it.path) {
-                                    Protect::Video => ("🎬 ", MAGENTA),
-                                    Protect::Document => ("📄 ", MAGENTA),
+                                    Protect::Video => ("🎬 ", ACCENT),
+                                    Protect::Document => ("📄 ", ACCENT),
                                     Protect::No => ("", TEXT),
                                 };
                                 ui.add(egui::Label::new(RichText::new(format!("{}{}", icon, name)).size(13.5).color(col)).truncate());
@@ -2675,7 +2680,7 @@ fn items_list(ui: &mut Ui, r: &mut CatResult, thumbs: &mut ThumbCache) {
                                 ui.add(egui::Label::new(RichText::new(folder).monospace().size(10.5).color(MUTED)).truncate());
                             });
                             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                if link(ui, "Ver", CYAN).on_hover_text("Abrir con su programa").clicked() {
+                                if link(ui, "Ver", ACCENT).on_hover_text("Abrir con su programa").clicked() {
                                     sys::open_file(&it.path);
                                 }
                                 ui.label(RichText::new(fmt::bytes(it.size)).size(12.0));
@@ -2683,7 +2688,7 @@ fn items_list(ui: &mut Ui, r: &mut CatResult, thumbs: &mut ThumbCache) {
                         });
                         if ui.rect_contains_pointer(row.response.rect) {
                             hovered = Some(i);
-                            ui.painter().rect_stroke(row.response.rect.expand(1.0), 0.0, Stroke::new(1.0_f32, alpha(ORANGE, 160)));
+                            ui.painter().rect_stroke(row.response.rect.expand(1.0), 0.0, Stroke::new(1.0_f32, alpha(ACCENT, 160)));
                         }
                     }
                 });
@@ -2694,10 +2699,10 @@ fn items_list(ui: &mut Ui, r: &mut CatResult, thumbs: &mut ThumbCache) {
         // ── Visor
         let shown = r.preview.filter(|i| *i < n).unwrap_or(0);
         ui.allocate_ui_with_layout(vec2(ui.available_width(), height), Layout::top_down(Align::Center), |ui| {
-            tinted_card(CYAN).inner_margin(Margin::same(12.0)).show(ui, |ui| {
+            tinted_card(ACCENT).inner_margin(Margin::same(12.0)).show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 ui.set_min_height(height - 26.0);
-                ui.label(RichText::new("VISOR").font(font(11.0)).color(ORANGE));
+                ui.label(RichText::new("Visor").font(font(11.0)).color(ACCENT));
                 let Some(it) = r.items.get_mut(shown) else { return };
                 let box_w = ui.available_width();
                 let box_h = 190.0;
@@ -2715,10 +2720,10 @@ fn items_list(ui: &mut Ui, r: &mut CatResult, thumbs: &mut ThumbCache) {
                         p.text(bx.center(), Align2::CENTER_CENTER, "Sin vista previa", font(13.0), MUTED);
                     }
                     None => {
-                        p.text(bx.center(), Align2::CENTER_CENTER, "Cargando…", font(13.0), CYAN);
+                        p.text(bx.center(), Align2::CENTER_CENTER, "Cargando…", font(13.0), ACCENT);
                     }
                 }
-                p.rect_stroke(bx, 0.0, Stroke::new(1.0_f32, alpha(CYAN, 80)));
+                p.rect_stroke(bx, 0.0, Stroke::new(1.0_f32, alpha(ACCENT, 80)));
                 let name = it.path.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
                 ui.add(egui::Label::new(RichText::new(name).font(font(14.0))).truncate());
                 let when = std::fs::metadata(&it.path)
@@ -2729,17 +2734,17 @@ fn items_list(ui: &mut Ui, r: &mut CatResult, thumbs: &mut ThumbCache) {
                     .unwrap_or_default();
                 ui.label(RichText::new(format!("{} · {}", fmt::bytes(it.size), when)).size(11.5).color(MUTED));
                 if protected {
-                    ui.label(RichText::new(format!("Origen: {}", it.origin)).size(11.5).color(MAGENTA));
+                    ui.label(RichText::new(format!("Origen: {}", it.origin)).size(11.5).color(ACCENT));
                 }
                 ui.horizontal(|ui| {
-                    if link(ui, "Abrir", CYAN).clicked() {
+                    if link(ui, "Abrir", ACCENT).clicked() {
                         sys::open_file(&it.path);
                     }
-                    if link(ui, "Mostrar en carpeta", CYAN).clicked() {
+                    if link(ui, "Mostrar en carpeta", ACCENT).clicked() {
                         sys::reveal_in_explorer(&it.path);
                     }
                     if !whole {
-                        let (txt, col) = if it.selected { ("Marcado: se borrará", RED) } else { ("Se conserva", GREEN) };
+                        let (txt, col) = if it.selected { ("Marcado: se borrará", DANGER) } else { ("Se conserva", ACCENT) };
                         if link(ui, txt, col).on_hover_text("Cambiar").clicked() {
                             it.selected = !it.selected;
                         }
@@ -2874,16 +2879,7 @@ impl NexoApp {
         self.ops_view(ctx, now);
         self.toast_ui(ctx, now);
         let frame_p = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("border")));
-        frame_p.rect_stroke(screen.shrink(0.5), 0.0, Stroke::new(1.0_f32, alpha(CYAN, 70)));
-        // Esquinas de cabina y franja de advertencia bajo la barra de título.
-        let s = screen.shrink(1.5);
-        let l = 22.0;
-        let st = Stroke::new(3.0_f32, ORANGE);
-        for (c, dx, dy) in [(s.left_top(), 1.0, 1.0), (s.right_top(), -1.0, 1.0), (s.left_bottom(), 1.0, -1.0), (s.right_bottom(), -1.0, -1.0)] {
-            frame_p.line_segment([c, c + vec2(l * dx, 0.0)], st);
-            frame_p.line_segment([c, c + vec2(0.0, l * dy)], st);
-        }
-        hazard(&frame_p, egui::Rect::from_min_max(pos2(screen.right() - 260.0, screen.top() + 37.0), pos2(screen.right() - 20.0, screen.top() + 41.0)), alpha(ORANGE, 170));
+        frame_p.rect_stroke(screen.shrink(0.5), 0.0, Stroke::new(1.0_f32, PANEL_HI));
         resize_edges(ctx);
 
         // Tras arrancar, terminar un trabajo o minimizar: soltar la memoria que ya no se usa.
