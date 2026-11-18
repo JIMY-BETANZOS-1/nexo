@@ -7,6 +7,7 @@
 #[allow(dead_code)]
 mod icon;
 
+/// jimy-betanzos · Incrusta el icono y las propiedades del .exe al compilar en Windows.
 fn main() {
     println!("cargo:rerun-if-changed=src/icon.rs");
     println!("cargo:rerun-if-changed=build.rs");

@@ -12,7 +12,9 @@
 //! La lógica (agrupar, decidir qué se puede compactar, avisos) es común; lo que habla con
 //! el sistema operativo está en `procs_win.rs` o en `unix/procs.rs`.
 
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (collections)
 use std::collections::HashMap;
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (time)
 use std::time::Instant;
 
 #[cfg(windows)]
@@ -22,7 +24,9 @@ mod plat;
 #[path = "unix/procs.rs"]
 mod plat;
 
+// jimy-betanzos · dependencia: módulo propio de la plataforma (Windows o Linux/macOS)
 pub use plat::{close_gracefully, force_kill, trim};
+// jimy-betanzos · dependencia: módulo propio de la plataforma (Windows o Linux/macOS)
 #[allow(unused_imports)]
 pub use plat::{foreground_pid, list_processes, top_windows};
 
@@ -71,15 +75,17 @@ const INSTALLER_EXES: &[&str] = &[
 
 const IO_ACTIVE: f64 = 1.5 * 1024.0 * 1024.0; // bytes/s
 
-/// Nombre comparable entre sistemas: «Chrome.exe», «chrome» y «Google Chrome» se tratan igual.
+/// jimy-betanzos · Nombre comparable entre sistemas: «Chrome.exe», «chrome» y «Google Chrome» se tratan igual.
 fn base(exe: &str) -> &str {
     exe.strip_suffix(".exe").unwrap_or(exe)
 }
 
+/// jimy-betanzos · Indica si un ejecutable está en una de las listas conocidas.
 fn listed(list: &[&str], exe: &str) -> bool {
     list.iter().any(|x| base(x) == base(exe))
 }
 
+/// jimy-betanzos · Nombre legible de un programa («Explorador de Windows»).
 pub fn friendly(exe: &str) -> String {
     let known = match exe {
         "chrome.exe" => "Google Chrome",
@@ -138,6 +144,7 @@ pub fn friendly(exe: &str) -> String {
     }
 }
 
+/// jimy-betanzos · Datos de un proceso: nombre, memoria, CPU y disco.
 #[derive(Clone, Default)]
 pub struct ProcInfo {
     pub pid: u32,
@@ -149,12 +156,14 @@ pub struct ProcInfo {
     pub accessible: bool,
 }
 
+/// jimy-betanzos · Ventana visible de un programa (título y si está al frente).
 pub struct Win {
     pub hwnd: isize,
     pub pid: u32,
     pub title: String,
 }
 
+/// jimy-betanzos · Detecta cambios sin guardar por el título de la ventana (*).
 fn looks_unsaved(title: &str) -> bool {
     let t = title.to_lowercase();
     title.starts_with('*')
@@ -166,6 +175,7 @@ fn looks_unsaved(title: &str) -> bool {
         || t.contains("(modificado)")
 }
 
+/// jimy-betanzos · Programa agrupado con todos sus procesos.
 #[derive(Clone, Default)]
 pub struct AppGroup {
     pub exe: String,
@@ -184,22 +194,26 @@ pub struct AppGroup {
     pub accessible: bool,
 }
 
+/// jimy-betanzos · Métodos de AppGroup.
 impl AppGroup {
+    /// jimy-betanzos · Indica si el programa está leyendo o escribiendo en disco.
     pub fn io_active(&self) -> bool {
         self.io_rate > IO_ACTIVE
     }
 
+    /// jimy-betanzos · Indica si el programa está inactivo (casi sin CPU ni disco).
     pub fn idle(&self) -> bool {
         self.cpu_pct < 1.5 && !self.io_active()
     }
 
     // jimy-betanzos: solo se compacta lo que el usuario no está usando; nunca procesos del
     // sistema, la ventana activa ni un programa que se está instalando.
-    /// Se puede compactar sin molestar: segundo plano, inactivo y no del sistema.
+    /// jimy-betanzos · Se puede compactar sin molestar: segundo plano, inactivo y no del sistema.
     pub fn can_trim(&self) -> bool {
         plat::PER_APP_TRIM && !self.system && !self.foreground && !self.installing && self.accessible && self.idle()
     }
 
+    /// jimy-betanzos · Motivos para tener cuidado antes de cerrar el programa.
     pub fn reasons(&self) -> Vec<&'static str> {
         let mut r = Vec::new();
         if self.unsaved {
@@ -221,7 +235,7 @@ impl AppGroup {
     }
 }
 
-/// Toma muestras sucesivas para calcular CPU y actividad de disco por programa.
+/// jimy-betanzos · Toma muestras sucesivas para calcular CPU y actividad de disco por programa.
 #[derive(Default)]
 pub struct Sampler {
     prev: HashMap<u32, (u64, u64)>,
@@ -229,8 +243,9 @@ pub struct Sampler {
     sys_prev: Option<(u64, u64)>,
 }
 
+/// jimy-betanzos · Métodos de Sampler.
 impl Sampler {
-    /// Devuelve los programas agrupados por ejecutable (ordenados por memoria) y la CPU total.
+    /// jimy-betanzos · Devuelve los programas agrupados por ejecutable (ordenados por memoria) y la CPU total.
     pub fn sample(&mut self, with_windows: bool) -> (Vec<AppGroup>, f32) {
         let procs = list_processes();
         let now = Instant::now();
@@ -282,6 +297,7 @@ impl Sampler {
         (v, self.system_cpu())
     }
 
+    /// jimy-betanzos · Uso total del procesador desde la última medición.
     fn system_cpu(&mut self) -> f32 {
         let Some((idle, total)) = plat::cpu_times() else { return 0.0 };
         let pct = match self.sys_prev {
@@ -296,7 +312,7 @@ impl Sampler {
     }
 }
 
-/// Igual que `trim_idle`, informando el avance en milésimas (para la barra de progreso).
+/// jimy-betanzos · Igual que `trim_idle`, informando el avance en milésimas (para la barra de progreso).
 pub fn trim_idle_progress(groups: &[AppGroup], progress: &std::sync::atomic::AtomicU32) -> (usize, u64) {
     #[cfg(unix)]
     {
@@ -318,7 +334,7 @@ pub fn trim_idle_progress(groups: &[AppGroup], progress: &std::sync::atomic::Ato
     (n, freed)
 }
 
-/// Compacta todos los programas inactivos de segundo plano. Devuelve (programas, bytes).
+/// jimy-betanzos · Compacta todos los programas inactivos de segundo plano. Devuelve (programas, bytes).
 #[cfg_attr(unix, allow(dead_code))]
 pub fn trim_idle(groups: &[AppGroup]) -> (usize, u64) {
     let mut n = 0;

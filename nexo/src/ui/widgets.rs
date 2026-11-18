@@ -7,20 +7,23 @@
 //! barras, botones y etiquetas. Todo es vectorial (sin imágenes): el ejecutable sigue
 //! siendo pequeño. Estilo sobrio de un solo color de acento (ver theme.rs).
 
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (f32)
 use std::f32::consts::{FRAC_PI_2, TAU};
 
+// jimy-betanzos · dependencia: ventana e interfaz gráfica (eframe/egui)
 use eframe::egui::{
     self, pos2, vec2, Align2, Color32, CursorIcon, Frame, InnerResponse, Margin, Painter, Pos2, Rect,
     Response, RichText, Sense, Shape, Stroke, Ui, Vec2,
 };
 
+// jimy-betanzos · dependencia: módulo propio de la interfaz (theme)
 use super::theme::*;
 
 // ───────────────────────────── geometría ─────────────────────────────
 
 const ROUND: f32 = 6.0;
 
-/// Tarjeta plana: fondo, tinte opcional del color de estado y borde de 1 px.
+/// jimy-betanzos · Tarjeta plana: fondo, tinte opcional del color de estado y borde de 1 px.
 fn card_shapes(r: Rect, fill: Color32, tint: Option<Color32>, stroke: Stroke) -> Vec<Shape> {
     let mut v = vec![Shape::rect_filled(r, ROUND, fill)];
     if let Some(t) = tint {
@@ -32,7 +35,7 @@ fn card_shapes(r: Rect, fill: Color32, tint: Option<Color32>, stroke: Stroke) ->
 
 // ───────────────────────────── paneles ─────────────────────────────
 
-/// Panel de cabina. Mismas opciones que un marco normal (relleno, borde, margen).
+/// jimy-betanzos · Panel de cabina. Mismas opciones que un marco normal (relleno, borde, margen).
 #[derive(Clone, Copy)]
 pub struct Card {
     fill: Color32,
@@ -41,19 +44,24 @@ pub struct Card {
     margin: Margin,
 }
 
+/// jimy-betanzos · Métodos de Card.
 impl Card {
+    /// jimy-betanzos · Cambia el color de fondo de la tarjeta.
     pub fn fill(mut self, c: Color32) -> Self {
         self.fill = c;
         self
     }
+    /// jimy-betanzos · Cambia el borde de la tarjeta.
     pub fn stroke(mut self, s: Stroke) -> Self {
         self.stroke = s;
         self
     }
+    /// jimy-betanzos · Cambia el margen interior de la tarjeta.
     pub fn inner_margin(mut self, m: Margin) -> Self {
         self.margin = m;
         self
     }
+    /// jimy-betanzos · Dibuja la tarjeta con su contenido.
     pub fn show<R>(self, ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> InnerResponse<R> {
         // Se reserva el fondo antes del contenido y se dibuja al conocer su tamaño.
         let bg = ui.painter().add(Shape::Noop);
@@ -68,21 +76,24 @@ impl Card {
     }
 }
 
+/// jimy-betanzos · Tarjeta normal.
 pub fn card() -> Card {
     Card { fill: PANEL, tint: None, stroke: Stroke::new(1.0_f32, PANEL_HI), margin: Margin::same(18.0) }
 }
 
-/// Tarjeta con un leve tinte del color indicado (acento o aviso).
+/// jimy-betanzos · Tarjeta con un leve tinte del color indicado (acento o aviso).
 pub fn tinted_card(c: Color32) -> Card {
     Card { fill: PANEL, tint: Some(alpha(c, 14)), stroke: Stroke::new(1.0_f32, alpha(c, 70)), margin: Margin::same(18.0) }
 }
 
 // ───────────────────────────── fondo ─────────────────────────────
 
+/// jimy-betanzos · Pinta el fondo de la ventana.
 pub fn background(p: &Painter, rect: Rect) {
     p.rect_filled(rect, 0.0, BG);
 }
 
+/// jimy-betanzos · Puntos de un arco de círculo.
 pub fn arc_points(c: Pos2, r: f32, a0: f32, a1: f32) -> Vec<Pos2> {
     let n = ((a1 - a0).abs() * r / 3.0).max(8.0) as usize;
     (0..=n)
@@ -93,7 +104,7 @@ pub fn arc_points(c: Pos2, r: f32, a0: f32, a1: f32) -> Vec<Pos2> {
         .collect()
 }
 
-/// Indicador circular de progreso: pista gris y arco del color indicado.
+/// jimy-betanzos · Indicador circular de progreso: pista gris y arco del color indicado.
 pub fn ring(p: &Painter, c: Pos2, r: f32, frac: f32, color: Color32, w: f32) {
     p.circle_stroke(c, r, Stroke::new(w, PANEL_HI));
     let f = frac.clamp(0.0, 1.0);
@@ -102,14 +113,14 @@ pub fn ring(p: &Painter, c: Pos2, r: f32, frac: f32, color: Color32, w: f32) {
     }
 }
 
-/// Indicador de actividad mientras se escanea: un arco que gira sobre una pista gris.
+/// jimy-betanzos · Indicador de actividad mientras se escanea: un arco que gira sobre una pista gris.
 pub fn scanner(p: &Painter, c: Pos2, r: f32, t: f32, color: Color32) {
     p.circle_stroke(c, r, Stroke::new(4.0_f32, PANEL_HI));
     let a0 = t * 3.0;
     p.add(Shape::line(arc_points(c, r, a0, a0 + 1.6), Stroke::new(4.0_f32, color)));
 }
 
-/// Logotipo: hexágono con un punto central, en el color de acento.
+/// jimy-betanzos · Logotipo: hexágono con un punto central, en el color de acento.
 pub fn logo(p: &Painter, c: Pos2, r: f32) {
     let pts: Vec<Pos2> = (0..6)
         .map(|i| {
@@ -123,7 +134,7 @@ pub fn logo(p: &Painter, c: Pos2, r: f32) {
 
 // ───────────────────────────── controles ─────────────────────────────
 
-/// Botón principal: relleno del color indicado y texto claro.
+/// jimy-betanzos · Botón principal: relleno del color indicado y texto claro.
 pub fn button(ui: &mut Ui, text: &str, color: Color32, size: Vec2, enabled: bool) -> Response {
     let (rect, resp) = ui.allocate_exact_size(size, if enabled { Sense::click() } else { Sense::hover() });
     let h = ui.ctx().animate_bool(resp.id, enabled && resp.hovered());
@@ -142,12 +153,13 @@ pub fn button(ui: &mut Ui, text: &str, color: Color32, size: Vec2, enabled: bool
     }
 }
 
-/// Botón de texto pequeño (enlaces de acción).
+/// jimy-betanzos · Botón de texto pequeño (enlaces de acción).
 pub fn link(ui: &mut Ui, text: &str, color: Color32) -> Response {
     ui.add(egui::Label::new(RichText::new(text).color(color).size(13.0)).sense(Sense::click()))
         .on_hover_cursor(CursorIcon::PointingHand)
 }
 
+/// jimy-betanzos · Botón pequeño de opción (Diario, Semanal…).
 pub fn chip(ui: &mut Ui, text: &str, selected: bool) -> Response {
     let galley = ui.painter().layout_no_wrap(text.to_string(), font(13.5), TEXT);
     let size = galley.size() + vec2(28.0, 12.0);
@@ -163,7 +175,7 @@ pub fn chip(ui: &mut Ui, text: &str, selected: bool) -> Response {
     resp.on_hover_cursor(CursorIcon::PointingHand)
 }
 
-/// Etiqueta de estado pequeña.
+/// jimy-betanzos · Etiqueta de estado pequeña.
 pub fn badge(ui: &mut Ui, text: &str, color: Color32) {
     let galley = ui.painter().layout_no_wrap(text.to_string(), font(11.0), color);
     let size = galley.size() + vec2(14.0, 6.0);
@@ -173,6 +185,7 @@ pub fn badge(ui: &mut Ui, text: &str, color: Color32) {
     p.galley(rect.center() - galley.size() / 2.0, galley, color);
 }
 
+/// jimy-betanzos · Interruptor de encendido y apagado.
 pub fn toggle(ui: &mut Ui, on: &mut bool) -> Response {
     let (rect, mut resp) = ui.allocate_exact_size(vec2(44.0, 22.0), Sense::click());
     if resp.clicked() {
@@ -187,7 +200,7 @@ pub fn toggle(ui: &mut Ui, on: &mut bool) -> Response {
     resp.on_hover_cursor(CursorIcon::PointingHand)
 }
 
-/// Barra de nivel continua.
+/// jimy-betanzos · Barra de nivel continua.
 pub fn bar(ui: &mut Ui, frac: f32, color: Color32, height: f32) {
     let w = ui.available_width();
     let (rect, _) = ui.allocate_exact_size(vec2(w, height.max(5.0)), Sense::hover());
@@ -200,7 +213,7 @@ pub fn bar(ui: &mut Ui, frac: f32, color: Color32, height: f32) {
     }
 }
 
-/// Barra de progreso. Con `None` (avance desconocido) un tramo recorre la barra.
+/// jimy-betanzos · Barra de progreso. Con `None` (avance desconocido) un tramo recorre la barra.
 pub fn progress_bar(ui: &mut Ui, frac: Option<f32>, color: Color32, t: f32) {
     let w = ui.available_width();
     let (rect, _) = ui.allocate_exact_size(vec2(w, 6.0), Sense::hover());
@@ -219,6 +232,7 @@ pub fn progress_bar(ui: &mut Ui, frac: Option<f32>, color: Color32, t: f32) {
     }
 }
 
+/// jimy-betanzos · Color según el nivel de uso (normal, alto, crítico).
 pub fn level_color(frac: f32) -> Color32 {
     if frac >= 0.9 {
         DANGER
@@ -229,6 +243,7 @@ pub fn level_color(frac: f32) -> Color32 {
     }
 }
 
+/// jimy-betanzos · Tarjeta de dato del Panel (disco, RAM, energía…).
 pub fn stat_card(ui: &mut Ui, icon: &str, title: &str, value: &str, sub: &str, color: Color32, frac: Option<f32>) {
     tinted_card(color).show(ui, |ui| {
         ui.set_width(ui.available_width());
@@ -246,6 +261,7 @@ pub fn stat_card(ui: &mut Ui, icon: &str, title: &str, value: &str, sub: &str, c
     });
 }
 
+/// jimy-betanzos · Opción del menú lateral.
 pub fn nav_item(ui: &mut Ui, icon: &str, label: &str, selected: bool, tag: Option<&str>) -> Response {
     let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 40.0), Sense::click());
     let h = ui.ctx().animate_bool(resp.id, resp.hovered());
@@ -266,7 +282,7 @@ pub fn nav_item(ui: &mut Ui, icon: &str, label: &str, selected: bool, tag: Optio
     resp.on_hover_cursor(CursorIcon::PointingHand)
 }
 
-/// Encabezado de cada página: categoría pequeña, título y descripción.
+/// jimy-betanzos · Encabezado de cada página: categoría pequeña, título y descripción.
 pub fn header(ui: &mut Ui, kicker: &str, title: &str, sub: &str) {
     ui.label(RichText::new(kicker.trim_start_matches("› ")).size(12.5).color(MUTED));
     ui.label(RichText::new(title).font(font(26.0)).color(TEXT));
@@ -276,7 +292,7 @@ pub fn header(ui: &mut Ui, kicker: &str, title: &str, sub: &str) {
     ui.add_space(6.0);
 }
 
-/// Título de sección. El color se ignora a propósito: todas las secciones van en el mismo tono.
+/// jimy-betanzos · Título de sección. El color se ignora a propósito: todas las secciones van en el mismo tono.
 pub fn section(ui: &mut Ui, title: &str, sub: &str, _color: Color32) {
     ui.add_space(6.0);
     ui.horizontal(|ui| {
@@ -285,7 +301,7 @@ pub fn section(ui: &mut Ui, title: &str, sub: &str, _color: Color32) {
     });
 }
 
-/// Gráfico de línea con relleno (0–100): los últimos 90 valores.
+/// jimy-betanzos · Gráfico de línea con relleno (0–100): los últimos 90 valores.
 pub fn sparkline(ui: &mut Ui, data: &[f32], color: Color32) {
     let w = ui.available_width();
     let (rect, _) = ui.allocate_exact_size(vec2(w, 54.0), Sense::hover());

@@ -3,36 +3,53 @@
 //  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
 // ════════════════════════════════════════════════════════════════════════
 
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (collections)
 use std::collections::VecDeque;
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
 use std::path::Path;
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
 use std::sync::atomic::{AtomicBool, Ordering};
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
 use std::sync::mpsc::{channel, Receiver};
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
 use std::sync::{Arc, Mutex};
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (time)
 use std::time::Duration;
 
+// jimy-betanzos · dependencia: ventana e interfaz gráfica (eframe/egui)
 use eframe::egui::{
     self, pos2, vec2, Align, Align2, Color32, Layout, Margin, RichText, ScrollArea, Sense, Stroke, Ui,
     ViewportCommand,
 };
 
+// jimy-betanzos · dependencia: módulo propio de la interfaz (theme)
 use super::theme::*;
+// jimy-betanzos · dependencia: módulo propio de la interfaz (thumbcache)
 use super::thumbcache::{ThumbCache, BIG, SMALL};
+// jimy-betanzos · dependencia: módulo propio de la interfaz (widgets)
 use super::widgets::*;
+// jimy-betanzos · dependencia: módulo propio clean
 use crate::clean::{self, CleanReport};
+// jimy-betanzos · dependencia: módulo propio config
 use crate::config::{self, Config, Frequency, HistoryEntry};
+// jimy-betanzos · dependencia: módulo propio rules
 use crate::rules::{self, CategoryDef, Env, Kind, Protect, Special};
+// jimy-betanzos · dependencia: módulo propio procs
 use crate::procs::{self, AppGroup, Sampler};
+// jimy-betanzos · dependencia: módulo propio scan
 use crate::scan::{self, CatResult, Ctx, Progress, Shared};
+// jimy-betanzos · dependencia: módulo propio diag
 use crate::diag::{self, Action, Report};
+// jimy-betanzos · dependencia: módulo propio
 use crate::{adb, fmt, install, notify, schedule, sys, vigia};
 
-/// Resultado de un trabajo en segundo plano: se aplica en el hilo de la interfaz.
+/// jimy-betanzos · Resultado de un trabajo en segundo plano: se aplica en el hilo de la interfaz.
 type Apply = Box<dyn FnOnce(&mut NexoApp, f64) + Send>;
 
 /// Avance desconocido (barra animada en lugar de porcentaje).
 const INDET: u32 = u32::MAX;
 
-/// Operación en curso que se muestra en el panel "En curso".
+/// jimy-betanzos · Operación en curso que se muestra en el panel "En curso".
 struct Op {
     id: u64,
     label: String,
@@ -40,7 +57,7 @@ struct Op {
     started: f64,
 }
 
-/// Cierre de un programa en curso (ventana de confirmación).
+/// jimy-betanzos · Cierre de un programa en curso (ventana de confirmación).
 struct CloseState {
     g: AppGroup,
     sent_at: Option<f64>,
@@ -49,6 +66,7 @@ struct CloseState {
     done: Option<String>,
 }
 
+/// jimy-betanzos · Pantallas de la aplicación (Panel, Limpieza, Automático…).
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Page {
     Panel,
@@ -61,9 +79,10 @@ enum Page {
     Mobile,
 }
 
-/// Resultado de simular el modo automático: (bytes, archivos, detalle por categoría).
+/// jimy-betanzos · Resultado de simular el modo automático: (bytes, archivos, detalle por categoría).
 type Simulation = (u64, u64, Vec<(String, u64)>);
 
+/// jimy-betanzos · Trabajo en curso: escaneo, limpieza o simulación.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Busy {
     Scan,
@@ -71,12 +90,14 @@ enum Busy {
     Simulate,
 }
 
+/// jimy-betanzos · Mensajes que envían los hilos de trabajo a la ventana.
 enum Msg {
     Scanned(Vec<CatResult>),
     Cleaned(CleanReport),
     Simulated(Vec<CatResult>),
 }
 
+/// jimy-betanzos · Datos del equipo que se muestran en el Panel.
 struct Snapshot {
     mem: sys::Mem,
     disk_free: u64,
@@ -85,11 +106,13 @@ struct Snapshot {
     at: f64,
 }
 
+/// jimy-betanzos · Toma los datos actuales de disco, memoria y batería.
 fn snapshot(now: f64) -> Snapshot {
     let (free, total) = sys::disk_space(&sys::system_drive());
     Snapshot { mem: sys::memory(), disk_free: free, disk_total: total, power: sys::power(), at: now }
 }
 
+/// jimy-betanzos · Estado completo de la ventana de NEXO.
 pub struct NexoApp {
     page: Page,
     env: Arc<Env>,
@@ -155,13 +178,16 @@ pub struct NexoApp {
     adb_started: f64,
 }
 
+/// jimy-betanzos · Mensajes de las tareas con celulares.
 enum AdbMsg {
     Devices(Result<Vec<adb::Dev>, String>),
     Loaded(String, Result<adb::Info, String>, Vec<adb::Bloat>, Vec<(String, f64)>),
     Done(Result<String, String>, bool),
 }
 
+/// jimy-betanzos · Métodos de NexoApp.
 impl NexoApp {
+    /// jimy-betanzos · Prepara la ventana, el estilo y los datos iniciales.
     pub fn new(cc: &eframe::CreationContext, start_page: Option<String>) -> Self {
         setup(&cc.egui_ctx);
         let env = Env::detect();
@@ -248,6 +274,7 @@ impl NexoApp {
         app
     }
 
+    /// jimy-betanzos · Comprueba si la tarea programada sigue registrada.
     fn check_task(&mut self) {
         self.bg(|| {
             let reg = schedule::is_registered();
@@ -255,7 +282,7 @@ impl NexoApp {
         });
     }
 
-    /// Ejecuta `work` en otro hilo; lo que devuelve se aplica luego en la interfaz.
+    /// jimy-betanzos · Ejecuta `work` en otro hilo; lo que devuelve se aplica luego en la interfaz.
     fn bg(&mut self, work: impl FnOnce() -> Apply + Send + 'static) {
         let (tx, rx) = channel();
         self.jobs.push(rx);
@@ -265,7 +292,7 @@ impl NexoApp {
         });
     }
 
-    /// Igual que `bg`, para acciones del usuario: aparecen en el panel "En curso" y, mientras
+    /// jimy-betanzos · Igual que `bg`, para acciones del usuario: aparecen en el panel "En curso" y, mientras
     /// corren, sus botones se desactivan. `work` recibe dónde informar su avance (milésimas).
     fn bg_action(&mut self, label: &str, work: impl FnOnce(Arc<std::sync::atomic::AtomicU32>) -> Apply + Send + 'static) {
         self.pending_actions += 1;
@@ -283,8 +310,9 @@ impl NexoApp {
         });
     }
 
-    /// Panel "En curso": todo lo que NEXO está haciendo, con su avance y tiempo.
+    /// jimy-betanzos · Panel "En curso": todo lo que NEXO está haciendo, con su avance y tiempo.
     fn ops_view(&mut self, ctx: &egui::Context, now: f64) {
+        // jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
         use std::sync::atomic::Ordering;
         let mut rows: Vec<(String, Option<f32>, f64, Color32)> = Vec::new();
         if let Some(b) = self.busy {
@@ -352,6 +380,7 @@ impl NexoApp {
         ctx.request_repaint_after(Duration::from_millis(100));
     }
 
+    /// jimy-betanzos · Revisa el avance de los trabajos en segundo plano.
     fn poll_jobs(&mut self, now: f64) {
         let mut done: Vec<Apply> = Vec::new();
         self.jobs.retain(|rx| match rx.try_recv() {
@@ -367,10 +396,12 @@ impl NexoApp {
         }
     }
 
+    /// jimy-betanzos · Muestra un aviso breve en la parte inferior.
     fn show_toast(&mut self, text: String, color: Color32, now: f64) {
         self.toast = Some((text, color, now + 5.0));
     }
 
+    /// jimy-betanzos · Recibe los resultados del escaneo y la limpieza.
     fn poll(&mut self, now: f64) {
         let msg = self.rx.as_ref().and_then(|rx| rx.try_recv().ok());
         let Some(msg) = msg else { return };
@@ -405,6 +436,7 @@ impl NexoApp {
         }
     }
 
+    /// jimy-betanzos · Lanza el escaneo en un hilo aparte.
     fn spawn_scan(&mut self, only: Option<Vec<String>>, simulate: bool) {
         if self.busy.is_some() {
             return;
@@ -431,6 +463,7 @@ impl NexoApp {
         });
     }
 
+    /// jimy-betanzos · Lanza la limpieza en un hilo aparte.
     fn spawn_clean(&mut self) {
         let Some(results) = self.results.clone() else { return };
         if self.busy.is_some() {
@@ -458,6 +491,7 @@ impl NexoApp {
 
     // ───────────────────────────── marco de la ventana ─────────────────────────────
 
+    /// jimy-betanzos · Dibuja la barra de título con los botones de ventana.
     fn titlebar(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("titlebar")
             .exact_height(40.0)
@@ -495,6 +529,7 @@ impl NexoApp {
             });
     }
 
+    /// jimy-betanzos · Dibuja el menú lateral.
     fn sidebar(&mut self, ctx: &egui::Context) {
         egui::SidePanel::left("side")
             .exact_width(240.0)
@@ -546,6 +581,7 @@ impl NexoApp {
 
     // ───────────────────────────── páginas ─────────────────────────────
 
+    /// jimy-betanzos · Pantalla Panel: estado del equipo.
     fn page_panel(&mut self, ui: &mut Ui) {
         header(ui, "› Centro de control", &self.model, "Estado de tu equipo en tiempo real. Todo se analiza aquí mismo, sin internet.");
         let s = &self.snap;
@@ -651,6 +687,7 @@ impl NexoApp {
         }
     }
 
+    /// jimy-betanzos · Aviso cuando falta el permiso de administrador.
     fn admin_banner(&mut self, ui: &mut Ui, ctx: &egui::Context) {
         if self.admin || cfg!(unix) {
             return;
@@ -670,6 +707,7 @@ impl NexoApp {
         ui.add_space(6.0);
     }
 
+    /// jimy-betanzos · Pantalla Limpieza.
     fn page_clean(&mut self, ui: &mut Ui, t: f32) {
         header(ui, "› Limpieza inteligente", "Buscar y eliminar basura", "Nada se borra sin que lo veas primero. Tus videos y documentos quedan protegidos.");
         let ctx = ui.ctx().clone();
@@ -681,6 +719,7 @@ impl NexoApp {
         }
     }
 
+    /// jimy-betanzos · Vista mientras se escanea o limpia.
     fn busy_view(&mut self, ui: &mut Ui, t: f32) {
         let p = self.progress.lock().map(|p| p.clone()).unwrap_or_default();
         let cleaning = self.busy == Some(Busy::Clean);
@@ -724,6 +763,7 @@ impl NexoApp {
         }
     }
 
+    /// jimy-betanzos · Vista inicial de Limpieza («Listo para escanear»).
     fn idle_view(&mut self, ui: &mut Ui) {
         if let Some(rep) = &self.report {
             tinted_card(ACCENT).show(ui, |ui| {
@@ -768,6 +808,7 @@ impl NexoApp {
         }
     }
 
+    /// jimy-betanzos · Vista con los resultados del escaneo por categoría.
     fn results_view(&mut self, ui: &mut Ui) {
         let admin = self.admin;
         let mut open_confirm = false;
@@ -855,6 +896,7 @@ impl NexoApp {
         }
     }
 
+    /// jimy-betanzos · Pantalla Automático: programación de la limpieza.
     fn page_auto(&mut self, ui: &mut Ui, t: f32) {
         header(ui, "› Piloto automático", "Limpieza automática", &format!("{} abre NEXO a la hora elegida, limpia la basura y lo cierra. En reposo consume 0 MB de RAM.", diag::txt("os")));
         let mut apply = false;
@@ -1061,6 +1103,7 @@ impl NexoApp {
         }
     }
 
+    /// jimy-betanzos · Pantalla Historial de limpiezas.
     fn page_history(&mut self, ui: &mut Ui) {
         header(ui, "› Registro", "Historial de limpiezas", "Cada limpieza, manual o automática, queda anotada aquí.");
         if self.history.is_empty() {
@@ -1117,6 +1160,7 @@ impl NexoApp {
         });
     }
 
+    /// jimy-betanzos · Ventana para confirmar la limpieza.
     fn confirm_modal(&mut self, ctx: &egui::Context) {
         let Some(results) = self.results.as_ref() else {
             self.confirm = false;
@@ -1220,6 +1264,7 @@ impl NexoApp {
 
     // ───────────────────────────── diagnóstico y protección (fase 3) ─────────────────────────────
 
+    /// jimy-betanzos · Recibe los resultados del diagnóstico y del antivirus.
     fn poll_phase3(&mut self, now: f64) {
         if let Some(r) = self.diag_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             self.diag_rx = None;
@@ -1258,6 +1303,7 @@ impl NexoApp {
         }
     }
 
+    /// jimy-betanzos · Lanza el diagnóstico en un hilo aparte.
     fn start_diag(&mut self) {
         if self.diag_rx.is_some() {
             return;
@@ -1273,6 +1319,7 @@ impl NexoApp {
         });
     }
 
+    /// jimy-betanzos · Lanza el análisis rápido del antivirus.
     fn start_mpscan(&mut self) {
         if self.mpscan_rx.is_some() {
             return;
@@ -1288,6 +1335,7 @@ impl NexoApp {
         });
     }
 
+    /// jimy-betanzos · Ejecuta la acción de una recomendación.
     fn do_action(&mut self, a: Action, now: f64) {
         match a {
             Action::GoClean => self.page = Page::Clean,
@@ -1305,7 +1353,7 @@ impl NexoApp {
         }
     }
 
-    /// Cambia a «Equilibrado» guardando el plan anterior, o lo restaura (deshacer).
+    /// jimy-betanzos · Cambia a «Equilibrado» guardando el plan anterior, o lo restaura (deshacer).
     fn set_balanced(&mut self, on: bool, now: f64) {
         if self.pending_actions > 0 {
             return;
@@ -1343,6 +1391,7 @@ impl NexoApp {
         });
     }
 
+    /// jimy-betanzos · Activa o desactiva un programa de inicio.
     fn toggle_startup(&mut self, i: usize, on: bool, now: f64) {
         let result = {
             let Some(d) = self.diag.as_mut() else { return };
@@ -1365,6 +1414,7 @@ impl NexoApp {
         }
     }
 
+    /// jimy-betanzos · Vista mientras corre el diagnóstico.
     fn diag_running_view(&mut self, ui: &mut Ui, t: f32) {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
@@ -1381,6 +1431,7 @@ impl NexoApp {
         });
     }
 
+    /// jimy-betanzos · Tarjeta inicial del diagnóstico con su botón.
     fn diag_hero(&mut self, ui: &mut Ui, title: &str, sub: &str, action: &str) {
         let mut go = false;
         card().show(ui, |ui| {
@@ -1401,6 +1452,7 @@ impl NexoApp {
         }
     }
 
+    /// jimy-betanzos · Pantalla Diagnóstico.
     fn page_diag(&mut self, ui: &mut Ui, t: f32) {
         header(ui, "› Diagnóstico", "Chequeo general", "Una nota de 0 a 100 por áreas, calculada aquí mismo y sin internet. Las mejoras se pueden deshacer.");
         let now = ui.input(|i| i.time);
@@ -1617,6 +1669,7 @@ impl NexoApp {
         }
     }
 
+    /// jimy-betanzos · Pantalla Protección.
     fn page_shield(&mut self, ui: &mut Ui, t: f32) {
         header(ui, "› Escudo", "Protección", &format!("Revisa la seguridad de {} sin internet, apoyándose en {}.", diag::txt("os"), diag::txt("av")));
         let now = ui.input(|i| i.time);
@@ -1797,6 +1850,7 @@ impl NexoApp {
 
     // ───────────────────────────── celulares (fase 4) ─────────────────────────────
 
+    /// jimy-betanzos · Lanza una tarea con celulares en un hilo aparte.
     fn adb_spawn(&mut self, label: &str, f: impl FnOnce() -> AdbMsg + Send + 'static) {
         if self.adb_rx.is_some() {
             return;
@@ -1810,10 +1864,12 @@ impl NexoApp {
         });
     }
 
+    /// jimy-betanzos · Vuelve a buscar celulares conectados.
     fn adb_refresh(&mut self) {
         self.adb_spawn("Buscando celulares…", || AdbMsg::Devices(adb::devices()));
     }
 
+    /// jimy-betanzos · Lee los datos de un celular.
     fn adb_load(&mut self, serial: String) {
         // Al recargar el mismo celular se conserva lo mostrado: la página no salta arriba.
         if self.dev_sel.as_deref() != Some(serial.as_str()) {
@@ -1828,6 +1884,7 @@ impl NexoApp {
         });
     }
 
+    /// jimy-betanzos · Recibe los resultados de las tareas con celulares.
     fn poll_adb(&mut self, now: f64) {
         let Some(msg) = self.adb_rx.as_ref().and_then(|rx| rx.try_recv().ok()) else { return };
         self.adb_rx = None;
@@ -1872,6 +1929,7 @@ impl NexoApp {
         }
     }
 
+    /// jimy-betanzos · Pantalla Celulares.
     fn page_mobile(&mut self, ui: &mut Ui, t: f32) {
         header(ui, "› Enlace móvil", "Celulares", "Realme C11 2021 y Honor X7 · por USB o WiFi local, sin internet.");
         if adb::adb_path().is_none() {
@@ -1886,6 +1944,7 @@ impl NexoApp {
             self.adb_scanned = true;
             self.adb_refresh();
         }
+        /// jimy-betanzos · Acción pedida sobre un celular.
         enum Act {
             Refresh,
             Select(String),
@@ -2075,7 +2134,7 @@ impl NexoApp {
 
     // ───────────────────────────── memoria RAM (fase 2) ─────────────────────────────
 
-    /// Mide los programas en otro hilo: la ventana no se traba cada 2 segundos.
+    /// jimy-betanzos · Mide los programas en otro hilo: la ventana no se traba cada 2 segundos.
     fn refresh_ram(&mut self, now: f64) {
         if self.ram_pending {
             return;
@@ -2102,6 +2161,7 @@ impl NexoApp {
         });
     }
 
+    /// jimy-betanzos · Activa o desactiva el vigía en segundo plano.
     fn set_vigia(&mut self, on: bool, now: f64) {
         if self.pending_actions > 0 {
             return;
@@ -2141,6 +2201,7 @@ impl NexoApp {
         });
     }
 
+    /// jimy-betanzos · Pantalla Memoria RAM.
     fn page_ram(&mut self, ui: &mut Ui) {
         header(ui, "› Estabilizador", "Memoria RAM", "Vigila la memoria y actúa solo cuando hay un problema real. Nunca cierra nada sin tu permiso.");
         let now = ui.input(|i| i.time);
@@ -2357,6 +2418,7 @@ impl NexoApp {
         }
     }
 
+    /// jimy-betanzos · Ventana para cerrar un programa con cuidado.
     fn close_modal(&mut self, ctx: &egui::Context, now: f64) {
         let exe = self.close.as_ref().map(|c| c.g.exe.clone()).unwrap_or_default();
         let alive = sys::running_processes().contains(&exe);
@@ -2475,6 +2537,7 @@ impl NexoApp {
         }
     }
 
+    /// jimy-betanzos · Dibuja el aviso breve.
     fn toast_ui(&mut self, ctx: &egui::Context, now: f64) {
         let Some((text, col, until)) = self.toast.clone() else { return };
         if now > until {
@@ -2494,6 +2557,7 @@ impl NexoApp {
     }
 }
 
+/// jimy-betanzos · Color según la nota (normal, aviso o grave).
 fn score_color(s: u8) -> Color32 {
     match s {
         85..=100 => ACCENT,
@@ -2503,7 +2567,7 @@ fn score_color(s: u8) -> Color32 {
     }
 }
 
-/// Fila de comprobación: 0 bien · 1 revisar · 2 importante · 3 informativo.
+/// jimy-betanzos · Fila de comprobación: 0 bien · 1 revisar · 2 importante · 3 informativo.
 /// Devuelve si se pulsó su botón de acción.
 fn check_row(ui: &mut Ui, state: u8, title: &str, detail: &str, action: Option<&Action>) -> bool {
     let (icon, col) = match state {
@@ -2528,6 +2592,7 @@ fn check_row(ui: &mut Ui, state: u8, title: &str, detail: &str, action: Option<&
     clicked
 }
 
+/// jimy-betanzos · Botón de la barra de título (minimizar, maximizar, cerrar).
 fn title_btn(ui: &mut Ui, text: &str, hover: Color32) -> egui::Response {
     let (rect, resp) = ui.allocate_exact_size(vec2(42.0, 30.0), Sense::click());
     let p = ui.painter();
@@ -2538,6 +2603,7 @@ fn title_btn(ui: &mut Ui, text: &str, hover: Color32) -> egui::Response {
     resp
 }
 
+/// jimy-betanzos · Tarjeta de una categoría con su casilla y tamaño.
 fn category_card(ui: &mut Ui, r: &mut CatResult, admin: bool, thumbs: &mut ThumbCache) {
     let color = match r.kind {
         Kind::Safe => ACCENT,
@@ -2619,7 +2685,7 @@ fn category_card(ui: &mut Ui, r: &mut CatResult, admin: bool, thumbs: &mut Thumb
     ui.add_space(4.0);
 }
 
-/// Cuadro de miniatura: la imagen real si existe, o el tipo de archivo mientras carga.
+/// jimy-betanzos · Cuadro de miniatura: la imagen real si existe, o el tipo de archivo mientras carga.
 fn draw_thumb(ui: &Ui, rect: egui::Rect, tex: Option<Option<egui::TextureHandle>>, path: &Path) {
     let p = ui.painter();
     p.rect_filled(rect, 0.0, alpha(PANEL_HI, 230));
@@ -2639,6 +2705,7 @@ fn draw_thumb(ui: &Ui, rect: egui::Rect, tex: Option<Option<egui::TextureHandle>
     p.rect_stroke(rect, 0.0, Stroke::new(1.0_f32, alpha(ACCENT, 70)));
 }
 
+/// jimy-betanzos · Lista de archivos de muestra de una categoría.
 fn items_list(ui: &mut Ui, r: &mut CatResult, thumbs: &mut ThumbCache) {
     let whole = r.whole();
     let protected = r.kind == Kind::Protected;
@@ -2758,7 +2825,9 @@ fn items_list(ui: &mut Ui, r: &mut CatResult, thumbs: &mut ThumbCache) {
     }
 }
 
+/// jimy-betanzos · Permite cambiar el tamaño de la ventana desde los bordes.
 fn resize_edges(ctx: &egui::Context) {
+    // jimy-betanzos · dependencia: interfaz gráfica (egui)
     use egui::{CursorIcon, ResizeDirection as D};
     if ctx.input(|i| i.viewport().maximized.unwrap_or(false)) {
         return;
@@ -2786,17 +2855,21 @@ fn resize_edges(ctx: &egui::Context) {
     }
 }
 
+/// jimy-betanzos · Implementación de eframe::App para NexoApp.
 impl eframe::App for NexoApp {
+    /// jimy-betanzos · Dibuja la ventana en cada cuadro.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.update_inner(ctx);
     }
 }
 
+/// jimy-betanzos · Métodos de NexoApp.
 impl NexoApp {
-    /// Modo de documentación (no lo usa el usuario): con `NEXO_CAPTURA=archivo.bmp`, NEXO
+    /// jimy-betanzos · Modo de documentación (no lo usa el usuario): con `NEXO_CAPTURA=archivo.bmp`, NEXO
     /// se fotografía a sí mismo pasados `NEXO_CAPTURA_SEG` segundos y se cierra. Con
     /// `NEXO_CAPTURA_ESCANEAR=1` antes lanza un escaneo (solo lectura) para mostrar resultados.
     fn capture_step(&mut self, ctx: &egui::Context, now: f64) {
+        // jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
         use std::sync::atomic::{AtomicU8, Ordering};
         static STATE: AtomicU8 = AtomicU8::new(0); // 0 inicio · 1 esperando · 2 pedida · 3 lista
         let Some(out) = std::env::var_os("NEXO_CAPTURA") else { return };
@@ -2830,6 +2903,7 @@ impl NexoApp {
         ctx.request_repaint_after(Duration::from_millis(100));
     }
 
+    /// jimy-betanzos · Contenido principal de cada cuadro.
     fn update_inner(&mut self, ctx: &egui::Context) {
         let now = ctx.input(|i| i.time);
         let t = now as f32;

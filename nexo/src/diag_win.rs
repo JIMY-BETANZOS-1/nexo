@@ -6,18 +6,25 @@
 //! Parte de Windows del diagnóstico: script de PowerShell, plan de energía, programas de
 //! inicio (StartupApproved), Microsoft Defender e informe de batería.
 
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
 use std::path::PathBuf;
 
+// jimy-betanzos · dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::System::Registry::{RegSetKeyValueW, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, REG_BINARY};
 
+// jimy-betanzos · dependencia: módulo propio de la interfaz
 use super::{Progress, Raw, StartupItem};
+// jimy-betanzos · dependencia: módulo propio
 use crate::{fmt, sys};
 
 const SCRIPT: &str = include_str!("diag.ps1");
 pub const BALANCED: &str = "381b4222-f694-41f0-9685-ff5bb260df2e";
 
+/// jimy-betanzos · Recoge los datos del sistema con un script de PowerShell de solo lectura.
 pub fn run_script(progress: &Progress) -> Result<Raw, String> {
+    // jimy-betanzos · dependencia: biblioteca estándar de Rust (io)
     use std::io::{BufRead, BufReader};
+    // jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
     use std::sync::atomic::Ordering;
     let path = std::env::temp_dir().join(format!("nexo_diag_{}.ps1", std::process::id()));
     // PowerShell 5.1 necesita BOM para leer bien los acentos del script.
@@ -62,6 +69,7 @@ pub fn run_script(progress: &Progress) -> Result<Raw, String> {
     serde_json::from_str(&text[a..=b]).map_err(|e| format!("Datos de diagnóstico no válidos: {}", e))
 }
 
+/// jimy-betanzos · Devuelve el plan de energía activo (nombre e identificador).
 pub fn active_power_plan() -> (String, String) {
     let Ok(out) = sys::hidden_cmd("powercfg").arg("/getactivescheme").output() else {
         return (String::new(), String::new());
@@ -79,11 +87,12 @@ pub fn active_power_plan() -> (String, String) {
     (guid, name)
 }
 
+/// jimy-betanzos · Cambia el plan de energía de Windows.
 pub fn set_power_plan(guid: &str) -> bool {
     sys::hidden_cmd("powercfg").args(["/setactive", guid]).status().map(|s| s.success()).unwrap_or(false)
 }
 
-/// Activa o desactiva un programa de inicio igual que el Administrador de tareas
+/// jimy-betanzos · Activa o desactiva un programa de inicio igual que el Administrador de tareas
 /// (StartupApproved). No borra nada: se puede volver a activar en cualquier momento.
 pub fn set_startup_enabled(item: &StartupItem, on: bool) -> Result<(), String> {
     let hive = if item.machine_wide() { HKEY_LOCAL_MACHINE } else { HKEY_CURRENT_USER };
@@ -105,7 +114,7 @@ pub fn set_startup_enabled(item: &StartupItem, on: bool) -> Result<(), String> {
     }
 }
 
-/// Análisis rápido de Microsoft Defender. Devuelve el código de salida (0 = limpio).
+/// jimy-betanzos · Análisis rápido de Microsoft Defender. Devuelve el código de salida (0 = limpio).
 pub fn quick_scan() -> Result<i32, String> {
     let pf = std::env::var_os("ProgramFiles").map(PathBuf::from).unwrap_or_else(|| "C:\\Program Files".into());
     let exe = pf.join("Windows Defender").join("MpCmdRun.exe");
@@ -116,7 +125,7 @@ pub fn quick_scan() -> Result<i32, String> {
         .map_err(|e| e.to_string())
 }
 
-/// Genera el informe oficial de batería de Windows y lo abre en el navegador (local).
+/// jimy-betanzos · Genera el informe oficial de batería de Windows y lo abre en el navegador (local).
 pub fn battery_report() {
     let out = std::env::temp_dir().join("NEXO_informe_bateria.html");
     let ok = sys::hidden_cmd("powercfg").arg("/batteryreport").arg("/output").arg(&out).status().map(|s| s.success()).unwrap_or(false);
@@ -125,7 +134,7 @@ pub fn battery_report() {
     }
 }
 
-/// Abre un ajuste de Windows (ms-settings:, windowsdefender:, taskschd.msc...).
+/// jimy-betanzos · Abre un ajuste de Windows (ms-settings:, windowsdefender:, taskschd.msc...).
 pub fn open(target: &str) {
     let _ = sys::hidden_cmd("cmd").args(["/c", "start", "", target]).spawn();
 }
@@ -133,11 +142,13 @@ pub fn open(target: &str) {
 
 // ── Textos y accesos directos propios de Windows (los usa `analyze`).
 pub const AV_MISSING_SEVERITY: u8 = 1;
+/// jimy-betanzos · Indica si se puede lanzar un análisis rápido del antivirus.
 pub fn quick_scan_available() -> bool {
     true
 }
 pub const CHECK_SIGNATURES: bool = true;
 
+/// jimy-betanzos · Textos que dependen del sistema operativo (nombre del antivirus, etc.).
 pub fn txt(k: &str) -> &'static str {
     match k {
         "os" => "Windows",
@@ -159,6 +170,7 @@ pub fn txt(k: &str) -> &'static str {
     }
 }
 
+/// jimy-betanzos · Página de Configuración de Windows asociada a una comprobación.
 pub fn setting(k: &str) -> Option<&'static str> {
     Some(match k {
         "antivirus" => "windowsdefender:",

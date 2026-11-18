@@ -9,11 +9,15 @@
 //! Hace lo que una app sola no puede en Android 11: borrar la caché de todas las
 //! apps, desactivar apps preinstaladas (reversible) y medir la batería por app.
 
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (collections)
 use std::collections::HashMap;
+// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
 use std::path::PathBuf;
 
+// jimy-betanzos · dependencia: módulo propio
 use crate::{install, sys};
 
+/// jimy-betanzos · Busca el programa adb (Android platform-tools) en las carpetas habituales.
 pub fn adb_path() -> Option<PathBuf> {
     let bin = if cfg!(windows) { "adb.exe" } else { "adb" };
     let mut c: Vec<PathBuf> = Vec::new();
@@ -44,6 +48,7 @@ pub fn adb_path() -> Option<PathBuf> {
     c.into_iter().find(|p| p.exists())
 }
 
+/// jimy-betanzos · Ejecuta adb con los argumentos dados y devuelve su salida.
 fn run(args: &[&str]) -> Result<String, String> {
     let adb = adb_path().ok_or("No se encontró ADB")?;
     let out = sys::hidden_cmd(&adb.to_string_lossy()).args(args).output().map_err(|e| e.to_string())?;
@@ -56,10 +61,12 @@ fn run(args: &[&str]) -> Result<String, String> {
     }
 }
 
+/// jimy-betanzos · Ejecuta un comando dentro del celular indicado.
 fn shell(serial: &str, cmd: &str) -> Result<String, String> {
     run(&["-s", serial, "shell", cmd])
 }
 
+/// jimy-betanzos · Celular detectado por adb: número de serie, estado y modelo.
 #[derive(Clone, Default)]
 pub struct Dev {
     pub serial: String,
@@ -67,15 +74,19 @@ pub struct Dev {
     pub model: String,
 }
 
+/// jimy-betanzos · Métodos de Dev.
 impl Dev {
+    /// jimy-betanzos · Indica si el celular ya autorizó la depuración.
     pub fn ready(&self) -> bool {
         self.state == "device"
     }
+    /// jimy-betanzos · Indica si el celular está conectado por WiFi.
     pub fn wifi(&self) -> bool {
         self.serial.contains(':') || self.serial.contains("._adb-tls-connect")
     }
 }
 
+/// jimy-betanzos · Lista los celulares conectados por USB o WiFi.
 pub fn devices() -> Result<Vec<Dev>, String> {
     let out = run(&["devices", "-l"])?;
     Ok(out
@@ -96,16 +107,19 @@ pub fn devices() -> Result<Vec<Dev>, String> {
         .collect())
 }
 
+/// jimy-betanzos · Vincula un celular por WiFi con su código de 6 dígitos.
 pub fn pair(addr: &str, code: &str) -> Result<String, String> {
     let out = run(&["pair", addr.trim(), code.trim()])?;
     if out.to_lowercase().contains("success") { Ok("Vinculado correctamente.".into()) } else { Err(out.trim().to_string()) }
 }
 
+/// jimy-betanzos · Conecta un celular ya vinculado por WiFi.
 pub fn connect(addr: &str) -> Result<String, String> {
     let out = run(&["connect", addr.trim()])?;
     if out.contains("connected") { Ok("Conectado.".into()) } else { Err(out.trim().to_string()) }
 }
 
+/// jimy-betanzos · Datos del celular: marca, modelo, Android, almacenamiento y batería.
 #[derive(Clone, Default)]
 pub struct Info {
     pub brand: String,
@@ -120,10 +134,12 @@ pub struct Info {
     pub ram_avail: u64,
 }
 
+/// jimy-betanzos · Lee el valor de una clave en un texto «clave: valor».
 fn kv(text: &str, key: &str) -> Option<String> {
     text.lines().find_map(|l| l.trim().strip_prefix(key).map(|v| v.trim().to_string()))
 }
 
+/// jimy-betanzos · Calcula el espacio total y libre del almacenamiento del celular.
 fn data_space(serial: &str) -> (u64, u64) {
     let out = shell(serial, "df -k /data").unwrap_or_default();
     let line = out.lines().nth(1).unwrap_or("");
@@ -137,6 +153,7 @@ fn data_space(serial: &str) -> (u64, u64) {
     }
 }
 
+/// jimy-betanzos · Lee los datos principales del celular.
 pub fn info(serial: &str) -> Result<Info, String> {
     let props = shell(serial, "getprop ro.product.brand; getprop ro.product.model; getprop ro.build.version.release")?;
     let mut p = props.lines().map(|s| s.trim().to_string());
@@ -165,7 +182,7 @@ pub fn info(serial: &str) -> Result<Info, String> {
     })
 }
 
-/// Borra la caché de TODAS las apps (no toca datos, cuentas ni archivos). Devuelve lo liberado.
+/// jimy-betanzos · Borra la caché de TODAS las apps (no toca datos, cuentas ni archivos). Devuelve lo liberado.
 pub fn trim_caches(serial: &str) -> Result<u64, String> {
     let (before, _) = data_space(serial);
     shell(serial, "pm trim-caches 999G")?;
@@ -200,6 +217,7 @@ const BLOAT: &[(&str, &str, &str)] = &[
     ("com.google.android.apps.magazines", "Google Noticias", "Si no lo usas."),
 ];
 
+/// jimy-betanzos · App preinstalada que se puede desactivar.
 #[derive(Clone)]
 pub struct Bloat {
     pub pkg: String,
@@ -208,6 +226,7 @@ pub struct Bloat {
     pub enabled: bool,
 }
 
+/// jimy-betanzos · Lista las apps preinstaladas conocidas que tiene el celular.
 pub fn bloat(serial: &str) -> Result<Vec<Bloat>, String> {
     let all = shell(serial, "pm list packages")?;
     let disabled = shell(serial, "pm list packages -d").unwrap_or_default();
@@ -219,13 +238,14 @@ pub fn bloat(serial: &str) -> Result<Vec<Bloat>, String> {
         .collect())
 }
 
+/// jimy-betanzos · Activa o desactiva una app del celular (es reversible).
 pub fn set_enabled(serial: &str, pkg: &str, on: bool) -> Result<(), String> {
     let cmd = if on { format!("pm enable {}", pkg) } else { format!("pm disable-user --user 0 {}", pkg) };
     let out = shell(serial, &cmd)?;
     if out.to_lowercase().contains("new state") { Ok(()) } else { Err(out.trim().to_string()) }
 }
 
-/// Consumo de batería por app (mAh desde la última carga completa), con datos del sistema.
+/// jimy-betanzos · Consumo de batería por app (mAh desde la última carga completa), con datos del sistema.
 pub fn battery_usage(serial: &str) -> Result<Vec<(String, f64)>, String> {
     let stats = shell(serial, "dumpsys batterystats --charged")?;
     let pkgs = shell(serial, "cmd package list packages -U").unwrap_or_default();
@@ -265,7 +285,7 @@ pub fn battery_usage(serial: &str) -> Result<Vec<(String, f64)>, String> {
     Ok(out)
 }
 
-/// APK de NEXO móvil empaquetado junto a NEXO para Windows (si existe).
+/// jimy-betanzos · APK de NEXO móvil empaquetado junto a NEXO para Windows (si existe).
 pub fn mobile_apk() -> Option<PathBuf> {
     let mut c = vec![install::install_dir().join("nexo-movil.apk")];
     if let Ok(exe) = std::env::current_exe() {
@@ -276,6 +296,7 @@ pub fn mobile_apk() -> Option<PathBuf> {
     c.into_iter().find(|p| p.exists())
 }
 
+/// jimy-betanzos · Instala o actualiza NEXO móvil en el celular.
 pub fn install_apk(serial: &str, apk: &std::path::Path) -> Result<String, String> {
     let out = run(&["-s", serial, "install", "-r", &apk.to_string_lossy()])?;
     if out.contains("Success") { Ok("NEXO móvil instalado.".into()) } else { Err(out.trim().to_string()) }

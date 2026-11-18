@@ -5,10 +5,13 @@
 
 //! Notificaciones de Windows con el nombre y el icono de NEXO.
 
+// jimy-betanzos · dependencia: notificaciones de Windows
 use tauri_winrt_notification::Toast;
 
+// jimy-betanzos · dependencia: módulo propio install
 use crate::install;
 
+/// jimy-betanzos · Muestra una notificación de Windows.
 pub fn toast(title: &str, line1: &str, line2: &str) {
     let id = if install::notifications_registered() { install::AUMID } else { Toast::POWERSHELL_APP_ID };
     let mut t = Toast::new(id).title(title).text1(line1);
