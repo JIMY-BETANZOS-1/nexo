@@ -3,3 +3,5 @@
 *.ico binary
 *.bat text eol=crlf
 *.jar binary
+*.iss text eol=crlf
+nexo/empaquetar/antes.txt text eol=crlf

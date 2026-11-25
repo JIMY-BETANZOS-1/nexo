@@ -87,6 +87,12 @@ fn main() {
         let _ = std::fs::write(o, install::jb_uninstall().join("\n"));
         return;
     }
+    // jimy-betanzos: el instalador de Windows (empaquetar/nexo.iss) usa este icono .ico.
+    #[cfg(windows)]
+    if let Some(o) = out_arg("--exportar-ico") {
+        let _ = icon::jb_write_ico(std::path::Path::new(&o));
+        return;
+    }
     #[cfg(unix)]
     if let Some(i) = args.iter().position(|a| a == "--exportar-icono") {
         // Empaquetado (macOS/Linux): guarda el icono de NEXO como PNG de 1024 px.

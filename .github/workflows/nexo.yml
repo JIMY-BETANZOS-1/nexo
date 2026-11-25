@@ -32,8 +32,38 @@ jobs:
           Get-Content sim.txt
           if (-not (Select-String sim.txt -Pattern "videos/documentos incluidos: 0" -Quiet)) { exit 1 }
       - run: cp target/release/nexo.exe NEXO-Windows.exe
+      - name: Instalador clásico (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          Start-Process target\release\nexo.exe -ArgumentList '--exportar-ico','empaquetar\nexo.ico' -Wait
+          $ver = (Select-String -Path Cargo.toml -Pattern '^version = "(.*)"').Matches[0].Groups[1].Value
+          & $iscc "/DMyVersion=$ver" empaquetar\nexo.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Get-Item empaquetar\salida\NEXO-Instalador-Windows.exe | Format-List Name, Length
+      - name: Probar el instalador (instalar y desinstalar sin ventanas)
+        shell: pwsh
+        run: |
+          Start-Process empaquetar\salida\NEXO-Instalador-Windows.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=escritorio' -Wait
+          $dir = "$env:LOCALAPPDATA\Programs\NEXO"
+          if (-not (Test-Path "$dir\nexo.exe")) { throw "No se instaló nexo.exe" }
+          if (-not (Test-Path "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\NEXO.lnk")) { throw "Falta el acceso del menú Inicio" }
+          $app = Get-ChildItem HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall | Get-ItemProperty | Where-Object DisplayName -eq 'NEXO'
+          if (-not $app) { throw "NEXO no aparece en Aplicaciones instaladas" }
+          $app | Format-List DisplayName, DisplayVersion, Publisher, InstallLocation
+          Start-Process "$dir\unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
+          for ($i = 0; $i -lt 30 -and (Test-Path "$dir\nexo.exe"); $i++) { Start-Sleep 1 }
+          if (Test-Path "$dir\nexo.exe") { throw "No se desinstaló" }
+          $rest = Get-ChildItem HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall | Get-ItemProperty | Where-Object DisplayName -eq 'NEXO'
+          if ($rest) { throw "Quedó en Aplicaciones instaladas" }
+          "Instalar y desinstalar: correcto"
       - uses: actions/upload-artifact@v4
-        with: { name: NEXO-Windows, path: nexo/NEXO-Windows.exe }
+        with:
+          name: NEXO-Windows
+          path: |
+            nexo/NEXO-Windows.exe
+            nexo/empaquetar/salida/NEXO-Instalador-Windows.exe
 
   linux:
     name: Escritorio · Linux (${{ matrix.arq }})

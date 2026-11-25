@@ -2,7 +2,8 @@
 
 | Sistema | Archivo | Cómo instalar |
 |---|---|---|
-| **Windows 10/11** (64 bits) | `NEXO-Windows.exe` | Doble clic. Si aparece «Windows protegió su PC»: *Más información → Ejecutar de todas formas*. |
+| **Windows 10/11** (instalador) | `NEXO-Instalador-Windows.exe` | Asistente clásico: Siguiente → Instalar. Se desinstala desde *Configuración → Aplicaciones instaladas*. |
+| **Windows 10/11** (portable) | `NEXO-Windows.exe` | Doble clic, sin instalar. Si aparece «Windows protegió su PC»: *Más información → Ejecutar de todas formas*. |
 | **macOS 11+** (Apple Silicon e Intel) | `NEXO-macOS.dmg` | Abre el .dmg y arrastra NEXO a Aplicaciones. La primera vez: clic derecho sobre NEXO → *Abrir*. |
 | **Ubuntu / Debian / Mint** | `nexo_*_amd64.deb` · `nexo_*_arm64.deb` | Doble clic e *Instalar*, o `sudo apt install ./nexo_*.deb`. |
 | **Cualquier Linux** | `NEXO-x86_64.AppImage` · `NEXO-aarch64.AppImage` | `chmod +x NEXO-*.AppImage` y doble clic. |

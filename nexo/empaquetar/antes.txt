@@ -1,0 +1,19 @@
+﻿NEXO – Optimizador local del sistema
+Autor: Chatta Betanzos, Jimy Alexander
+
+NEXO limpia archivos basura, controla la memoria RAM y revisa la salud y la protección del equipo. Todo funciona dentro de tu computadora, sin internet.
+
+Garantías de NEXO
+  - Videos y documentos: jamás se borran solos.
+  - Capturas y descargas van a la Papelera: siempre se pueden recuperar.
+  - Solo se elimina basura: temporales, caché y registros.
+  - Siempre ves lo que se va a borrar antes de confirmar.
+  - Trabaja con prioridad baja: no frena tu equipo.
+  - 100 % local: no envía nada a internet.
+
+Qué se instala
+  - El programa en la carpeta que elijas (por defecto, en tu perfil de usuario; no hace falta contraseña de administrador).
+  - Un acceso en el menú Inicio y, si lo marcas, en el escritorio.
+  - NEXO aparecerá en Configuración → Aplicaciones instaladas, desde donde puedes desinstalarlo.
+
+Tu configuración y tu historial de limpiezas se guardan aparte (en %APPDATA%\NEXO) y se conservan aunque desinstales o actualices.
