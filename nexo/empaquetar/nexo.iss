@@ -50,6 +50,8 @@ ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 InfoBeforeFile=antes.txt
 CloseApplications=yes
+; Si la ventana de NEXO está abierta, el asistente pide cerrarla antes de seguir.
+AppMutex=NEXO_INTERFAZ
 
 [Languages]
 Name: "es"; MessagesFile: "compiler:Languages\Spanish.isl"
@@ -73,3 +75,29 @@ Filename: "{app}\nexo.exe"; Description: "Abrir NEXO ahora"; Flags: nowait posti
 ; Antes de borrar los archivos, NEXO quita su tarea programada, el vigía y su arranque con Windows.
 ; El historial y la configuración (%APPDATA%\NEXO) se conservan.
 Filename: "{app}\nexo.exe"; Parameters: "--desinstalar ""{tmp}\nexo-desinstalar.txt"""; Flags: runhidden waituntilterminated; RunOnceId: "QuitarNEXO"
+
+[Code]
+// jimy-betanzos: el vigía (ícono junto al reloj) usa nexo.exe; si sigue abierto no se puede reemplazar.
+function VigiaAbierto(): Boolean;
+begin
+  Result := FindWindowByClassName('NEXO_VIGIA') <> 0;
+end;
+
+function PedirCerrarVigia(): Boolean;
+begin
+  Result := True;
+  while VigiaAbierto() do
+  begin
+    if MsgBox('El vigía de NEXO está abierto (ícono de NEXO junto al reloj).' + #13#10 + #13#10 +
+              'Ciérralo con clic derecho sobre el ícono > Cerrar el vigía, y luego presiona Aceptar.', mbInformation, MB_OKCANCEL) = IDCANCEL then
+    begin
+      Result := False;
+      exit;
+    end;
+  end;
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  Result := PedirCerrarVigia();
+end;
