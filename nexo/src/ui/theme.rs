@@ -7,16 +7,16 @@ use eframe::egui::{self, Color32, FontData, FontDefinitions, FontFamily, FontId,
 
 // jimy-betanzos: un solo color de acento y grises: la interfaz no distrae y los avisos
 // (ámbar y rojo) resaltan solo cuando de verdad hay algo que revisar.
-// Paleta sobria de un solo color: grises neutros y azul acero como único acento.
+// Paleta clara: fondo blanco, grises neutros y azul acero como único acento.
 // El ámbar y el rojo (apagados) se reservan para avisos reales: disco lleno, archivo sospechoso.
-pub const BG: Color32 = Color32::from_rgb(22, 25, 29);
-pub const PANEL: Color32 = Color32::from_rgb(30, 34, 39);
-pub const PANEL_HI: Color32 = Color32::from_rgb(44, 50, 56);
-pub const ACCENT: Color32 = Color32::from_rgb(122, 151, 180);
-pub const WARN: Color32 = Color32::from_rgb(192, 164, 108);
-pub const DANGER: Color32 = Color32::from_rgb(196, 112, 112);
-pub const TEXT: Color32 = Color32::from_rgb(214, 217, 221);
-pub const MUTED: Color32 = Color32::from_rgb(138, 146, 155);
+pub const BG: Color32 = Color32::from_rgb(243, 245, 247);
+pub const PANEL: Color32 = Color32::from_rgb(255, 255, 255);
+pub const PANEL_HI: Color32 = Color32::from_rgb(226, 230, 235);
+pub const ACCENT: Color32 = Color32::from_rgb(61, 106, 153);
+pub const WARN: Color32 = Color32::from_rgb(158, 109, 20);
+pub const DANGER: Color32 = Color32::from_rgb(184, 58, 58);
+pub const TEXT: Color32 = Color32::from_rgb(31, 35, 40);
+pub const MUTED: Color32 = Color32::from_rgb(96, 106, 118);
 /// Texto sobre botones rellenos del color de acento.
 pub const LIGHT: Color32 = Color32::from_rgb(245, 247, 249);
 
@@ -90,11 +90,11 @@ pub fn jb_setup(ctx: &egui::Context) {
     style.spacing.scroll = egui::style::ScrollStyle::thin();
 
     let v = &mut style.visuals;
-    *v = egui::Visuals::dark();
+    *v = egui::Visuals::light();
     v.override_text_color = Some(TEXT);
     v.panel_fill = Color32::TRANSPARENT;
     v.window_fill = PANEL;
-    v.extreme_bg_color = Color32::from_rgb(18, 21, 24);
+    v.extreme_bg_color = Color32::from_rgb(236, 239, 242);
     v.faint_bg_color = PANEL_HI;
     v.hyperlink_color = ACCENT;
     v.selection.bg_fill = jb_alpha(ACCENT, 70);

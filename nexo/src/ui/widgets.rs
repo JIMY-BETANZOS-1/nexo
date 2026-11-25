@@ -139,7 +139,7 @@ pub fn jb_button(ui: &mut Ui, text: &str, color: Color32, size: Vec2, enabled: b
     let h = ui.ctx().animate_bool(resp.id, enabled && resp.hovered());
     let p = ui.painter();
     if enabled {
-        p.rect_filled(rect, ROUND, jb_alpha(color, (150.0 + 60.0 * h) as u8));
+        p.rect_filled(rect, ROUND, jb_alpha(color, (225.0 + 30.0 * h) as u8));
     } else {
         p.rect_stroke(rect, ROUND, Stroke::new(1.0_f32, PANEL_HI));
     }
@@ -195,7 +195,7 @@ pub fn jb_toggle(ui: &mut Ui, on: &mut bool) -> Response {
     let p = ui.painter();
     p.rect_filled(rect, 11.0, PANEL_HI.lerp_to_gamma(ACCENT, t));
     let x = egui::lerp(rect.left() + 11.0..=rect.right() - 11.0, t);
-    p.circle_filled(pos2(x, rect.center().y), 8.0, TEXT);
+    p.circle_filled(pos2(x, rect.center().y), 8.0, Color32::WHITE);
     resp.on_hover_cursor(CursorIcon::PointingHand)
 }
 

@@ -1171,7 +1171,7 @@ impl JbNexoApp {
             .fixed_pos(screen.min)
             .show(ctx, |ui| {
                 let (r, _) = ui.allocate_exact_size(screen.size(), Sense::click());
-                ui.painter().rect_filled(r, 0.0, Color32::from_black_alpha(200));
+                ui.painter().rect_filled(r, 0.0, Color32::from_black_alpha(70));
             });
 
         let chosen: Vec<&JbCatResult> = results.iter().filter(|r| r.jb_selected_size() > 0).collect();
@@ -2428,7 +2428,7 @@ impl JbNexoApp {
             .fixed_pos(screen.min)
             .show(ctx, |ui| {
                 let (r, _) = ui.allocate_exact_size(screen.size(), Sense::click());
-                ui.painter().rect_filled(r, 0.0, Color32::from_black_alpha(200));
+                ui.painter().rect_filled(r, 0.0, Color32::from_black_alpha(70));
             });
 
         let g = st.g.clone();
