@@ -1,13 +1,4 @@
-// Proyecto: NEXO
-// Archivo: main.rs
-// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
-
-// Sin ventana de consola: la app gráfica y el modo automático corren en silencio.
 #![cfg_attr(windows, windows_subsystem = "windows")]
-
-// NEXO funciona en Windows, Linux y macOS. Los módulos que hablan con el sistema operativo
-// tienen una versión por plataforma (Windows: src/*.rs · Linux y macOS: src/unix/*.rs) con
-// la misma interfaz; el resto del programa es común.
 
 mod adb;
 mod auto;
@@ -54,26 +45,21 @@ mod vigia;
 #[path = "unix/vigia.rs"]
 mod vigia;
 
-/// jimy-betanzos: Punto de entrada: decide el modo según los argumentos y abre la ventana.
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|a| a == "--vigia") {
-        // Vigía en la bandeja: unos pocos MB, revisa cada 30 s.
         vigia::jb_run();
         return;
     }
     if args.iter().any(|a| a == "--auto") {
-        // Lanzado por el Programador de tareas: limpia, avisa y se cierra.
         auto::jb_run();
         return;
     }
     if let Some(i) = args.iter().position(|a| a == "--informe") {
-        // Diagnóstico de solo lectura: escribe lo que encontraría, sin borrar nada.
         let out = args.get(i + 1).cloned().unwrap_or_else(|| "nexo_informe.txt".into());
         auto::jb_report(std::path::Path::new(&out));
         return;
     }
-    // Mantenimiento y comprobaciones (sin interfaz).
     let out_arg = |flag: &str| args.iter().position(|a| a == flag).map(|i| args.get(i + 1).cloned().unwrap_or_else(|| "nexo_salida.txt".into()));
     if args.iter().any(|a| a == "--instalar") {
         let r = install::jb_install();
@@ -86,7 +72,6 @@ fn main() {
         let _ = std::fs::write(o, install::jb_uninstall().join("\n"));
         return;
     }
-    // jimy-betanzos: el instalador de Windows (empaquetar/nexo.iss) usa este icono .ico.
     #[cfg(windows)]
     if let Some(o) = out_arg("--exportar-ico") {
         let _ = icon::jb_write_ico(std::path::Path::new(&o));
@@ -94,7 +79,6 @@ fn main() {
     }
     #[cfg(unix)]
     if let Some(i) = args.iter().position(|a| a == "--exportar-icono") {
-        // Empaquetado (macOS/Linux): guarda el icono de NEXO como PNG de 1024 px.
         let out = args.get(i + 1).cloned().unwrap_or_else(|| "nexo.png".into());
         let _ = image::save_buffer(&out, &icon::jb_rgba(1024), 1024, 1024, image::ExtendedColorType::Rgba8);
         return;
@@ -105,7 +89,6 @@ fn main() {
         return;
     }
     if let Some(o) = out_arg("--medir") {
-        // Compara el escaneo con prioridad de segundo plano frente a la interactiva.
         let t = |interactive: bool| {
             std::thread::spawn(move || {
                 if interactive { sys::jb_interactive_thread() } else { sys::jb_background_thread() }
@@ -122,7 +105,6 @@ fn main() {
         return;
     }
     if let Some(i) = args.iter().position(|a| a == "--miniatura") {
-        // Comprobación: guarda la miniatura de un archivo como BMP.
         let (Some(src), Some(dst)) = (args.get(i + 1), args.get(i + 2)) else { return };
         thumbs::jb_init_thread();
         if let Some((w, h, px)) = thumbs::jb_shell_thumbnail(std::path::Path::new(src), 128) {
@@ -135,7 +117,6 @@ fn main() {
         return;
     }
     if let Some(i) = args.iter().position(|a| a == "--diagnostico") {
-        // Diagnóstico de solo lectura volcado a texto (sin interfaz).
         let out = args.get(i + 1).cloned().unwrap_or_else(|| "nexo_diagnostico.txt".into());
         let text = match diag::jb_run() {
             Ok(r) => {

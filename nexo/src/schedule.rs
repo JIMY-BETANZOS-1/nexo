@@ -1,23 +1,12 @@
-// Proyecto: NEXO
-// Archivo: schedule.rs
-// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
-
-//! Tarea programada de Windows para el modo automático.
-//! La app no queda residente: Windows la lanza, limpia y se cierra (0 MB en reposo).
-
-// jimy-betanzos - dependencia: módulo propio config
 use crate::config::{JbConfig, JbFrequency};
-// jimy-betanzos - dependencia: módulo propio
 use crate::{install, sys};
 
 pub const TASK: &str = "NEXO\\LimpiezaAutomatica";
 
-/// jimy-betanzos: Escapa caracteres especiales para el XML de la tarea.
 fn jb_xml_escape(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
 
-/// jimy-betanzos: Arma la definición XML de la tarea programada.
 fn jb_task_xml(cfg: &JbConfig, exe: &str, admin: bool) -> String {
     let start = format!("2025-01-05T{:02}:00:00", cfg.hour);
     let schedule = match cfg.frequency {
@@ -58,12 +47,9 @@ fn jb_task_xml(cfg: &JbConfig, exe: &str, admin: bool) -> String {
     )
 }
 
-/// jimy-betanzos: Crea o actualiza la tarea programada de limpieza.
 pub fn jb_enable(cfg: &JbConfig, admin: bool) -> Result<(), String> {
-    // Copia estable del ejecutable: la tarea no depende de dónde se abrió NEXO.
     let exe = install::jb_install()?;
     let xml = jb_task_xml(cfg, &exe.display().to_string(), admin);
-    // schtasks exige UTF-16 LE con BOM.
     let mut bytes = vec![0xFF, 0xFE];
     for u in xml.encode_utf16() {
         bytes.extend_from_slice(&u.to_le_bytes());
@@ -84,7 +70,6 @@ pub fn jb_enable(cfg: &JbConfig, admin: bool) -> Result<(), String> {
     }
 }
 
-/// jimy-betanzos: Borra la tarea programada de limpieza.
 pub fn jb_disable() -> Result<(), String> {
     if !jb_is_registered() {
         return Ok(());
@@ -100,7 +85,6 @@ pub fn jb_disable() -> Result<(), String> {
     }
 }
 
-/// jimy-betanzos: Indica si la tarea programada existe.
 pub fn jb_is_registered() -> bool {
     sys::jb_hidden_cmd("schtasks")
         .args(["/Query", "/TN", TASK])

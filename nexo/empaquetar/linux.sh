@@ -1,12 +1,7 @@
 #!/usr/bin/env bash
-# Empaqueta NEXO para Linux en tres formatos a partir de target/release/nexo:
-#   nexo-linux-<arq>.tar.gz   ejecutable suelto (cualquier distribución)
-#   nexo_<ver>_<deb>.deb      Ubuntu, Debian, Linux Mint, Pop!_OS, Zorin… (doble clic e instalar)
-#   NEXO-<arq>.AppImage       cualquier distribución, sin instalar (chmod +x y doble clic)
-# Uso: empaquetar/linux.sh   (se ejecuta dentro de nexo/, después de cargo build --release)
 set -euo pipefail
 
-ARQ=$(uname -m)                                   # x86_64 | aarch64
+ARQ=$(uname -m)
 case "$ARQ" in x86_64) DEB=amd64 ;; aarch64) DEB=arm64 ;; *) DEB=$ARQ ;; esac
 VER=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 BIN=target/release/nexo
@@ -25,7 +20,6 @@ Terminal=false
 Categories=System;Utility;
 Keywords=limpieza;memoria;ram;disco;seguridad;'
 
-# 1) .tar.gz
 mkdir -p "$SAL/tar/nexo-linux"
 cp "$BIN" "$SAL/tar/nexo-linux/"
 cat > "$SAL/tar/nexo-linux/LEEME.txt" <<EOF
@@ -40,7 +34,6 @@ y aparece en el menú de aplicaciones. Si prefieres instalarlo como paquete, usa
 EOF
 tar -czf "$SAL/nexo-linux-$ARQ.tar.gz" -C "$SAL/tar" nexo-linux
 
-# 2) .deb
 R="$SAL/deb"
 install -Dm755 "$BIN" "$R/usr/bin/nexo"
 install -Dm644 "$SAL/nexo.png" "$R/usr/share/icons/hicolor/1024x1024/apps/nexo.png"
@@ -65,7 +58,6 @@ Description: NEXO - optimizador local del sistema
 EOF
 dpkg-deb --root-owner-group --build "$R" "$SAL/nexo_${VER}_${DEB}.deb"
 
-# 3) AppImage
 A="$SAL/NEXO.AppDir"
 install -Dm755 "$BIN" "$A/usr/bin/nexo"
 cp "$SAL/nexo.png" "$A/nexo.png"

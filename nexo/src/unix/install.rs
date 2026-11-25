@@ -1,26 +1,11 @@
-// Proyecto: NEXO
-// Archivo: install.rs
-// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
-
-//! Instalación ligera en el perfil del usuario (sin contraseña) en Linux y macOS.
-//!
-//! Linux: copia en ~/.local/share/nexo, acceso en el menú de aplicaciones (archivo .desktop)
-//!        y arranque del vigía en ~/.config/autostart.
-//! macOS: copia en ~/Library/Application Support/NEXO, aplicación NEXO.app en
-//!        ~/Applications y arranque del vigía con un LaunchAgent.
-
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::{Path, PathBuf};
 
-// jimy-betanzos - dependencia: módulo propio
 use crate::{icon, vigia};
 
-/// jimy-betanzos: Carpeta personal del usuario.
 fn jb_home() -> PathBuf {
     std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(std::env::temp_dir)
 }
 
-/// jimy-betanzos: Carpeta donde se instala NEXO.
 pub fn jb_install_dir() -> PathBuf {
     #[cfg(target_os = "macos")]
     return jb_home().join("Library/Application Support/NEXO/bin");
@@ -28,8 +13,6 @@ pub fn jb_install_dir() -> PathBuf {
     std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| jb_home().join(".local/share")).join("nexo")
 }
 
-/// jimy-betanzos: NEXO instalado por un paquete del sistema (.deb, AppImage o NEXO.app en /Applications):
-/// en ese caso el ejecutable ya tiene su sitio fijo y no se copia al perfil.
 fn jb_packaged() -> Option<PathBuf> {
     if let Some(a) = std::env::var_os("APPIMAGE") {
         return Some(PathBuf::from(a));
@@ -40,12 +23,10 @@ fn jb_packaged() -> Option<PathBuf> {
     fixed.then_some(cur)
 }
 
-/// jimy-betanzos: Ruta del ejecutable instalado.
 pub fn jb_installed_exe() -> PathBuf {
     jb_packaged().unwrap_or_else(|| jb_install_dir().join("nexo"))
 }
 
-/// jimy-betanzos: Indica si dos rutas son el mismo archivo.
 fn jb_same_file(a: &Path, b: &Path) -> bool {
     match (a.canonicalize(), b.canonicalize()) {
         (Ok(x), Ok(y)) => x == y,
@@ -53,7 +34,6 @@ fn jb_same_file(a: &Path, b: &Path) -> bool {
     }
 }
 
-/// jimy-betanzos: Indica si la copia instalada es más vieja que la actual.
 fn jb_outdated(src: &Path, dest: &Path) -> bool {
     match (std::fs::metadata(src), std::fs::metadata(dest)) {
         (Ok(s), Ok(d)) => s.len() != d.len() || s.modified().ok() > d.modified().ok(),
@@ -61,7 +41,6 @@ fn jb_outdated(src: &Path, dest: &Path) -> bool {
     }
 }
 
-/// jimy-betanzos: Hay una copia instalada más vieja que el NEXO que se está ejecutando.
 pub fn jb_needs_update() -> bool {
     if jb_packaged().is_some() {
         return false;
@@ -73,18 +52,14 @@ pub fn jb_needs_update() -> bool {
     }
 }
 
-/// jimy-betanzos: Da permiso de ejecución a un archivo.
 fn jb_make_executable(p: &Path) {
-    // jimy-betanzos - dependencia: biblioteca estándar de Rust (os)
     use std::os::unix::fs::PermissionsExt;
     let _ = std::fs::set_permissions(p, std::fs::Permissions::from_mode(0o755));
 }
 
-/// jimy-betanzos: Copia (o actualiza) NEXO a su carpeta fija y crea el acceso directo.
 pub fn jb_install() -> Result<PathBuf, String> {
     std::fs::create_dir_all(jb_install_dir()).map_err(|e| e.to_string())?;
     if let Some(p) = jb_packaged() {
-        // El paquete .deb y NEXO.app ya traen su acceso; la AppImage no, así que se le crea uno.
         if std::env::var_os("APPIMAGE").is_some() {
             let png = jb_install_dir().join("nexo.png");
             let _ = image::save_buffer(&png, &icon::jb_rgba(128), 128, 128, image::ExtendedColorType::Rgba8);
@@ -96,7 +71,6 @@ pub fn jb_install() -> Result<PathBuf, String> {
     let cur = std::env::current_exe().map_err(|e| e.to_string())?;
     if !jb_same_file(&cur, &dest) && jb_outdated(&cur, &dest) {
         let was_running = vigia::jb_stop_and_wait();
-        // Se copia a un archivo nuevo y se renombra: así no se pisa un ejecutable en uso.
         let tmp = dest.with_extension("nuevo");
         let copied = std::fs::copy(&cur, &tmp).and_then(|_| std::fs::rename(&tmp, &dest));
         jb_make_executable(&dest);
@@ -116,13 +90,11 @@ pub fn jb_install() -> Result<PathBuf, String> {
     Ok(dest)
 }
 
-/// jimy-betanzos: Ruta del acceso en el menú de aplicaciones de Linux.
 #[cfg(not(target_os = "macos"))]
 fn jb_desktop_file() -> PathBuf {
     std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| jb_home().join(".local/share")).join("applications/nexo.desktop")
 }
 
-/// jimy-betanzos: Crea el acceso a NEXO en el menú de aplicaciones.
 #[cfg(not(target_os = "macos"))]
 fn jb_shortcut(exe: &Path, png: &Path) {
     let f = jb_desktop_file();
@@ -135,13 +107,11 @@ fn jb_shortcut(exe: &Path, png: &Path) {
     let _ = std::fs::write(f, text);
 }
 
-/// jimy-betanzos: Ruta de NEXO.app en la carpeta Aplicaciones del usuario.
 #[cfg(target_os = "macos")]
 fn jb_app_bundle() -> PathBuf {
     jb_home().join("Applications/NEXO.app")
 }
 
-/// jimy-betanzos: Crea ~/Applications/NEXO.app: aparece en Launchpad y en Spotlight.
 #[cfg(target_os = "macos")]
 fn jb_shortcut(exe: &Path, png: &Path) {
     let app = jb_app_bundle();
@@ -150,7 +120,6 @@ fn jb_shortcut(exe: &Path, png: &Path) {
     let _ = std::fs::create_dir_all(&macos);
     let _ = std::fs::create_dir_all(&res);
     let _ = std::fs::copy(png, res.join("nexo.png"));
-    // El lanzador abre la copia instalada: así actualizarla no rompe la app.
     let launcher = macos.join("NEXO");
     let _ = std::fs::write(&launcher, format!("#!/bin/sh\nexec \"{}\" \"$@\"\n", exe.display()));
     jb_make_executable(&launcher);
@@ -170,25 +139,21 @@ fn jb_shortcut(exe: &Path, png: &Path) {
     let _ = std::fs::write(app.join("Contents/Info.plist"), plist.replace("{}", env!("CARGO_PKG_VERSION")));
 }
 
-/// jimy-betanzos: En Linux y macOS las notificaciones no necesitan registro previo.
 #[allow(dead_code)]
 pub fn jb_notifications_registered() -> bool {
     true
 }
 
-/// jimy-betanzos: Archivo que arranca el vigía al iniciar sesión.
 #[cfg(not(target_os = "macos"))]
 fn jb_autostart_file() -> PathBuf {
     std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).unwrap_or_else(|| jb_home().join(".config")).join("autostart/nexo-vigia.desktop")
 }
 
-/// jimy-betanzos: Archivo que arranca el vigía al iniciar sesión.
 #[cfg(target_os = "macos")]
 fn jb_autostart_file() -> PathBuf {
     jb_home().join("Library/LaunchAgents/com.nexo.vigia.plist")
 }
 
-/// jimy-betanzos: Arranca (o no) el vigía al iniciar sesión.
 pub fn jb_set_autostart(on: bool) -> bool {
     let f = jb_autostart_file();
     if !on {
@@ -219,7 +184,6 @@ pub fn jb_set_autostart(on: bool) -> bool {
     std::fs::write(&f, text).is_ok()
 }
 
-/// jimy-betanzos: Deshace todo lo que NEXO registró en el sistema. Conserva el historial y la configuración.
 pub fn jb_uninstall() -> Vec<String> {
     let mut done = Vec::new();
     if crate::schedule::jb_is_registered() && crate::schedule::jb_disable().is_ok() {
@@ -239,7 +203,6 @@ pub fn jb_uninstall() -> Vec<String> {
     if std::fs::remove_dir_all(jb_app_bundle()).is_ok() {
         done.push("NEXO.app".into());
     }
-    // En Linux y macOS se puede borrar un ejecutable en uso: el sistema lo libera al cerrarse.
     if jb_install_dir().exists() && std::fs::remove_dir_all(jb_install_dir()).is_ok() {
         done.push("archivos".into());
     }

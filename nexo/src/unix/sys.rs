@@ -1,43 +1,26 @@
-// Proyecto: NEXO
-// Archivo: sys.rs
-// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
-
-//! Llamadas al sistema en Linux y macOS (misma interfaz que `sys.rs` de Windows).
-//!
-//! En Linux se lee `/proc` y `/sys`; en macOS se usan `sysctl`, `vm_stat` y `pmset`.
-//! Todo es de solo lectura salvo vaciar la Papelera.
-
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (collections)
 use std::collections::HashSet;
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::{Path, PathBuf};
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (process)
 use std::process::Command;
 
-/// jimy-betanzos: Carpeta personal del usuario.
 fn jb_home() -> PathBuf {
     std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/"))
 }
 
-/// jimy-betanzos: Ejecuta un comando y devuelve su salida.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn jb_run(program: &str, args: &[&str]) -> Option<String> {
     let out = Command::new(program).args(args).output().ok()?;
     out.status.success().then(|| String::from_utf8_lossy(&out.stdout).to_string())
 }
 
-/// jimy-betanzos: Lee un archivo de texto del sistema.
 #[cfg_attr(target_os = "macos", allow(dead_code))]
 fn jb_read(p: &str) -> Option<String> {
     std::fs::read_to_string(p).ok()
 }
 
-/// jimy-betanzos: Indica si NEXO se ejecuta como administrador (root).
 pub fn jb_is_admin() -> bool {
     unsafe { libc::geteuid() == 0 }
 }
 
-/// jimy-betanzos: Nombres de los programas en marcha, en minúsculas (p. ej. "firefox", "google chrome").
 pub fn jb_running_processes() -> HashSet<String> {
     let mut set = HashSet::new();
     #[cfg(target_os = "linux")]
@@ -57,14 +40,12 @@ pub fn jb_running_processes() -> HashSet<String> {
     set
 }
 
-/// jimy-betanzos: Estado de la energía: batería, porcentaje y cargador.
 pub struct JbPower {
     pub on_ac: bool,
     pub percent: Option<u8>,
     pub has_battery: bool,
 }
 
-/// jimy-betanzos: Lee el estado de la batería y el cargador.
 pub fn jb_power() -> JbPower {
     #[cfg(target_os = "linux")]
     {
@@ -87,20 +68,16 @@ pub fn jb_power() -> JbPower {
     }
     #[cfg(target_os = "macos")]
     {
-        // "Now drawing from 'AC Power' … -InternalBattery-0 (id=…)	87%; charging"
         let text = jb_run("pmset", &["-g", "batt"]).unwrap_or_default();
         let percent = text.split('\t').nth(1).and_then(|s| s.split('%').next()).and_then(|s| s.trim().parse().ok());
         JbPower { on_ac: text.contains("AC Power"), percent, has_battery: text.contains("InternalBattery") }
     }
 }
 
-/// jimy-betanzos: Juego o video en pantalla completa. Linux y macOS no lo exponen de forma estándar:
-/// se responde «no» y el modo automático se apoya en la batería y las instalaciones.
 pub fn jb_user_busy() -> bool {
     false
 }
 
-/// jimy-betanzos: Carpetas de Papelera del usuario.
 fn jb_trash_dirs() -> Vec<PathBuf> {
     #[cfg(target_os = "macos")]
     return vec![jb_home().join(".Trash")];
@@ -111,7 +88,6 @@ fn jb_trash_dirs() -> Vec<PathBuf> {
     }
 }
 
-/// jimy-betanzos: (bytes, elementos) en la Papelera del usuario.
 pub fn jb_recycle_bin() -> (u64, u64) {
     let (mut size, mut count) = (0u64, 0u64);
     let dirs = jb_trash_dirs();
@@ -128,7 +104,6 @@ pub fn jb_recycle_bin() -> (u64, u64) {
     (size, count)
 }
 
-/// jimy-betanzos: Vacía la Papelera.
 pub fn jb_empty_recycle_bin() -> bool {
     #[cfg(target_os = "macos")]
     {
@@ -150,9 +125,7 @@ pub fn jb_empty_recycle_bin() -> bool {
     }
 }
 
-/// jimy-betanzos: (libre, total) en bytes del sistema de archivos que contiene `p`.
 pub fn jb_disk_space(p: &Path) -> (u64, u64) {
-    // jimy-betanzos - dependencia: biblioteca estándar de Rust (os)
     use std::os::unix::ffi::OsStrExt;
     let Ok(c) = std::ffi::CString::new(p.as_os_str().as_bytes()) else { return (0, 0) };
     unsafe {
@@ -165,19 +138,15 @@ pub fn jb_disk_space(p: &Path) -> (u64, u64) {
     }
 }
 
-/// jimy-betanzos: Estado de la memoria RAM y de intercambio.
 pub struct JbMem {
     pub load: u32,
     pub total: u64,
     pub avail: u64,
-    /// RAM + intercambio (swap): si se agota, los programas fallan.
     pub commit_total: u64,
     pub commit_avail: u64,
 }
 
-/// jimy-betanzos: Métodos de Mem.
 impl JbMem {
-    /// jimy-betanzos: Porcentaje de memoria de intercambio en uso.
     pub fn jb_commit_pct(&self) -> f32 {
         if self.commit_total == 0 {
             0.0
@@ -187,7 +156,6 @@ impl JbMem {
     }
 }
 
-/// jimy-betanzos: Lee el estado de la memoria del equipo.
 pub fn jb_memory() -> JbMem {
     #[cfg(target_os = "linux")]
     {
@@ -208,7 +176,6 @@ pub fn jb_memory() -> JbMem {
     #[cfg(target_os = "macos")]
     {
         let total: u64 = jb_run("sysctl", &["-n", "hw.memsize"]).and_then(|s| s.trim().parse().ok()).unwrap_or(0);
-        // vm_stat: páginas libres, inactivas y purgables cuentan como disponibles.
         let vm = jb_run("vm_stat", &[]).unwrap_or_default();
         let page: u64 = vm.split("page size of ").nth(1).and_then(|s| s.split_whitespace().next()).and_then(|s| s.parse().ok()).unwrap_or(16384);
         let pages = |k: &str| {
@@ -219,7 +186,6 @@ pub fn jb_memory() -> JbMem {
                 .unwrap_or(0)
         };
         let avail = (pages("Pages free") + pages("Pages inactive") + pages("Pages purgeable")) * page;
-        // vm.swapusage: "total = 2048.00M  used = 512.00M  free = 1536.00M  (encrypted)"
         let sw = jb_run("sysctl", &["-n", "vm.swapusage"]).unwrap_or_default();
         let mb = |k: &str| -> u64 {
             sw.split(k).nth(1).and_then(|s| s.split_whitespace().nth(1)).and_then(|v| v.trim_end_matches('M').parse::<f64>().ok()).map(|v| (v * 1048576.0) as u64).unwrap_or(0)
@@ -229,12 +195,10 @@ pub fn jb_memory() -> JbMem {
     }
 }
 
-/// jimy-betanzos: Carpeta raíz del sistema (/).
 pub fn jb_system_drive() -> PathBuf {
     PathBuf::from("/")
 }
 
-/// jimy-betanzos: Programas que arrancan al iniciar sesión (autostart de Linux o LaunchAgents de macOS).
 pub fn jb_startup_entries() -> HashSet<String> {
     let mut set = HashSet::new();
     #[cfg(target_os = "macos")]
@@ -251,7 +215,6 @@ pub fn jb_startup_entries() -> HashSet<String> {
     set
 }
 
-/// jimy-betanzos: Marca y modelo del equipo.
 pub fn jb_machine_model() -> String {
     #[cfg(target_os = "macos")]
     {
@@ -274,19 +237,14 @@ pub fn jb_machine_model() -> String {
     }
 }
 
-/// jimy-betanzos: En Linux y macOS NEXO no se reinicia elevado: las tareas del sistema piden la
-/// contraseña en el momento (pkexec u osascript).
 pub fn jb_relaunch_as_admin() -> bool {
     false
 }
 
-/// jimy-betanzos: En Linux y macOS no se reabre como administrador.
 pub fn jb_relaunch_as_admin_with(_params: &str) -> bool {
     false
 }
 
-/// jimy-betanzos: Ejecuta un comando de shell con permisos de administrador, pidiendo la contraseña con
-/// el diálogo del sistema. Devuelve la salida estándar.
 pub fn jb_run_as_admin(shell_cmd: &str) -> Result<String, String> {
     #[cfg(target_os = "macos")]
     let out = Command::new("osascript")
@@ -302,17 +260,14 @@ pub fn jb_run_as_admin(shell_cmd: &str) -> Result<String, String> {
     }
 }
 
-/// jimy-betanzos: En Linux y macOS no hace falta ajustar la prioridad.
 pub fn jb_interactive_thread() {}
 
-/// jimy-betanzos: Baja la prioridad del proceso: el usuario no nota el trabajo en segundo plano.
 pub fn jb_background_thread() {
     unsafe {
         libc::setpriority(libc::PRIO_PROCESS, 0, 10);
     }
 }
 
-/// jimy-betanzos: Devuelve al sistema la memoria propia que NEXO ya no usa.
 pub fn jb_trim_own_memory() {
     #[cfg(all(target_os = "linux", target_env = "gnu"))]
     unsafe {
@@ -320,12 +275,10 @@ pub fn jb_trim_own_memory() {
     }
 }
 
-/// jimy-betanzos: Baja la prioridad de NEXO para no frenar el equipo.
 pub fn jb_background_process() {
     jb_background_thread();
 }
 
-/// jimy-betanzos: Unix (segundos) -> (año, mes, día, hora, minuto) en hora local.
 pub fn jb_local_time(unix: u64) -> (u16, u16, u16, u16, u16) {
     unsafe {
         let t = unix as libc::time_t;
@@ -335,9 +288,7 @@ pub fn jb_local_time(unix: u64) -> (u16, u16, u16, u16, u16) {
     }
 }
 
-/// jimy-betanzos: Una sola ventana de NEXO: se bloquea un archivo de la carpeta de datos.
 pub fn jb_claim_single_instance() -> bool {
-    // jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
     use std::sync::OnceLock;
     static LOCK: OnceLock<std::fs::File> = OnceLock::new();
     let dir = crate::config::jb_data_dir();
@@ -350,13 +301,10 @@ pub fn jb_claim_single_instance() -> bool {
     true
 }
 
-/// jimy-betanzos: Prepara un comando del sistema.
 pub fn jb_hidden_cmd(program: &str) -> Command {
     Command::new(program)
 }
 
-/// jimy-betanzos: Abre un archivo con su programa. Los ejecutables y scripts nunca se lanzan: solo se
-/// muestran en su carpeta.
 pub fn jb_open_file(p: &Path) {
     const RISKY: &[&str] = &["sh", "bash", "zsh", "command", "app", "pkg", "dmg", "run", "bin", "appimage", "deb", "rpm", "py", "pl", "jar", "desktop", "exe", "msi", "bat", "ps1"];
     let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
@@ -370,7 +318,6 @@ pub fn jb_open_file(p: &Path) {
     }
 }
 
-/// jimy-betanzos: Muestra el archivo en el Finder (macOS) o abre su carpeta (Linux).
 pub fn jb_reveal_in_explorer(p: &Path) {
     #[cfg(target_os = "macos")]
     let _ = Command::new("open").arg("-R").arg(p).spawn();

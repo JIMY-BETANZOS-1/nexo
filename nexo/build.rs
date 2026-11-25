@@ -1,13 +1,7 @@
-//! Datos del ejecutable de Windows: icono y propiedades del archivo (clic derecho →
-//! Propiedades → Detalles): nombre, descripción, versión y derechos de autor.
-//! En Linux y macOS no hace nada.
-//! Autor: jimy-betanzos (Chatta Betanzos, Jimy Alexander)
-
 #[path = "src/icon.rs"]
 #[allow(dead_code)]
 mod icon;
 
-/// jimy-betanzos: Incrusta el icono y las propiedades del .exe al compilar en Windows.
 fn main() {
     println!("cargo:rerun-if-changed=src/icon.rs");
     println!("cargo:rerun-if-changed=build.rs");

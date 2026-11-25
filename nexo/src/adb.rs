@@ -1,22 +1,8 @@
-// Proyecto: NEXO
-// Archivo: adb.rs
-// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
-
-//! Modo potenciado (fase 4): NEXO controla los celulares desde la laptop con ADB,
-//! por USB o por WiFi local (depuración inalámbrica de Android 11). Sin internet.
-//!
-//! Hace lo que una app sola no puede en Android 11: borrar la caché de todas las
-//! apps, desactivar apps preinstaladas (reversible) y medir la batería por app.
-
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (collections)
 use std::collections::HashMap;
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::PathBuf;
 
-// jimy-betanzos - dependencia: módulo propio
 use crate::{install, sys};
 
-/// jimy-betanzos: Busca el programa adb (Android platform-tools) en las carpetas habituales.
 pub fn jb_adb_path() -> Option<PathBuf> {
     let bin = if cfg!(windows) { "adb.exe" } else { "adb" };
     let mut c: Vec<PathBuf> = Vec::new();
@@ -31,7 +17,6 @@ pub fn jb_adb_path() -> Option<PathBuf> {
             c.push(PathBuf::from(v).join("platform-tools").join(bin));
         }
     }
-    // Ubicación por defecto del SDK de Android Studio en cada sistema.
     if let Some(l) = std::env::var_os("LOCALAPPDATA") {
         c.push(PathBuf::from(l).join("Android").join("Sdk").join("platform-tools").join(bin));
     }
@@ -40,14 +25,12 @@ pub fn jb_adb_path() -> Option<PathBuf> {
         c.push(h.join("Android/Sdk/platform-tools").join(bin));
         c.push(h.join("Library/Android/sdk/platform-tools").join(bin));
     }
-    // Instalado con el gestor de paquetes (apt install adb, brew install android-platform-tools).
     for d in ["/usr/bin", "/usr/local/bin", "/opt/homebrew/bin"] {
         c.push(PathBuf::from(d).join(bin));
     }
     c.into_iter().find(|p| p.exists())
 }
 
-/// jimy-betanzos: Ejecuta adb con los argumentos dados y devuelve su salida.
 fn jb_run(args: &[&str]) -> Result<String, String> {
     let adb = jb_adb_path().ok_or("No se encontró ADB")?;
     let out = sys::jb_hidden_cmd(&adb.to_string_lossy()).args(args).output().map_err(|e| e.to_string())?;
@@ -60,12 +43,10 @@ fn jb_run(args: &[&str]) -> Result<String, String> {
     }
 }
 
-/// jimy-betanzos: Ejecuta un comando dentro del celular indicado.
 fn jb_shell(serial: &str, cmd: &str) -> Result<String, String> {
     jb_run(&["-s", serial, "shell", cmd])
 }
 
-/// jimy-betanzos: Celular detectado por adb: número de serie, estado y modelo.
 #[derive(Clone, Default)]
 pub struct JbDev {
     pub serial: String,
@@ -73,19 +54,15 @@ pub struct JbDev {
     pub model: String,
 }
 
-/// jimy-betanzos: Métodos de Dev.
 impl JbDev {
-    /// jimy-betanzos: Indica si el celular ya autorizó la depuración.
     pub fn jb_ready(&self) -> bool {
         self.state == "device"
     }
-    /// jimy-betanzos: Indica si el celular está conectado por WiFi.
     pub fn jb_wifi(&self) -> bool {
         self.serial.contains(':') || self.serial.contains("._adb-tls-connect")
     }
 }
 
-/// jimy-betanzos: Lista los celulares conectados por USB o WiFi.
 pub fn jb_devices() -> Result<Vec<JbDev>, String> {
     let out = jb_run(&["devices", "-l"])?;
     Ok(out
@@ -106,19 +83,16 @@ pub fn jb_devices() -> Result<Vec<JbDev>, String> {
         .collect())
 }
 
-/// jimy-betanzos: Vincula un celular por WiFi con su código de 6 dígitos.
 pub fn jb_pair(addr: &str, code: &str) -> Result<String, String> {
     let out = jb_run(&["pair", addr.trim(), code.trim()])?;
     if out.to_lowercase().contains("success") { Ok("Vinculado correctamente.".into()) } else { Err(out.trim().to_string()) }
 }
 
-/// jimy-betanzos: Conecta un celular ya vinculado por WiFi.
 pub fn jb_connect(addr: &str) -> Result<String, String> {
     let out = jb_run(&["connect", addr.trim()])?;
     if out.contains("connected") { Ok("Conectado.".into()) } else { Err(out.trim().to_string()) }
 }
 
-/// jimy-betanzos: Datos del celular: marca, modelo, Android, almacenamiento y batería.
 #[derive(Clone, Default)]
 pub struct JbInfo {
     pub brand: String,
@@ -133,12 +107,10 @@ pub struct JbInfo {
     pub ram_avail: u64,
 }
 
-/// jimy-betanzos: Lee el valor de una clave en un texto «clave: valor».
 fn jb_kv(text: &str, key: &str) -> Option<String> {
     text.lines().find_map(|l| l.trim().strip_prefix(key).map(|v| v.trim().to_string()))
 }
 
-/// jimy-betanzos: Calcula el espacio total y libre del almacenamiento del celular.
 fn jb_data_space(serial: &str) -> (u64, u64) {
     let out = jb_shell(serial, "df -k /data").unwrap_or_default();
     let line = out.lines().nth(1).unwrap_or("");
@@ -152,7 +124,6 @@ fn jb_data_space(serial: &str) -> (u64, u64) {
     }
 }
 
-/// jimy-betanzos: Lee los datos principales del celular.
 pub fn jb_info(serial: &str) -> Result<JbInfo, String> {
     let props = jb_shell(serial, "getprop ro.product.brand; getprop ro.product.model; getprop ro.build.version.release")?;
     let mut p = props.lines().map(|s| s.trim().to_string());
@@ -181,7 +152,6 @@ pub fn jb_info(serial: &str) -> Result<JbInfo, String> {
     })
 }
 
-/// jimy-betanzos: Borra la caché de TODAS las apps (no toca datos, cuentas ni archivos). Devuelve lo liberado.
 pub fn jb_trim_caches(serial: &str) -> Result<u64, String> {
     let (before, _) = jb_data_space(serial);
     jb_shell(serial, "pm trim-caches 999G")?;
@@ -189,7 +159,6 @@ pub fn jb_trim_caches(serial: &str) -> Result<u64, String> {
     Ok(after.saturating_sub(before))
 }
 
-/// Apps preinstaladas que se pueden desactivar sin riesgo (y volver a activar cuando quieras).
 const BLOAT: &[(&str, &str, &str)] = &[
     ("com.facebook.appmanager", "Facebook App Manager", "Instalador de Facebook preinstalado: se actualiza solo y gasta datos."),
     ("com.facebook.services", "Facebook Services", "Servicio de Facebook en segundo plano."),
@@ -216,7 +185,6 @@ const BLOAT: &[(&str, &str, &str)] = &[
     ("com.google.android.apps.magazines", "Google Noticias", "Si no lo usas."),
 ];
 
-/// jimy-betanzos: App preinstalada que se puede desactivar.
 #[derive(Clone)]
 pub struct JbBloat {
     pub pkg: String,
@@ -225,7 +193,6 @@ pub struct JbBloat {
     pub enabled: bool,
 }
 
-/// jimy-betanzos: Lista las apps preinstaladas conocidas que tiene el celular.
 pub fn jb_bloat(serial: &str) -> Result<Vec<JbBloat>, String> {
     let all = jb_shell(serial, "pm list packages")?;
     let disabled = jb_shell(serial, "pm list packages -d").unwrap_or_default();
@@ -237,14 +204,12 @@ pub fn jb_bloat(serial: &str) -> Result<Vec<JbBloat>, String> {
         .collect())
 }
 
-/// jimy-betanzos: Activa o desactiva una app del celular (es reversible).
 pub fn jb_set_enabled(serial: &str, pkg: &str, on: bool) -> Result<(), String> {
     let cmd = if on { format!("pm enable {}", pkg) } else { format!("pm disable-user --user 0 {}", pkg) };
     let out = jb_shell(serial, &cmd)?;
     if out.to_lowercase().contains("new state") { Ok(()) } else { Err(out.trim().to_string()) }
 }
 
-/// jimy-betanzos: Consumo de batería por app (mAh desde la última carga completa), con datos del sistema.
 pub fn jb_battery_usage(serial: &str) -> Result<Vec<(String, f64)>, String> {
     let stats = jb_shell(serial, "dumpsys batterystats --charged")?;
     let pkgs = jb_shell(serial, "cmd package list packages -U").unwrap_or_default();
@@ -284,7 +249,6 @@ pub fn jb_battery_usage(serial: &str) -> Result<Vec<(String, f64)>, String> {
     Ok(out)
 }
 
-/// jimy-betanzos: APK de NEXO móvil empaquetado junto a NEXO para Windows (si existe).
 pub fn jb_mobile_apk() -> Option<PathBuf> {
     let mut c = vec![install::jb_install_dir().join("nexo-movil.apk")];
     if let Ok(exe) = std::env::current_exe() {
@@ -295,7 +259,6 @@ pub fn jb_mobile_apk() -> Option<PathBuf> {
     c.into_iter().find(|p| p.exists())
 }
 
-/// jimy-betanzos: Instala o actualiza NEXO móvil en el celular.
 pub fn jb_install_apk(serial: &str, apk: &std::path::Path) -> Result<String, String> {
     let out = jb_run(&["-s", serial, "install", "-r", &apk.to_string_lossy()])?;
     if out.contains("Success") { Ok("NEXO móvil instalado.".into()) } else { Err(out.trim().to_string()) }

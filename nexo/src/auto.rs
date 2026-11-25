@@ -1,29 +1,12 @@
-// Proyecto: NEXO
-// Archivo: auto.rs
-// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
-
-//! Modo automático (lo lanza el Programador de tareas con `--auto`).
-//!
-//! Solo limpia basura real (categorías seguras). Capturas, descargas, videos y
-//! documentos NUNCA se tocan aquí: solo se cuentan para avisarte.
-
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
 use std::sync::atomic::AtomicBool;
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
 use std::sync::{Arc, Mutex};
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (time)
 use std::time::Duration;
 
-// jimy-betanzos - dependencia: módulo propio config
 use crate::config::{jb_push_history, JbConfig, JbHistoryEntry};
-// jimy-betanzos - dependencia: módulo propio rules
 use crate::rules::{jb_categories, JbEnv, JbKind};
-// jimy-betanzos - dependencia: módulo propio scan
 use crate::scan::{jb_scan_all, JbCtx, JbProgress};
-// jimy-betanzos - dependencia: módulo propio
 use crate::{clean, fmt, sys};
 
-/// Instalaciones o actualizaciones en curso (Windows, Linux y macOS).
 const BUSY_PROCS: &[&str] = &[
     "msiexec.exe", "tiworker.exe", "setup.exe", "installer.exe", "apt", "apt-get", "dpkg", "dnf", "rpm", "pacman",
     "packagekitd", "installer", "softwareupdated",
@@ -31,9 +14,6 @@ const BUSY_PROCS: &[&str] = &[
 const RETRIES: u32 = 12;
 const RETRY_WAIT: Duration = Duration::from_secs(10 * 60);
 
-// jimy-betanzos: la limpieza automática se pospone si molestaría al usuario: batería baja,
-// pantalla completa (juego, video, presentación) o una instalación en curso.
-/// jimy-betanzos: Devuelve el motivo por el que conviene esperar, o None si se puede limpiar ya.
 pub fn jb_wait_reason() -> Option<String> {
     let pw = sys::jb_power();
     if pw.has_battery && !pw.on_ac && pw.percent.is_some_and(|p| p < 40) {
@@ -49,7 +29,6 @@ pub fn jb_wait_reason() -> Option<String> {
     None
 }
 
-/// jimy-betanzos: Escaneo completo de solo lectura volcado a un archivo de texto.
 pub fn jb_report(out: &std::path::Path) {
     let env = JbEnv::jb_detect();
     let defs = jb_categories(&env);
@@ -73,7 +52,6 @@ pub fn jb_report(out: &std::path::Path) {
     let _ = std::fs::write(out, s);
 }
 
-/// jimy-betanzos: Recorre todo el camino del modo automático sin borrar nada (para comprobarlo).
 pub fn jb_simulate() -> String {
     let env = JbEnv::jb_detect();
     let defs = jb_categories(&env);
@@ -105,7 +83,6 @@ pub fn jb_simulate() -> String {
     s
 }
 
-/// jimy-betanzos: Ejecuta la limpieza automática completa y la anota en el historial.
 pub fn jb_run() {
     sys::jb_background_process();
     let mut cfg = JbConfig::jb_load();
@@ -141,7 +118,6 @@ pub fn jb_run() {
     let cancel = AtomicBool::new(false);
     let ctx = JbCtx { admin, procs: &procs, progress: &progress, cancel: &cancel };
 
-    // Solo categorías seguras elegidas por el usuario.
     let safe_ids: Vec<String> = cfg
         .auto_categories
         .iter()
@@ -154,7 +130,6 @@ pub fn jb_run() {
     }
     let report = clean::jb_clean(&defs, &results, &env, &ctx);
 
-    // Solo lectura: cuánto hay para que el usuario revise (no se toca).
     let review_ids: Vec<String> = ["screenshots", "downloads_old", "protected"].iter().map(|s| s.to_string()).collect();
     let review = jb_scan_all(&defs, Some(&review_ids), &ctx);
     let review_bytes: u64 = review.iter().map(|r| r.size).sum();

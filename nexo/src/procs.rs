@@ -1,19 +1,4 @@
-// Proyecto: NEXO
-// Archivo: procs.rs
-// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
-
-//! Programas en ejecución: memoria, CPU, actividad de disco y cuán "importantes" son.
-//!
-//! Nada aquí cierra un programa por su cuenta. Cerrar siempre lo pide el usuario, y
-//! primero se intenta por las buenas (WM_CLOSE en Windows, SIGTERM o «Salir» en Linux y
-//! macOS): el programa puede preguntar si guardar.
-//!
-//! La lógica (agrupar, decidir qué se puede compactar, avisos) es común; lo que habla con
-//! el sistema operativo está en `procs_win.rs` o en `unix/procs.rs`.
-
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (collections)
 use std::collections::HashMap;
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (time)
 use std::time::Instant;
 
 #[cfg(windows)]
@@ -23,13 +8,10 @@ mod plat;
 #[path = "unix/procs.rs"]
 mod plat;
 
-// jimy-betanzos - dependencia: módulo propio de la plataforma (Windows o Linux/macOS)
 pub use plat::{jb_close_gracefully, jb_force_kill, jb_trim};
-// jimy-betanzos - dependencia: módulo propio de la plataforma (Windows o Linux/macOS)
 #[allow(unused_imports)]
 pub use plat::{jb_foreground_pid, jb_list_processes, jb_top_windows};
 
-/// Procesos del sistema: nunca se compactan, cierran ni sugieren.
 const SYSTEM_EXES: &[&str] = &[
     "system", "[system process]", "registry", "memory compression", "secure system", "smss.exe",
     "csrss.exe", "wininit.exe", "winlogon.exe", "services.exe", "lsass.exe", "lsaiso.exe",
@@ -40,14 +22,12 @@ const SYSTEM_EXES: &[&str] = &[
     "shellexperiencehost.exe", "textinputhost.exe", "applicationframehost.exe", "wudfhost.exe",
     "dllhost.exe", "conhost.exe", "lockapp.exe", "userinit.exe", "wlanext.exe", "dashost.exe",
     "igfxem.exe", "nexo.exe",
-    // Linux y macOS
     "systemd", "kthreadd", "init", "xorg", "xwayland", "gnome-shell", "plasmashell", "kwin_x11",
     "kwin_wayland", "pipewire", "pulseaudio", "wireplumber", "dbus-daemon", "networkmanager",
     "polkitd", "gdm", "sddm", "launchd", "kernel_task", "windowserver", "loginwindow", "finder",
     "dock", "systemuiserver", "mds", "mds_stores", "coreaudiod", "xprotect", "nexo",
 ];
 
-/// Programas de trabajo: si están abiertos, pueden tener algo sin guardar.
 const EDITOR_EXES: &[&str] = &[
     "winword.exe", "excel.exe", "powerpnt.exe", "onenote.exe", "msaccess.exe", "mspub.exe",
     "notepad.exe", "notepad++.exe", "wordpad.exe", "mspaint.exe", "code.exe", "devenv.exe",
@@ -56,35 +36,29 @@ const EDITOR_EXES: &[&str] = &[
     "blender.exe", "obs64.exe", "audacity.exe", "gimp-2.10.exe", "inkscape.exe", "acad.exe",
     "figma.exe", "soffice.bin", "resolve.exe", "capcut.exe", "canva.exe", "kdenlive.exe",
     "spss.exe", "stats.exe", "rstudio.exe", "matlab.exe", "pgadmin4.exe",
-    // Linux y macOS
     "code", "gedit", "gnome-text-editor", "kate", "libreoffice", "soffice", "gimp", "inkscape",
     "blender", "obs", "audacity", "kdenlive", "idea", "pycharm", "studio", "rstudio", "textedit",
     "pages", "numbers", "keynote", "xcode", "microsoft word", "microsoft excel",
     "microsoft powerpoint", "final cut pro", "davinci resolve",
 ];
 
-/// Instaladores y actualizaciones: cerrarlos a medias puede dañar algo.
 const INSTALLER_EXES: &[&str] = &[
     "msiexec.exe", "tiworker.exe", "trustedinstaller.exe", "wusa.exe", "setup.exe",
     "dismhost.exe", "mousocoreworker.exe",
-    // Linux y macOS
     "apt", "apt-get", "dpkg", "dnf", "rpm", "pacman", "zypper", "packagekitd", "snapd",
     "flatpak", "installer", "softwareupdated",
 ];
 
-const IO_ACTIVE: f64 = 1.5 * 1024.0 * 1024.0; // bytes/s
+const IO_ACTIVE: f64 = 1.5 * 1024.0 * 1024.0;
 
-/// jimy-betanzos: Nombre comparable entre sistemas: «Chrome.exe», «chrome» y «Google Chrome» se tratan igual.
 fn jb_base(exe: &str) -> &str {
     exe.strip_suffix(".exe").unwrap_or(exe)
 }
 
-/// jimy-betanzos: Indica si un ejecutable está en una de las listas conocidas.
 fn jb_listed(list: &[&str], exe: &str) -> bool {
     list.iter().any(|x| jb_base(x) == jb_base(exe))
 }
 
-/// jimy-betanzos: Nombre legible de un programa («Explorador de Windows»).
 pub fn jb_friendly(exe: &str) -> String {
     let known = match exe {
         "chrome.exe" => "Google Chrome",
@@ -143,7 +117,6 @@ pub fn jb_friendly(exe: &str) -> String {
     }
 }
 
-/// jimy-betanzos: Datos de un proceso: nombre, memoria, CPU y disco.
 #[derive(Clone, Default)]
 pub struct JbProcInfo {
     pub pid: u32,
@@ -155,14 +128,12 @@ pub struct JbProcInfo {
     pub accessible: bool,
 }
 
-/// jimy-betanzos: Ventana visible de un programa (título y si está al frente).
 pub struct JbWin {
     pub hwnd: isize,
     pub pid: u32,
     pub title: String,
 }
 
-/// jimy-betanzos: Detecta cambios sin guardar por el título de la ventana (*).
 fn jb_looks_unsaved(title: &str) -> bool {
     let t = title.to_lowercase();
     title.starts_with('*')
@@ -174,7 +145,6 @@ fn jb_looks_unsaved(title: &str) -> bool {
         || t.contains("(modificado)")
 }
 
-/// jimy-betanzos: Programa agrupado con todos sus procesos.
 #[derive(Clone, Default)]
 pub struct JbAppGroup {
     pub exe: String,
@@ -193,26 +163,19 @@ pub struct JbAppGroup {
     pub accessible: bool,
 }
 
-/// jimy-betanzos: Métodos de AppGroup.
 impl JbAppGroup {
-    /// jimy-betanzos: Indica si el programa está leyendo o escribiendo en disco.
     pub fn jb_io_active(&self) -> bool {
         self.io_rate > IO_ACTIVE
     }
 
-    /// jimy-betanzos: Indica si el programa está inactivo (casi sin CPU ni disco).
     pub fn jb_idle(&self) -> bool {
         self.cpu_pct < 1.5 && !self.jb_io_active()
     }
 
-    // jimy-betanzos: solo se compacta lo que el usuario no está usando; nunca procesos del
-    // sistema, la ventana activa ni un programa que se está instalando.
-    /// jimy-betanzos: Se puede compactar sin molestar: segundo plano, inactivo y no del sistema.
     pub fn jb_can_trim(&self) -> bool {
         plat::PER_APP_TRIM && !self.system && !self.foreground && !self.installing && self.accessible && self.jb_idle()
     }
 
-    /// jimy-betanzos: Motivos para tener cuidado antes de cerrar el programa.
     pub fn jb_reasons(&self) -> Vec<&'static str> {
         let mut r = Vec::new();
         if self.unsaved {
@@ -234,7 +197,6 @@ impl JbAppGroup {
     }
 }
 
-/// jimy-betanzos: Toma muestras sucesivas para calcular CPU y actividad de disco por programa.
 #[derive(Default)]
 pub struct JbSampler {
     prev: HashMap<u32, (u64, u64)>,
@@ -242,9 +204,7 @@ pub struct JbSampler {
     sys_prev: Option<(u64, u64)>,
 }
 
-/// jimy-betanzos: Métodos de Sampler.
 impl JbSampler {
-    /// jimy-betanzos: Devuelve los programas agrupados por ejecutable (ordenados por memoria) y la CPU total.
     pub fn jb_sample(&mut self, with_windows: bool) -> (Vec<JbAppGroup>, f32) {
         let procs = jb_list_processes();
         let now = Instant::now();
@@ -296,7 +256,6 @@ impl JbSampler {
         (v, self.jb_system_cpu())
     }
 
-    /// jimy-betanzos: Uso total del procesador desde la última medición.
     fn jb_system_cpu(&mut self) -> f32 {
         let Some((idle, total)) = plat::jb_cpu_times() else { return 0.0 };
         let pct = match self.sys_prev {
@@ -311,7 +270,6 @@ impl JbSampler {
     }
 }
 
-/// jimy-betanzos: Igual que `trim_idle`, informando el avance en milésimas (para la barra de progreso).
 pub fn jb_trim_idle_progress(groups: &[JbAppGroup], progress: &std::sync::atomic::AtomicU32) -> (usize, u64) {
     #[cfg(unix)]
     {
@@ -333,7 +291,6 @@ pub fn jb_trim_idle_progress(groups: &[JbAppGroup], progress: &std::sync::atomic
     (n, freed)
 }
 
-/// jimy-betanzos: Compacta todos los programas inactivos de segundo plano. Devuelve (programas, bytes).
 #[cfg_attr(unix, allow(dead_code))]
 pub fn jb_trim_idle(groups: &[JbAppGroup]) -> (usize, u64) {
     let mut n = 0;
@@ -347,4 +304,3 @@ pub fn jb_trim_idle(groups: &[JbAppGroup]) -> (usize, u64) {
     }
     (n, freed)
 }
-

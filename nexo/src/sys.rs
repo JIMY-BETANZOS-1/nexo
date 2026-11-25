@@ -1,73 +1,45 @@
-// Proyecto: NEXO
-// Archivo: sys.rs
-// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
-
-//! Llamadas directas a Windows. Todo es local y barato (sin WMI ni PowerShell).
-
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (collections)
 use std::collections::HashSet;
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (ffi)
 use std::ffi::{c_void, OsStr};
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (mem)
 use std::mem::{size_of, zeroed};
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (os)
 use std::os::windows::ffi::OsStrExt;
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::{Path, PathBuf};
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (ptr)
 use std::ptr::{null, null_mut};
 
-// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::core::{GUID, PWSTR};
-// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::Foundation::{CloseHandle, FILETIME, INVALID_HANDLE_VALUE, SYSTEMTIME};
-// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
-// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::System::Com::CoTaskMemFree;
-// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
 };
-// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
-// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::System::Registry::{RegGetValueW, HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ};
-// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
-// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::System::Threading::{
     GetCurrentProcess, GetCurrentThread, SetPriorityClass, SetProcessWorkingSetSize, SetThreadPriority,
     PROCESS_MODE_BACKGROUND_BEGIN, THREAD_MODE_BACKGROUND_BEGIN,
 };
-// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::System::Time::{FileTimeToSystemTime, SystemTimeToTzSpecificLocalTime};
-// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::UI::Shell::{
     IsUserAnAdmin, SHEmptyRecycleBinW, SHGetKnownFolderPath, SHQueryRecycleBinW,
     SHQueryUserNotificationState, ShellExecuteW, QUERY_USER_NOTIFICATION_STATE, QUNS_BUSY,
     QUNS_PRESENTATION_MODE, QUNS_RUNNING_D3D_FULL_SCREEN, SHERB_NOCONFIRMATION, SHERB_NOPROGRESSUI,
     SHERB_NOSOUND, SHQUERYRBINFO,
 };
-// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
-/// jimy-betanzos: Convierte un texto del sistema al formato de Windows (UTF-16).
 pub fn jb_wide(s: &OsStr) -> Vec<u16> {
     s.encode_wide().chain(Some(0)).collect()
 }
 
-/// jimy-betanzos: Convierte un texto al formato de Windows (UTF-16).
 fn jb_wstr(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(Some(0)).collect()
 }
 
-/// jimy-betanzos: Indica si NEXO tiene permisos de administrador.
 pub fn jb_is_admin() -> bool {
     unsafe { IsUserAnAdmin() != 0 }
 }
 
-/// jimy-betanzos: Nombres de ejecutables en marcha, en minúsculas (p. ej. "chrome.exe").
 pub fn jb_running_processes() -> HashSet<String> {
     let mut set = HashSet::new();
     unsafe {
@@ -91,14 +63,12 @@ pub fn jb_running_processes() -> HashSet<String> {
     set
 }
 
-/// jimy-betanzos: Estado de la energía: batería, porcentaje y cargador.
 pub struct JbPower {
     pub on_ac: bool,
     pub percent: Option<u8>,
     pub has_battery: bool,
 }
 
-/// jimy-betanzos: Lee el estado de la batería y el cargador.
 pub fn jb_power() -> JbPower {
     unsafe {
         let mut s: SYSTEM_POWER_STATUS = zeroed();
@@ -113,7 +83,6 @@ pub fn jb_power() -> JbPower {
     }
 }
 
-/// jimy-betanzos: Verdadero si hay un juego/video en pantalla completa o modo presentación.
 pub fn jb_user_busy() -> bool {
     unsafe {
         let mut st: QUERY_USER_NOTIFICATION_STATE = 0;
@@ -124,7 +93,6 @@ pub fn jb_user_busy() -> bool {
     }
 }
 
-/// jimy-betanzos: (bytes, elementos) en la Papelera de reciclaje de todas las unidades.
 pub fn jb_recycle_bin() -> (u64, u64) {
     unsafe {
         let mut i: SHQUERYRBINFO = zeroed();
@@ -138,7 +106,6 @@ pub fn jb_recycle_bin() -> (u64, u64) {
     }
 }
 
-/// jimy-betanzos: Vacía la Papelera de reciclaje.
 pub fn jb_empty_recycle_bin() -> bool {
     unsafe {
         SHEmptyRecycleBinW(
@@ -149,7 +116,6 @@ pub fn jb_empty_recycle_bin() -> bool {
     }
 }
 
-/// jimy-betanzos: Ruta de una carpeta especial de Windows (Descargas, Videos…).
 pub fn jb_known_folder(id: &GUID) -> Option<PathBuf> {
     unsafe {
         let mut p: PWSTR = null_mut();
@@ -170,7 +136,6 @@ pub fn jb_known_folder(id: &GUID) -> Option<PathBuf> {
     }
 }
 
-/// jimy-betanzos: (libre, total) en bytes de la unidad que contiene `p`.
 pub fn jb_disk_space(p: &Path) -> (u64, u64) {
     unsafe {
         let w = jb_wide(p.as_os_str());
@@ -183,19 +148,15 @@ pub fn jb_disk_space(p: &Path) -> (u64, u64) {
     }
 }
 
-/// jimy-betanzos: Estado de la memoria RAM y virtual.
 pub struct JbMem {
     pub load: u32,
     pub total: u64,
     pub avail: u64,
-    /// Memoria comprometida (RAM + archivo de paginación): si se agota, los programas fallan.
     pub commit_total: u64,
     pub commit_avail: u64,
 }
 
-/// jimy-betanzos: Métodos de Mem.
 impl JbMem {
-    /// jimy-betanzos: Porcentaje de memoria virtual en uso.
     pub fn jb_commit_pct(&self) -> f32 {
         if self.commit_total == 0 {
             0.0
@@ -205,7 +166,6 @@ impl JbMem {
     }
 }
 
-/// jimy-betanzos: Lee el estado de la memoria del equipo.
 pub fn jb_memory() -> JbMem {
     unsafe {
         let mut m: MEMORYSTATUSEX = zeroed();
@@ -221,12 +181,10 @@ pub fn jb_memory() -> JbMem {
     }
 }
 
-/// jimy-betanzos: Unidad donde está instalado el sistema (C:).
 pub fn jb_system_drive() -> PathBuf {
     PathBuf::from(std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into()) + "\\")
 }
 
-/// jimy-betanzos: Lee un valor de texto del registro del sistema.
 pub fn jb_reg_string(sub: &str, val: &str) -> Option<String> {
     unsafe {
         let s = jb_wstr(sub);
@@ -251,10 +209,7 @@ pub fn jb_reg_string(sub: &str, val: &str) -> Option<String> {
     }
 }
 
-/// jimy-betanzos: Entradas de arranque automático ("nombre → comando") de las claves Run y de las
-/// carpetas de Inicio. Lectura barata: el vigía la compara cada 30 s.
 pub fn jb_startup_entries() -> HashSet<String> {
-    // jimy-betanzos - dependencia: funciones de Windows (windows-sys)
     use windows_sys::Win32::System::Registry::{
         RegCloseKey, RegEnumValueW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER, KEY_READ,
     };
@@ -307,7 +262,6 @@ pub fn jb_startup_entries() -> HashSet<String> {
     set
 }
 
-/// jimy-betanzos: Marca y modelo del equipo.
 pub fn jb_machine_model() -> String {
     let bios = "HARDWARE\\DESCRIPTION\\System\\BIOS";
     let maker = jb_reg_string(bios, "SystemManufacturer").unwrap_or_default();
@@ -317,12 +271,10 @@ pub fn jb_machine_model() -> String {
     format!("{} {}", maker, family).trim().to_string()
 }
 
-/// jimy-betanzos: Vuelve a abrir NEXO pidiendo permiso de administrador.
 pub fn jb_relaunch_as_admin() -> bool {
     jb_relaunch_as_admin_with("")
 }
 
-/// jimy-betanzos: Vuelve a abrir NEXO con permisos de administrador (aviso de Windows) y los mismos argumentos.
 pub fn jb_relaunch_as_admin_with(params: &str) -> bool {
     let Ok(exe) = std::env::current_exe() else { return false };
     unsafe {
@@ -334,40 +286,31 @@ pub fn jb_relaunch_as_admin_with(params: &str) -> bool {
     }
 }
 
-/// jimy-betanzos: Para trabajo que el usuario está esperando (escanear, limpiar, diagnosticar):
-/// cede CPU a lo que estés usando, pero el disco va a velocidad normal.
 pub fn jb_interactive_thread() {
-    // jimy-betanzos - dependencia: funciones de Windows (windows-sys)
     use windows_sys::Win32::System::Threading::THREAD_PRIORITY_BELOW_NORMAL;
     unsafe {
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
     }
 }
 
-/// jimy-betanzos: Baja la prioridad de CPU y disco del hilo actual: el usuario no nota el trabajo.
-/// Solo para tareas desatendidas (modo automático, vigía): en modo interactivo
-/// haría muy lento el acceso a disco.
 pub fn jb_background_thread() {
     unsafe {
         SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN);
     }
 }
 
-/// jimy-betanzos: Devuelve al sistema la memoria propia que NEXO no está usando (solo su propio proceso).
 pub fn jb_trim_own_memory() {
     unsafe {
         SetProcessWorkingSetSize(GetCurrentProcess(), usize::MAX, usize::MAX);
     }
 }
 
-/// jimy-betanzos: Baja la prioridad de NEXO para no frenar el equipo.
 pub fn jb_background_process() {
     unsafe {
         SetPriorityClass(GetCurrentProcess(), PROCESS_MODE_BACKGROUND_BEGIN);
     }
 }
 
-/// jimy-betanzos: Unix (segundos) -> (año, mes, día, hora, minuto) en hora local.
 pub fn jb_local_time(unix: u64) -> (u16, u16, u16, u16, u16) {
     unsafe {
         let v = (unix + 11_644_473_600) * 10_000_000;
@@ -382,13 +325,9 @@ pub fn jb_local_time(unix: u64) -> (u16, u16, u16, u16, u16) {
     }
 }
 
-/// jimy-betanzos: Una sola ventana de NEXO: si ya hay una abierta, la trae al frente y devuelve false.
 pub fn jb_claim_single_instance() -> bool {
-    // jimy-betanzos - dependencia: funciones de Windows (windows-sys)
     use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
-    // jimy-betanzos - dependencia: funciones de Windows (windows-sys)
     use windows_sys::Win32::System::Threading::CreateMutexW;
-    // jimy-betanzos - dependencia: funciones de Windows (windows-sys)
     use windows_sys::Win32::UI::WindowsAndMessaging::{FindWindowW, SetForegroundWindow, ShowWindow, SW_RESTORE};
     unsafe {
         let name = jb_wstr("Local\\NEXO_INTERFAZ");
@@ -402,22 +341,17 @@ pub fn jb_claim_single_instance() -> bool {
             }
             return false;
         }
-        // El mutex se mantiene abierto mientras viva el proceso.
         true
     }
 }
 
-/// jimy-betanzos: Comando sin ventana de consola.
 pub fn jb_hidden_cmd(program: &str) -> std::process::Command {
-    // jimy-betanzos - dependencia: biblioteca estándar de Rust (os)
     use std::os::windows::process::CommandExt;
     let mut c = std::process::Command::new(program);
     c.creation_flags(0x0800_0000);
     c
 }
 
-/// jimy-betanzos: Abre un archivo con su programa (fotos, videos, PDF...). Los ejecutables y scripts
-/// nunca se lanzan: solo se muestran en el Explorador.
 pub fn jb_open_file(p: &Path) {
     const RISKY: &[&str] = &[
         "exe", "msi", "msix", "appx", "bat", "cmd", "com", "scr", "ps1", "vbs", "vbe", "js", "jse",
@@ -431,7 +365,6 @@ pub fn jb_open_file(p: &Path) {
     }
 }
 
-/// jimy-betanzos: Muestra un archivo seleccionado en el Explorador.
 pub fn jb_reveal_in_explorer(p: &Path) {
     let _ = std::process::Command::new("explorer").arg(format!("/select,{}", p.display())).spawn();
 }

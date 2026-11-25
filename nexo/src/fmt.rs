@@ -1,11 +1,5 @@
-// Proyecto: NEXO
-// Archivo: fmt.rs
-// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
-
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (time)
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// jimy-betanzos: Muestra un tamaño en B, KB, MB o GB con coma decimal.
 pub fn jb_bytes(b: u64) -> String {
     const U: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
     let mut v = b as f64;
@@ -26,7 +20,6 @@ pub fn jb_bytes(b: u64) -> String {
     s.replace('.', ",")
 }
 
-/// jimy-betanzos: Muestra una cantidad con punto de miles.
 pub fn jb_count(n: u64) -> String {
     let s = n.to_string();
     let mut out = String::new();
@@ -39,18 +32,15 @@ pub fn jb_count(n: u64) -> String {
     out
 }
 
-/// jimy-betanzos: Hora actual en segundos.
 pub fn jb_now() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
-/// jimy-betanzos: Muestra una fecha como dd/mm/aaaa · hh:mm.
 pub fn jb_date(ts: u64) -> String {
     let (y, mo, d, h, mi) = crate::sys::jb_local_time(ts);
     format!("{:02}/{:02}/{} · {:02}:{:02}", d, mo, y, h, mi)
 }
 
-/// jimy-betanzos: Muestra el tiempo transcurrido («hace 2 días»).
 pub fn jb_ago(ts: u64) -> String {
     let s = jb_now().saturating_sub(ts);
     match s {
@@ -64,7 +54,6 @@ pub fn jb_ago(ts: u64) -> String {
     }
 }
 
-/// jimy-betanzos: Recorta una ruta larga dejando el final visible: "…\carpeta\archivo.tmp".
 pub fn jb_short_path(p: &std::path::Path, max: usize) -> String {
     let s = p.display().to_string();
     let n = s.chars().count();
@@ -76,7 +65,6 @@ pub fn jb_short_path(p: &std::path::Path, max: usize) -> String {
     }
 }
 
-/// jimy-betanzos: 75.0 → "1 min 15 s"; 8.4 → "8 s".
 pub fn jb_secs(s: f64) -> String {
     let s = s.max(0.0).round() as u64;
     if s < 60 {

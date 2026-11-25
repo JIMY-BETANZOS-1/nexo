@@ -1,29 +1,12 @@
-// Proyecto: NEXO
-// Archivo: clean.rs
-// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
-
-//! Limpieza. Solo actúa sobre lo que el usuario dejó seleccionado.
-//!
-//! - Categorías seguras (basura del sistema): borrado definitivo.
-//! - Revisión y protegidos (capturas, descargas, videos, documentos): a la Papelera.
-
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (fs)
 use std::fs;
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::{Path, PathBuf};
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
 use std::sync::Mutex;
 
-// jimy-betanzos - dependencia: módulo propio rules
 use crate::rules::{jb_is_inside, jb_protection, JbCategoryDef, JbEnv, JbKind, JbProtect, JbSpecial, JbTarget};
-// jimy-betanzos - dependencia: módulo propio scan
 use crate::scan::{jb_blocked_by, jb_walk, JbCatResult, JbCtx};
-// jimy-betanzos - dependencia: módulo propio sys
 use crate::sys;
 
-/// jimy-betanzos: Resultado de una limpieza: archivos, espacio liberado y errores.
 #[derive(Default, Clone)]
 pub struct JbCleanReport {
     pub freed: u64,
@@ -33,7 +16,6 @@ pub struct JbCleanReport {
     pub per_cat: Vec<(String, u64)>,
 }
 
-/// jimy-betanzos: Borra un archivo aunque sea de solo lectura.
 fn jb_remove_file_force(p: &Path) -> std::io::Result<()> {
     match fs::remove_file(p) {
         Ok(()) => Ok(()),
@@ -53,7 +35,6 @@ fn jb_remove_file_force(p: &Path) -> std::io::Result<()> {
     }
 }
 
-/// jimy-betanzos: Borra la basura de un destino seguro. Devuelve (liberado, archivos, omitidos).
 fn jb_clean_target(t: &JbTarget, env: &JbEnv, ctx: &JbCtx, files_total: &AtomicU64, bytes_total: &AtomicU64) -> (u64, u64, u64) {
     let (mut freed, mut files, mut skipped) = (0u64, 0u64, 0u64);
     let mut dirs: Vec<PathBuf> = Vec::new();
@@ -62,7 +43,6 @@ fn jb_clean_target(t: &JbTarget, env: &JbEnv, ctx: &JbCtx, files_total: &AtomicU
         t,
         ctx.cancel,
         |path, size| {
-            // Doble seguro: jamás borrar videos/documentos ni nada de carpetas personales.
             if jb_protection(path) != JbProtect::No || env.jb_is_forbidden(path) || !jb_is_inside(path, &t.root) {
                 skipped += 1;
                 return;
@@ -81,7 +61,7 @@ fn jb_clean_target(t: &JbTarget, env: &JbEnv, ctx: &JbCtx, files_total: &AtomicU
                         }
                     }
                 }
-                Err(_) => skipped += 1, // en uso o sin permiso: se deja
+                Err(_) => skipped += 1,
             }
         },
         |dir, age| {
@@ -90,16 +70,12 @@ fn jb_clean_target(t: &JbTarget, env: &JbEnv, ctx: &JbCtx, files_total: &AtomicU
             }
         },
     );
-    // Carpetas vacías y viejas dentro de temporales (de la más profunda a la raíz).
     for dir in dirs.iter().rev() {
         let _ = fs::remove_dir(dir);
     }
     (freed, files, skipped)
 }
 
-// jimy-betanzos: lo «Para revisar» y lo «Protegido» va a la Papelera (se puede recuperar);
-// solo la basura del sistema se elimina de forma definitiva.
-/// jimy-betanzos: Limpia las categorías seleccionadas y devuelve el resumen.
 pub fn jb_clean(defs: &[JbCategoryDef], results: &[JbCatResult], env: &JbEnv, ctx: &JbCtx) -> JbCleanReport {
     let mut rep = JbCleanReport::default();
     let selected: Vec<(&JbCatResult, &JbCategoryDef)> = results
@@ -109,7 +85,6 @@ pub fn jb_clean(defs: &[JbCategoryDef], results: &[JbCatResult], env: &JbEnv, ct
         .collect();
     let mut freed_by_cat = vec![0u64; selected.len()];
 
-    // 1) Basura segura: todos sus destinos se borran a la vez.
     let jobs: Vec<(usize, JbTarget)> = selected
         .iter()
         .enumerate()
@@ -153,7 +128,6 @@ pub fn jb_clean(defs: &[JbCategoryDef], results: &[JbCatResult], env: &JbEnv, ct
         rep.skipped += sk;
     }
 
-    // 2) Papelera de reciclaje, capturas, descargas, videos y documentos (en orden).
     for (i, (r, d)) in selected.iter().enumerate() {
         if d.kind == JbKind::Safe && d.special == JbSpecial::None {
             continue;
@@ -176,22 +150,18 @@ pub fn jb_clean(defs: &[JbCategoryDef], results: &[JbCatResult], env: &JbEnv, ct
                 rep.files += r.count;
             }
         } else {
-            // Revisión / protegidos: solo lo marcado, siempre a la Papelera.
             let picked: Vec<(&PathBuf, u64)> = r
                 .items
                 .iter()
                 .filter(|it| it.selected && it.path.exists())
                 .map(|it| (&it.path, it.size))
                 .collect();
-            // En lotes: cada envío a la Papelera prepara la operación de Windows desde cero,
-            // así que mandar 200 de una vez es muchísimo más rápido que uno por uno.
             for chunk in picked.chunks(200) {
                 if ctx.cancel.load(Ordering::Relaxed) {
                     break;
                 }
                 let batch_ok = trash::delete_all(chunk.iter().map(|(p, _)| *p)).is_ok();
                 for (path, size) in chunk {
-                    // Si el lote falló (p. ej. un archivo en uso), se reintenta solo lo que quedó.
                     let gone = if batch_ok { true } else { !path.exists() || trash::delete(path).is_ok() };
                     if gone {
                         freed += size;

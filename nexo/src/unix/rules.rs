@@ -1,29 +1,12 @@
-// Proyecto: NEXO
-// Archivo: rules.rs
-// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
-
-//! Reglas de Linux y macOS: carpetas de basura conocidas y carpetas personales prohibidas.
-//!
-//! Las mismas clases y garantías que en Windows: la basura segura se borra, lo del usuario
-//! va a la Papelera y los videos y documentos nunca se borran solos. Los identificadores
-//! (temp_user, browsers, apps…) coinciden con los de Windows para que la configuración del
-//! modo automático sirva en cualquier sistema.
-
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::{Path, PathBuf};
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (process)
 use std::process::Command;
 
-// jimy-betanzos - dependencia: módulo propio de la interfaz
 use super::*;
 
-/// jimy-betanzos: Carpeta personal del usuario.
 fn jb_home() -> PathBuf {
     std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/"))
 }
 
-/// jimy-betanzos: Carpeta del usuario según ~/.config/user-dirs.dirs (Linux; en español suele ser
-/// «Documentos», «Descargas»…). Si no está definida, se usa el nombre en inglés.
 #[cfg(not(target_os = "macos"))]
 fn jb_xdg_dir(key: &str, default: &str) -> PathBuf {
     let h = jb_home();
@@ -38,7 +21,6 @@ fn jb_xdg_dir(key: &str, default: &str) -> PathBuf {
     h.join(default)
 }
 
-/// jimy-betanzos: Detecta las carpetas del usuario y del sistema.
 pub fn jb_detect() -> JbEnv {
     let h = jb_home();
     #[cfg(target_os = "macos")]
@@ -54,7 +36,7 @@ pub fn jb_detect() -> JbEnv {
     );
 
     #[cfg(target_os = "macos")]
-    let screenshots = Some(desk.clone()); // macOS guarda las capturas en el Escritorio
+    let screenshots = Some(desk.clone());
     #[cfg(not(target_os = "macos"))]
     let screenshots = ["Screenshots", "Capturas de pantalla", "Capturas"].iter().map(|n| pics.join(n)).find(|p| p.is_dir()).or_else(|| Some(pics.join("Screenshots")));
 
@@ -63,7 +45,7 @@ pub fn jb_detect() -> JbEnv {
         forbidden.push(h.join(name));
     }
     #[cfg(target_os = "macos")]
-    forbidden.push(h.join("Library/Mobile Documents")); // iCloud Drive
+    forbidden.push(h.join("Library/Mobile Documents"));
 
     #[cfg(target_os = "macos")]
     let (local, roaming) = (h.join("Library/Caches"), h.join("Library/Application Support"));
@@ -85,12 +67,10 @@ pub fn jb_detect() -> JbEnv {
     }
 }
 
-/// jimy-betanzos: Deja solo las carpetas que existen.
 fn jb_dirs(list: Vec<PathBuf>) -> Vec<PathBuf> {
     list.into_iter().filter(|p| p.is_dir()).collect()
 }
 
-/// jimy-betanzos: Subcarpetas `Cache`, `Code Cache` y `GPUCache` de los perfiles de un navegador Chromium.
 fn jb_chromium_caches(base: &Path, procs: &'static [&'static str]) -> Vec<JbTarget> {
     let mut out = Vec::new();
     let mut profiles = vec![base.to_path_buf()];
@@ -113,7 +93,6 @@ fn jb_chromium_caches(base: &Path, procs: &'static [&'static str]) -> Vec<JbTarg
     out
 }
 
-/// jimy-betanzos: Carpetas de caché de los perfiles de Firefox.
 fn jb_firefox_caches(profiles_dir: &Path) -> Vec<JbTarget> {
     let mut out = Vec::new();
     if let Ok(rd) = std::fs::read_dir(profiles_dir) {
@@ -129,7 +108,6 @@ fn jb_firefox_caches(profiles_dir: &Path) -> Vec<JbTarget> {
     out
 }
 
-/// jimy-betanzos: Carpetas de caché de los navegadores.
 fn jb_browser_targets(env: &JbEnv) -> Vec<JbTarget> {
     let c = &env.local;
     let mut out = Vec::new();
@@ -152,8 +130,6 @@ fn jb_browser_targets(env: &JbEnv) -> Vec<JbTarget> {
     out
 }
 
-/// jimy-betanzos: Cada carpeta de ~/Library/Caches por separado, sin las de los navegadores (tienen su
-/// propia categoría) ni las de Apple (las gestiona macOS).
 #[cfg(target_os = "macos")]
 fn jb_mac_app_caches(env: &JbEnv) -> Vec<JbTarget> {
     const SKIP: &[&str] = &["Google", "Firefox", "Microsoft Edge", "BraveSoftware", "com.google.Chrome", "org.mozilla.firefox"];
@@ -169,7 +145,6 @@ fn jb_mac_app_caches(env: &JbEnv) -> Vec<JbTarget> {
     out
 }
 
-/// jimy-betanzos: Carpetas de caché de aplicaciones conocidas.
 #[cfg_attr(target_os = "macos", allow(dead_code))]
 fn jb_app_targets(env: &JbEnv) -> Vec<JbTarget> {
     let (c, r) = (&env.local, &env.roaming);
@@ -192,7 +167,6 @@ fn jb_app_targets(env: &JbEnv) -> Vec<JbTarget> {
     list.into_iter().filter(|(p, _)| p.is_dir()).map(|(p, b)| jb_blocked(jb_t(p, true, JbFilter::All, 0), b)).collect()
 }
 
-/// jimy-betanzos: Cachés que los programadores pueden regenerar en cualquier momento.
 fn jb_dev_targets(env: &JbEnv) -> Vec<JbTarget> {
     let h = jb_home();
     #[cfg_attr(not(target_os = "macos"), allow(unused_mut))]
@@ -202,7 +176,6 @@ fn jb_dev_targets(env: &JbEnv) -> Vec<JbTarget> {
     jb_dirs(list).into_iter().map(|p| jb_t(p, true, JbFilter::All, 24)).collect()
 }
 
-/// jimy-betanzos: Lista completa de categorías de limpieza.
 pub fn jb_categories(env: &JbEnv) -> Vec<JbCategoryDef> {
     let h = jb_home();
     let mut v = vec![JbCategoryDef {
@@ -362,14 +335,10 @@ pub fn jb_categories(env: &JbEnv) -> Vec<JbCategoryDef> {
 
 const UNIX_PACKAGE_EXT: &[&str] = &["dmg", "pkg", "deb", "rpm", "appimage", "run", "zip", "rar", "7z", "iso", "tar", "gz", "tgz", "xz", "bz2", "exe", "msi"];
 
-// Categorías que limpia un comando del sistema (solo Linux)
-
-/// jimy-betanzos: Indica si un comando está instalado.
 fn jb_which(cmd: &str) -> bool {
     Command::new("sh").args(["-c", &format!("command -v {} >/dev/null 2>&1", cmd)]).status().map(|s| s.success()).unwrap_or(false)
 }
 
-/// jimy-betanzos: Tamaño y cantidad de archivos de una carpeta.
 fn jb_dir_size(p: &Path) -> (u64, u64) {
     let (mut s, mut n) = (0, 0);
     for e in walkdir::WalkDir::new(p).follow_links(false).into_iter().flatten() {
@@ -383,7 +352,6 @@ fn jb_dir_size(p: &Path) -> (u64, u64) {
     (s, n)
 }
 
-/// jimy-betanzos: (bytes, elementos) que liberaría la categoría. Solo lee.
 pub fn jb_system_size(id: &str) -> (u64, u64) {
     match id {
         "paquetes" => {
@@ -395,7 +363,6 @@ pub fn jb_system_size(id: &str) -> (u64, u64) {
             total
         }
         "journal" => {
-            // «Archived and active journals take up 1.2G in the file system.»
             let out = Command::new("journalctl").arg("--disk-usage").output().map(|o| String::from_utf8_lossy(&o.stdout).to_string()).unwrap_or_default();
             let size = out
                 .split_whitespace()
@@ -413,14 +380,12 @@ pub fn jb_system_size(id: &str) -> (u64, u64) {
                     Some((n * mul) as u64)
                 })
                 .unwrap_or(0);
-            // Se conservan los últimos 30 días: se estima que se libera la mitad.
             (size / 2, u64::from(size > 0))
         }
         _ => (0, 0),
     }
 }
 
-/// jimy-betanzos: Limpia la categoría con el comando del sistema (pide la contraseña). Devuelve lo liberado.
 pub fn jb_system_clean(id: &str) -> Result<u64, String> {
     let before = jb_system_size(id).0;
     let cmd = match id {

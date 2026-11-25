@@ -1,54 +1,30 @@
-// Proyecto: NEXO
-// Archivo: app.rs
-// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
-
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (collections)
 use std::collections::VecDeque;
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::Path;
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
 use std::sync::atomic::{AtomicBool, Ordering};
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
 use std::sync::mpsc::{channel, Receiver};
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
 use std::sync::{Arc, Mutex};
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (time)
 use std::time::Duration;
 
-// jimy-betanzos - dependencia: ventana e interfaz gráfica (eframe/egui)
 use eframe::egui::{
     self, pos2, vec2, Align, Align2, Color32, Layout, Margin, RichText, ScrollArea, Sense, Stroke, Ui,
     ViewportCommand,
 };
 
-// jimy-betanzos - dependencia: módulo propio de la interfaz (theme)
 use super::theme::*;
-// jimy-betanzos - dependencia: módulo propio de la interfaz (thumbcache)
 use super::thumbcache::{JbThumbCache, BIG, SMALL};
-// jimy-betanzos - dependencia: módulo propio de la interfaz (widgets)
 use super::widgets::*;
-// jimy-betanzos - dependencia: módulo propio clean
 use crate::clean::{self, JbCleanReport};
-// jimy-betanzos - dependencia: módulo propio config
 use crate::config::{self, JbConfig, JbFrequency, JbHistoryEntry};
-// jimy-betanzos - dependencia: módulo propio rules
 use crate::rules::{self, JbCategoryDef, JbEnv, JbKind, JbProtect, JbSpecial};
-// jimy-betanzos - dependencia: módulo propio procs
 use crate::procs::{self, JbAppGroup, JbSampler};
-// jimy-betanzos - dependencia: módulo propio scan
 use crate::scan::{self, JbCatResult, JbCtx, JbProgress, JbShared};
-// jimy-betanzos - dependencia: módulo propio diag
 use crate::diag::{self, JbAction, JbReport};
-// jimy-betanzos - dependencia: módulo propio
 use crate::{adb, fmt, install, notify, schedule, sys, vigia};
 
-/// jimy-betanzos: Resultado de un trabajo en segundo plano: se aplica en el hilo de la interfaz.
 type JbApply = Box<dyn FnOnce(&mut JbNexoApp, f64) + Send>;
 
-/// Avance desconocido (barra animada en lugar de porcentaje).
 const INDET: u32 = u32::MAX;
 
-/// jimy-betanzos: Operación en curso que se muestra en el panel "En curso".
 struct JbOp {
     id: u64,
     label: String,
@@ -56,7 +32,6 @@ struct JbOp {
     started: f64,
 }
 
-/// jimy-betanzos: Cierre de un programa en curso (ventana de confirmación).
 struct JbCloseState {
     g: JbAppGroup,
     sent_at: Option<f64>,
@@ -65,7 +40,6 @@ struct JbCloseState {
     done: Option<String>,
 }
 
-/// jimy-betanzos: Pantallas de la aplicación (Panel, Limpieza, Automático…).
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum JbPage {
     Panel,
@@ -78,10 +52,8 @@ enum JbPage {
     Mobile,
 }
 
-/// jimy-betanzos: Resultado de simular el modo automático: (bytes, archivos, detalle por categoría).
 type JbSimulation = (u64, u64, Vec<(String, u64)>);
 
-/// jimy-betanzos: Trabajo en curso: escaneo, limpieza o simulación.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum JbBusy {
     Scan,
@@ -89,14 +61,12 @@ enum JbBusy {
     Simulate,
 }
 
-/// jimy-betanzos: Mensajes que envían los hilos de trabajo a la ventana.
 enum JbMsg {
     Scanned(Vec<JbCatResult>),
     Cleaned(JbCleanReport),
     Simulated(Vec<JbCatResult>),
 }
 
-/// jimy-betanzos: Datos del equipo que se muestran en el Panel.
 struct JbSnapshot {
     mem: sys::JbMem,
     disk_free: u64,
@@ -105,13 +75,11 @@ struct JbSnapshot {
     at: f64,
 }
 
-/// jimy-betanzos: Toma los datos actuales de disco, memoria y batería.
 fn jb_snapshot(now: f64) -> JbSnapshot {
     let (free, total) = sys::jb_disk_space(&sys::jb_system_drive());
     JbSnapshot { mem: sys::jb_memory(), disk_free: free, disk_total: total, power: sys::jb_power(), at: now }
 }
 
-/// jimy-betanzos: Estado completo de la ventana de NEXO.
 pub struct JbNexoApp {
     page: JbPage,
     env: Arc<JbEnv>,
@@ -134,7 +102,6 @@ pub struct JbNexoApp {
     snap: JbSnapshot,
     trim_in: u32,
     was_minimized: bool,
-    // Fase 2: memoria
     sampler: Arc<Mutex<JbSampler>>,
     ram_pending: bool,
     jobs: Vec<Receiver<JbApply>>,
@@ -147,12 +114,10 @@ pub struct JbNexoApp {
     close: Option<JbCloseState>,
     vigia_running: bool,
     alerts: Vec<config::JbAlertEntry>,
-    // Fase 3: diagnóstico y protección
     diag: Option<JbReport>,
     diag_rx: Option<Receiver<Result<JbReport, String>>>,
     mpscan_rx: Option<Receiver<(Result<i32, String>, u64)>>,
     mpscan_msg: Option<(String, Color32)>,
-    // Fase 4: celulares (ADB)
     adb_rx: Option<Receiver<JbAdbMsg>>,
     adb_busy: Option<String>,
     adb_msg: Option<(String, Color32)>,
@@ -177,16 +142,13 @@ pub struct JbNexoApp {
     adb_started: f64,
 }
 
-/// jimy-betanzos: Mensajes de las tareas con celulares.
 enum JbAdbMsg {
     Devices(Result<Vec<adb::JbDev>, String>),
     Loaded(String, Result<adb::JbInfo, String>, Vec<adb::JbBloat>, Vec<(String, f64)>),
     Done(Result<String, String>, bool),
 }
 
-/// jimy-betanzos: Métodos de NexoApp.
 impl JbNexoApp {
-    /// jimy-betanzos: Prepara la ventana, el estilo y los datos iniciales.
     pub fn jb_new(cc: &eframe::CreationContext, start_page: Option<String>) -> Self {
         jb_setup(&cc.egui_ctx);
         let env = JbEnv::jb_detect();
@@ -263,7 +225,6 @@ impl JbNexoApp {
             adb_started: 0.0,
         };
         app.jb_check_task();
-        // Si ya estaba instalado con una versión anterior, se actualiza sin molestar.
         app.jb_bg(|| {
             if install::jb_needs_update() {
                 let _ = install::jb_install();
@@ -273,7 +234,6 @@ impl JbNexoApp {
         app
     }
 
-    /// jimy-betanzos: Comprueba si la tarea programada sigue registrada.
     fn jb_check_task(&mut self) {
         self.jb_bg(|| {
             let reg = schedule::jb_is_registered();
@@ -281,7 +241,6 @@ impl JbNexoApp {
         });
     }
 
-    /// jimy-betanzos: Ejecuta `work` en otro hilo; lo que devuelve se aplica luego en la interfaz.
     fn jb_bg(&mut self, work: impl FnOnce() -> JbApply + Send + 'static) {
         let (tx, rx) = channel();
         self.jobs.push(rx);
@@ -291,8 +250,6 @@ impl JbNexoApp {
         });
     }
 
-    /// jimy-betanzos: Igual que `bg`, para acciones del usuario: aparecen en el panel "En curso" y, mientras
-    /// corren, sus botones se desactivan. `work` recibe dónde informar su avance (milésimas).
     fn jb_bg_action(&mut self, label: &str, work: impl FnOnce(Arc<std::sync::atomic::AtomicU32>) -> JbApply + Send + 'static) {
         self.pending_actions += 1;
         let id = self.next_op;
@@ -309,9 +266,7 @@ impl JbNexoApp {
         });
     }
 
-    /// jimy-betanzos: Panel "En curso": todo lo que NEXO está haciendo, con su avance y tiempo.
     fn jb_ops_view(&mut self, ctx: &egui::Context, now: f64) {
-        // jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
         use std::sync::atomic::Ordering;
         let mut rows: Vec<(String, Option<f32>, f64, Color32)> = Vec::new();
         if let Some(b) = self.busy {
@@ -379,7 +334,6 @@ impl JbNexoApp {
         ctx.request_repaint_after(Duration::from_millis(100));
     }
 
-    /// jimy-betanzos: Revisa el avance de los trabajos en segundo plano.
     fn jb_poll_jobs(&mut self, now: f64) {
         let mut done: Vec<JbApply> = Vec::new();
         self.jobs.retain(|rx| match rx.try_recv() {
@@ -395,12 +349,10 @@ impl JbNexoApp {
         }
     }
 
-    /// jimy-betanzos: Muestra un aviso breve en la parte inferior.
     fn jb_show_toast(&mut self, text: String, color: Color32, now: f64) {
         self.toast = Some((text, color, now + 5.0));
     }
 
-    /// jimy-betanzos: Recibe los resultados del escaneo y la limpieza.
     fn jb_poll(&mut self, now: f64) {
         let msg = self.rx.as_ref().and_then(|rx| rx.try_recv().ok());
         let Some(msg) = msg else { return };
@@ -435,7 +387,6 @@ impl JbNexoApp {
         }
     }
 
-    /// jimy-betanzos: Lanza el escaneo en un hilo aparte.
     fn jb_spawn_scan(&mut self, only: Option<Vec<String>>, simulate: bool) {
         if self.busy.is_some() {
             return;
@@ -462,7 +413,6 @@ impl JbNexoApp {
         });
     }
 
-    /// jimy-betanzos: Lanza la limpieza en un hilo aparte.
     fn jb_spawn_clean(&mut self) {
         let Some(results) = self.results.clone() else { return };
         if self.busy.is_some() {
@@ -488,9 +438,6 @@ impl JbNexoApp {
         });
     }
 
-    // marco de la ventana
-
-    /// jimy-betanzos: Dibuja la barra de título con los botones de ventana.
     fn jb_titlebar(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("titlebar")
             .exact_height(40.0)
@@ -528,7 +475,6 @@ impl JbNexoApp {
             });
     }
 
-    /// jimy-betanzos: Dibuja el menú lateral.
     fn jb_sidebar(&mut self, ctx: &egui::Context) {
         egui::SidePanel::left("side")
             .exact_width(240.0)
@@ -578,9 +524,6 @@ impl JbNexoApp {
             });
     }
 
-    // páginas
-
-    /// jimy-betanzos: Pantalla Panel: estado del equipo.
     fn jb_page_panel(&mut self, ui: &mut Ui) {
         jb_header(ui, "› Centro de control", &self.model, "Estado de tu equipo en tiempo real. Todo se analiza aquí mismo, sin internet.");
         let s = &self.snap;
@@ -686,7 +629,6 @@ impl JbNexoApp {
         }
     }
 
-    /// jimy-betanzos: Aviso cuando falta el permiso de administrador.
     fn jb_admin_banner(&mut self, ui: &mut Ui, ctx: &egui::Context) {
         if self.admin || cfg!(unix) {
             return;
@@ -706,7 +648,6 @@ impl JbNexoApp {
         ui.add_space(6.0);
     }
 
-    /// jimy-betanzos: Pantalla Limpieza.
     fn jb_page_clean(&mut self, ui: &mut Ui, t: f32) {
         jb_header(ui, "› Limpieza inteligente", "Buscar y eliminar basura", "Nada se borra sin que lo veas primero. Tus videos y documentos quedan protegidos.");
         let ctx = ui.ctx().clone();
@@ -718,7 +659,6 @@ impl JbNexoApp {
         }
     }
 
-    /// jimy-betanzos: Vista mientras se escanea o limpia.
     fn jb_busy_view(&mut self, ui: &mut Ui, t: f32) {
         let p = self.progress.lock().map(|p| p.clone()).unwrap_or_default();
         let cleaning = self.busy == Some(JbBusy::Clean);
@@ -762,7 +702,6 @@ impl JbNexoApp {
         }
     }
 
-    /// jimy-betanzos: Vista inicial de Limpieza («Listo para escanear»).
     fn jb_idle_view(&mut self, ui: &mut Ui) {
         if let Some(rep) = &self.report {
             jb_tinted_card(ACCENT).jb_show(ui, |ui| {
@@ -807,7 +746,6 @@ impl JbNexoApp {
         }
     }
 
-    /// jimy-betanzos: Vista con los resultados del escaneo por categoría.
     fn jb_results_view(&mut self, ui: &mut Ui) {
         let admin = self.admin;
         let mut open_confirm = false;
@@ -822,7 +760,6 @@ impl JbNexoApp {
             .find(|r| r.kind == JbKind::Protected)
             .map(|r| (r.size, r.count))
             .unwrap_or((0, 0));
-        // Resumen compacto en una sola franja: deja más altura para revisar archivos.
         jb_card().jb_inner_margin(Margin::symmetric(18.0, 10.0)).jb_show(ui, |ui| {
             ui.set_width(ui.available_width());
             ui.columns(3, |c| {
@@ -895,7 +832,6 @@ impl JbNexoApp {
         }
     }
 
-    /// jimy-betanzos: Pantalla Automático: programación de la limpieza.
     fn jb_page_auto(&mut self, ui: &mut Ui, t: f32) {
         jb_header(ui, "› Piloto automático", "Limpieza automática", &format!("{} abre NEXO a la hora elegida, limpia la basura y lo cierra. En reposo consume 0 MB de RAM.", diag::jb_txt("os")));
         let mut apply = false;
@@ -984,7 +920,6 @@ impl JbNexoApp {
                 });
                 });
 
-                // Columna sin justificar: evita que el texto se estire palabra a palabra.
                 c[1].with_layout(Layout::top_down(Align::Min), |ui| {
                 jb_tinted_card(ACCENT).jb_show(ui, |ui| {
                     ui.set_width(ui.available_width());
@@ -1102,7 +1037,6 @@ impl JbNexoApp {
         }
     }
 
-    /// jimy-betanzos: Pantalla Historial de limpiezas.
     fn jb_page_history(&mut self, ui: &mut Ui) {
         jb_header(ui, "› Registro", "Historial de limpiezas", "Cada limpieza, manual o automática, queda anotada aquí.");
         if self.history.is_empty() {
@@ -1159,7 +1093,6 @@ impl JbNexoApp {
         });
     }
 
-    /// jimy-betanzos: Ventana para confirmar la limpieza.
     fn jb_confirm_modal(&mut self, ctx: &egui::Context) {
         let Some(results) = self.results.as_ref() else {
             self.confirm = false;
@@ -1261,9 +1194,6 @@ impl JbNexoApp {
         }
     }
 
-    // diagnóstico y protección (fase 3)
-
-    /// jimy-betanzos: Recibe los resultados del diagnóstico y del antivirus.
     fn jb_poll_phase3(&mut self, now: f64) {
         if let Some(r) = self.diag_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             self.diag_rx = None;
@@ -1280,7 +1210,6 @@ impl JbNexoApp {
         if let Some((r, secs)) = self.mpscan_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             self.mpscan_rx = None;
             if r.is_ok() && secs > 5 {
-                // Se recuerda cuánto tardó para estimar mejor la próxima barra.
                 self.cfg.defender_scan_secs = secs;
                 self.cfg.jb_save();
             }
@@ -1302,7 +1231,6 @@ impl JbNexoApp {
         }
     }
 
-    /// jimy-betanzos: Lanza el diagnóstico en un hilo aparte.
     fn jb_start_diag(&mut self) {
         if self.diag_rx.is_some() {
             return;
@@ -1318,7 +1246,6 @@ impl JbNexoApp {
         });
     }
 
-    /// jimy-betanzos: Lanza el análisis rápido del antivirus.
     fn jb_start_mpscan(&mut self) {
         if self.mpscan_rx.is_some() {
             return;
@@ -1334,7 +1261,6 @@ impl JbNexoApp {
         });
     }
 
-    /// jimy-betanzos: Ejecuta la acción de una recomendación.
     fn jb_do_action(&mut self, a: JbAction, now: f64) {
         match a {
             JbAction::GoClean => self.page = JbPage::Clean,
@@ -1352,7 +1278,6 @@ impl JbNexoApp {
         }
     }
 
-    /// jimy-betanzos: Cambia a «Equilibrado» guardando el plan anterior, o lo restaura (deshacer).
     fn jb_set_balanced(&mut self, on: bool, now: f64) {
         if self.pending_actions > 0 {
             return;
@@ -1390,7 +1315,6 @@ impl JbNexoApp {
         });
     }
 
-    /// jimy-betanzos: Activa o desactiva un programa de inicio.
     fn jb_toggle_startup(&mut self, i: usize, on: bool, now: f64) {
         let result = {
             let Some(d) = self.diag.as_mut() else { return };
@@ -1413,7 +1337,6 @@ impl JbNexoApp {
         }
     }
 
-    /// jimy-betanzos: Vista mientras corre el diagnóstico.
     fn jb_diag_running_view(&mut self, ui: &mut Ui, t: f32) {
         jb_card().jb_show(ui, |ui| {
             ui.set_width(ui.available_width());
@@ -1430,7 +1353,6 @@ impl JbNexoApp {
         });
     }
 
-    /// jimy-betanzos: Tarjeta inicial del diagnóstico con su botón.
     fn jb_diag_hero(&mut self, ui: &mut Ui, title: &str, sub: &str, action: &str) {
         let mut go = false;
         jb_card().jb_show(ui, |ui| {
@@ -1451,7 +1373,6 @@ impl JbNexoApp {
         }
     }
 
-    /// jimy-betanzos: Pantalla Diagnóstico.
     fn jb_page_diag(&mut self, ui: &mut Ui, t: f32) {
         jb_header(ui, "› Diagnóstico", "Chequeo general", "Una nota de 0 a 100 por áreas, calculada aquí mismo y sin internet. Las mejoras se pueden deshacer.");
         let now = ui.input(|i| i.time);
@@ -1668,7 +1589,6 @@ impl JbNexoApp {
         }
     }
 
-    /// jimy-betanzos: Pantalla Protección.
     fn jb_page_shield(&mut self, ui: &mut Ui, t: f32) {
         jb_header(ui, "› Escudo", "Protección", &format!("Revisa la seguridad de {} sin internet, apoyándose en {}.", diag::jb_txt("os"), diag::jb_txt("av")));
         let now = ui.input(|i| i.time);
@@ -1847,9 +1767,6 @@ impl JbNexoApp {
         }
     }
 
-    // celulares (fase 4)
-
-    /// jimy-betanzos: Lanza una tarea con celulares en un hilo aparte.
     fn jb_adb_spawn(&mut self, label: &str, f: impl FnOnce() -> JbAdbMsg + Send + 'static) {
         if self.adb_rx.is_some() {
             return;
@@ -1863,14 +1780,11 @@ impl JbNexoApp {
         });
     }
 
-    /// jimy-betanzos: Vuelve a buscar celulares conectados.
     fn jb_adb_refresh(&mut self) {
         self.jb_adb_spawn("Buscando celulares…", || JbAdbMsg::Devices(adb::jb_devices()));
     }
 
-    /// jimy-betanzos: Lee los datos de un celular.
     fn jb_adb_load(&mut self, serial: String) {
-        // Al recargar el mismo celular se conserva lo mostrado: la página no salta arriba.
         if self.dev_sel.as_deref() != Some(serial.as_str()) {
             self.dev_info = None;
         }
@@ -1883,7 +1797,6 @@ impl JbNexoApp {
         });
     }
 
-    /// jimy-betanzos: Recibe los resultados de las tareas con celulares.
     fn jb_poll_adb(&mut self, now: f64) {
         let Some(msg) = self.adb_rx.as_ref().and_then(|rx| rx.try_recv().ok()) else { return };
         self.adb_rx = None;
@@ -1928,7 +1841,6 @@ impl JbNexoApp {
         }
     }
 
-    /// jimy-betanzos: Pantalla Celulares.
     fn jb_page_mobile(&mut self, ui: &mut Ui, t: f32) {
         jb_header(ui, "› Enlace móvil", "Celulares", "Realme C11 2021 y Honor X7 · por USB o WiFi local, sin internet.");
         if adb::jb_adb_path().is_none() {
@@ -1943,7 +1855,6 @@ impl JbNexoApp {
             self.adb_scanned = true;
             self.jb_adb_refresh();
         }
-        /// jimy-betanzos: Acción pedida sobre un celular.
         enum JbAct {
             Refresh,
             Select(String),
@@ -2131,9 +2042,6 @@ impl JbNexoApp {
         }
     }
 
-    // memoria RAM (fase 2)
-
-    /// jimy-betanzos: Mide los programas en otro hilo: la ventana no se traba cada 2 segundos.
     fn jb_refresh_ram(&mut self, now: f64) {
         if self.ram_pending {
             return;
@@ -2160,7 +2068,6 @@ impl JbNexoApp {
         });
     }
 
-    /// jimy-betanzos: Activa o desactiva el vigía en segundo plano.
     fn jb_set_vigia(&mut self, on: bool, now: f64) {
         if self.pending_actions > 0 {
             return;
@@ -2200,7 +2107,6 @@ impl JbNexoApp {
         });
     }
 
-    /// jimy-betanzos: Pantalla Memoria RAM.
     fn jb_page_ram(&mut self, ui: &mut Ui) {
         jb_header(ui, "› Estabilizador", "Memoria RAM", "Vigila la memoria y actúa solo cuando hay un problema real. Nunca cierra nada sin tu permiso.");
         let now = ui.input(|i| i.time);
@@ -2417,7 +2323,6 @@ impl JbNexoApp {
         }
     }
 
-    /// jimy-betanzos: Ventana para cerrar un programa con cuidado.
     fn jb_close_modal(&mut self, ctx: &egui::Context, now: f64) {
         let exe = self.close.as_ref().map(|c| c.g.exe.clone()).unwrap_or_default();
         let alive = sys::jb_running_processes().contains(&exe);
@@ -2536,7 +2441,6 @@ impl JbNexoApp {
         }
     }
 
-    /// jimy-betanzos: Dibuja el aviso breve.
     fn jb_toast_ui(&mut self, ctx: &egui::Context, now: f64) {
         let Some((text, col, until)) = self.toast.clone() else { return };
         if now > until {
@@ -2556,7 +2460,6 @@ impl JbNexoApp {
     }
 }
 
-/// jimy-betanzos: Color según la nota (normal, aviso o grave).
 fn jb_score_color(s: u8) -> Color32 {
     match s {
         85..=100 => ACCENT,
@@ -2566,8 +2469,6 @@ fn jb_score_color(s: u8) -> Color32 {
     }
 }
 
-/// jimy-betanzos: Fila de comprobación: 0 bien · 1 revisar · 2 importante · 3 informativo.
-/// Devuelve si se pulsó su botón de acción.
 fn jb_check_row(ui: &mut Ui, state: u8, title: &str, detail: &str, action: Option<&JbAction>) -> bool {
     let (icon, col) = match state {
         0 => ("✔", ACCENT),
@@ -2591,7 +2492,6 @@ fn jb_check_row(ui: &mut Ui, state: u8, title: &str, detail: &str, action: Optio
     clicked
 }
 
-/// jimy-betanzos: Botón de la barra de título (minimizar, maximizar, cerrar).
 fn jb_title_btn(ui: &mut Ui, text: &str, hover: Color32) -> egui::Response {
     let (rect, resp) = ui.allocate_exact_size(vec2(42.0, 30.0), Sense::click());
     let p = ui.painter();
@@ -2602,7 +2502,6 @@ fn jb_title_btn(ui: &mut Ui, text: &str, hover: Color32) -> egui::Response {
     resp
 }
 
-/// jimy-betanzos: Tarjeta de una categoría con su casilla y tamaño.
 fn jb_category_card(ui: &mut Ui, r: &mut JbCatResult, admin: bool, thumbs: &mut JbThumbCache) {
     let color = match r.kind {
         JbKind::Safe => ACCENT,
@@ -2684,7 +2583,6 @@ fn jb_category_card(ui: &mut Ui, r: &mut JbCatResult, admin: bool, thumbs: &mut 
     ui.add_space(4.0);
 }
 
-/// jimy-betanzos: Cuadro de miniatura: la imagen real si existe, o el tipo de archivo mientras carga.
 fn jb_draw_thumb(ui: &Ui, rect: egui::Rect, tex: Option<Option<egui::TextureHandle>>, path: &Path) {
     let p = ui.painter();
     p.rect_filled(rect, 0.0, jb_alpha(PANEL_HI, 230));
@@ -2704,7 +2602,6 @@ fn jb_draw_thumb(ui: &Ui, rect: egui::Rect, tex: Option<Option<egui::TextureHand
     p.rect_stroke(rect, 0.0, Stroke::new(1.0_f32, jb_alpha(ACCENT, 70)));
 }
 
-/// jimy-betanzos: Lista de archivos de muestra de una categoría.
 fn jb_items_list(ui: &mut Ui, r: &mut JbCatResult, thumbs: &mut JbThumbCache) {
     let whole = r.jb_whole();
     let protected = r.kind == JbKind::Protected;
@@ -2716,7 +2613,6 @@ fn jb_items_list(ui: &mut Ui, r: &mut JbCatResult, thumbs: &mut JbThumbCache) {
     let height = 330.0;
     ui.horizontal_top(|ui| {
         let list_w = (ui.available_width() * 0.6).max(360.0);
-        // Lista con miniaturas (solo se dibujan y cargan las filas visibles)
         ui.allocate_ui_with_layout(vec2(list_w, height), Layout::top_down(Align::LEFT), |ui| {
             let items = &mut r.items;
             ScrollArea::vertical()
@@ -2762,7 +2658,6 @@ fn jb_items_list(ui: &mut Ui, r: &mut JbCatResult, thumbs: &mut JbThumbCache) {
         if hovered.is_some() {
             r.preview = hovered;
         }
-        // Visor
         let shown = r.preview.filter(|i| *i < n).unwrap_or(0);
         ui.allocate_ui_with_layout(vec2(ui.available_width(), height), Layout::top_down(Align::Center), |ui| {
             jb_tinted_card(ACCENT).jb_inner_margin(Margin::same(12.0)).jb_show(ui, |ui| {
@@ -2824,9 +2719,7 @@ fn jb_items_list(ui: &mut Ui, r: &mut JbCatResult, thumbs: &mut JbThumbCache) {
     }
 }
 
-/// jimy-betanzos: Permite cambiar el tamaño de la ventana desde los bordes.
 fn jb_resize_edges(ctx: &egui::Context) {
-    // jimy-betanzos - dependencia: interfaz gráfica (egui)
     use egui::{CursorIcon, ResizeDirection as D};
     if ctx.input(|i| i.viewport().maximized.unwrap_or(false)) {
         return;
@@ -2854,23 +2747,16 @@ fn jb_resize_edges(ctx: &egui::Context) {
     }
 }
 
-/// jimy-betanzos: Implementación de eframe::App para NexoApp.
 impl eframe::App for JbNexoApp {
-    /// jimy-betanzos: Dibuja la ventana en cada cuadro.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.jb_update_inner(ctx);
     }
 }
 
-/// jimy-betanzos: Métodos de NexoApp.
 impl JbNexoApp {
-    /// jimy-betanzos: Modo de documentación (no lo usa el usuario): con `NEXO_CAPTURA=archivo.bmp`, NEXO
-    /// se fotografía a sí mismo pasados `NEXO_CAPTURA_SEG` segundos y se cierra. Con
-    /// `NEXO_CAPTURA_ESCANEAR=1` antes lanza un escaneo (solo lectura) para mostrar resultados.
     fn jb_capture_step(&mut self, ctx: &egui::Context, now: f64) {
-        // jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
         use std::sync::atomic::{AtomicU8, Ordering};
-        static STATE: AtomicU8 = AtomicU8::new(0); // 0 inicio · 1 esperando · 2 pedida · 3 lista
+        static STATE: AtomicU8 = AtomicU8::new(0);
         let Some(out) = std::env::var_os("NEXO_CAPTURA") else { return };
         let delay: f64 = std::env::var("NEXO_CAPTURA_SEG").ok().and_then(|s| s.parse().ok()).unwrap_or(4.0);
         match STATE.load(Ordering::Relaxed) {
@@ -2902,7 +2788,6 @@ impl JbNexoApp {
         ctx.request_repaint_after(Duration::from_millis(100));
     }
 
-    /// jimy-betanzos: Contenido principal de cada cuadro.
     fn jb_update_inner(&mut self, ctx: &egui::Context) {
         let now = ctx.input(|i| i.time);
         let t = now as f32;
@@ -2920,7 +2805,6 @@ impl JbNexoApp {
         self.jb_poll_adb(now);
         self.jb_capture_step(ctx, now);
 
-        // La lista de programas solo se mide mientras la pantalla de RAM está abierta.
         if self.page == JbPage::Ram && now - self.last_sample > 2.0 {
             self.jb_refresh_ram(now);
         }
@@ -2955,7 +2839,6 @@ impl JbNexoApp {
         frame_p.rect_stroke(screen.shrink(0.5), 0.0, Stroke::new(1.0_f32, PANEL_HI));
         jb_resize_edges(ctx);
 
-        // Tras arrancar, terminar un trabajo o minimizar: soltar la memoria que ya no se usa.
         let minimized = ctx.input(|i| i.viewport().minimized.unwrap_or(false));
         if minimized && !self.was_minimized {
             self.trim_in = 1;
@@ -2970,7 +2853,6 @@ impl JbNexoApp {
             }
         }
 
-        // Repintar solo cuando hace falta: así la CPU queda en ~0 % en reposo.
         if let Some(t) = self.cfg_dirty {
             if now - t > 0.5 && !ctx.input(|i| i.pointer.any_down()) {
                 self.cfg.jb_save();

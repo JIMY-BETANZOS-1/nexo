@@ -1,32 +1,17 @@
-// Proyecto: NEXO
-// Archivo: diag_win.rs
-// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
-
-//! Parte de Windows del diagnóstico: script de PowerShell, plan de energía, programas de
-//! inicio (StartupApproved), Microsoft Defender e informe de batería.
-
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::PathBuf;
 
-// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::System::Registry::{RegSetKeyValueW, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, REG_BINARY};
 
-// jimy-betanzos - dependencia: módulo propio de la interfaz
 use super::{JbProgress, JbRaw, JbStartupItem};
-// jimy-betanzos - dependencia: módulo propio
 use crate::{fmt, sys};
 
 const SCRIPT: &str = include_str!("diag.ps1");
 pub const BALANCED: &str = "381b4222-f694-41f0-9685-ff5bb260df2e";
 
-/// jimy-betanzos: Recoge los datos del sistema con un script de PowerShell de solo lectura.
 pub fn jb_run_script(progress: &JbProgress) -> Result<JbRaw, String> {
-    // jimy-betanzos - dependencia: biblioteca estándar de Rust (io)
     use std::io::{BufRead, BufReader};
-    // jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
     use std::sync::atomic::Ordering;
     let path = std::env::temp_dir().join(format!("nexo_diag_{}.ps1", std::process::id()));
-    // PowerShell 5.1 necesita BOM para leer bien los acentos del script.
     let mut bytes = vec![0xEF, 0xBB, 0xBF];
     bytes.extend_from_slice(SCRIPT.as_bytes());
     std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
@@ -49,7 +34,6 @@ pub fn jb_run_script(progress: &JbProgress) -> Result<JbRaw, String> {
         for line in BufReader::new(out).split(b'\n').map_while(Result::ok) {
             let line = String::from_utf8_lossy(&line).to_string();
             if let Some(rest) = line.trim().strip_prefix("@@PROGRESO ") {
-                // "3/8 discos" → 3 de 8 partes listas (el 90 % de la barra; el resto es el análisis).
                 let frac = rest.split_whitespace().next().and_then(|f| f.split_once('/')).and_then(|(a, b)| Some((a.parse::<f32>().ok()?, b.parse::<f32>().ok()?)));
                 if let Some((a, b)) = frac {
                     progress.store((60.0 + 860.0 * a / b.max(1.0)) as u32, Ordering::Relaxed);
@@ -68,7 +52,6 @@ pub fn jb_run_script(progress: &JbProgress) -> Result<JbRaw, String> {
     serde_json::from_str(&text[a..=b]).map_err(|e| format!("Datos de diagnóstico no válidos: {}", e))
 }
 
-/// jimy-betanzos: Devuelve el plan de energía activo (nombre e identificador).
 pub fn jb_active_power_plan() -> (String, String) {
     let Ok(out) = sys::jb_hidden_cmd("powercfg").arg("/getactivescheme").output() else {
         return (String::new(), String::new());
@@ -86,13 +69,10 @@ pub fn jb_active_power_plan() -> (String, String) {
     (guid, name)
 }
 
-/// jimy-betanzos: Cambia el plan de energía de Windows.
 pub fn jb_set_power_plan(guid: &str) -> bool {
     sys::jb_hidden_cmd("powercfg").args(["/setactive", guid]).status().map(|s| s.success()).unwrap_or(false)
 }
 
-/// jimy-betanzos: Activa o desactiva un programa de inicio igual que el Administrador de tareas
-/// (StartupApproved). No borra nada: se puede volver a activar en cualquier momento.
 pub fn jb_set_startup_enabled(item: &JbStartupItem, on: bool) -> Result<(), String> {
     let hive = if item.jb_machine_wide() { HKEY_LOCAL_MACHINE } else { HKEY_CURRENT_USER };
     let key = format!("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\{}", item.sub);
@@ -113,7 +93,6 @@ pub fn jb_set_startup_enabled(item: &JbStartupItem, on: bool) -> Result<(), Stri
     }
 }
 
-/// jimy-betanzos: Análisis rápido de Microsoft Defender. Devuelve el código de salida (0 = limpio).
 pub fn jb_quick_scan() -> Result<i32, String> {
     let pf = std::env::var_os("ProgramFiles").map(PathBuf::from).unwrap_or_else(|| "C:\\Program Files".into());
     let exe = pf.join("Windows Defender").join("MpCmdRun.exe");
@@ -124,7 +103,6 @@ pub fn jb_quick_scan() -> Result<i32, String> {
         .map_err(|e| e.to_string())
 }
 
-/// jimy-betanzos: Genera el informe oficial de batería de Windows y lo abre en el navegador (local).
 pub fn jb_battery_report() {
     let out = std::env::temp_dir().join("NEXO_informe_bateria.html");
     let ok = sys::jb_hidden_cmd("powercfg").arg("/batteryreport").arg("/output").arg(&out).status().map(|s| s.success()).unwrap_or(false);
@@ -133,21 +111,16 @@ pub fn jb_battery_report() {
     }
 }
 
-/// jimy-betanzos: Abre un ajuste de Windows (ms-settings:, windowsdefender:, taskschd.msc...).
 pub fn jb_open(target: &str) {
     let _ = sys::jb_hidden_cmd("cmd").args(["/c", "start", "", target]).spawn();
 }
 
-
-// Textos y accesos directos propios de Windows (los usa `analyze`).
 pub const AV_MISSING_SEVERITY: u8 = 1;
-/// jimy-betanzos: Indica si se puede lanzar un análisis rápido del antivirus.
 pub fn jb_quick_scan_available() -> bool {
     true
 }
 pub const CHECK_SIGNATURES: bool = true;
 
-/// jimy-betanzos: Textos que dependen del sistema operativo (nombre del antivirus, etc.).
 pub fn jb_txt(k: &str) -> &'static str {
     match k {
         "os" => "Windows",
@@ -169,7 +142,6 @@ pub fn jb_txt(k: &str) -> &'static str {
     }
 }
 
-/// jimy-betanzos: Página de Configuración de Windows asociada a una comprobación.
 pub fn jb_setting(k: &str) -> Option<&'static str> {
     Some(match k {
         "antivirus" => "windowsdefender:",

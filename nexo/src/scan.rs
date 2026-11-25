@@ -1,46 +1,26 @@
-// Proyecto: NEXO
-// Archivo: scan.rs
-// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
-
-//! Motor de escaneo. Solo lee: nunca borra nada.
-
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (collections)
 use std::collections::HashSet;
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::{Path, PathBuf};
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
 use std::sync::atomic::{AtomicBool, Ordering};
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
 use std::sync::{Arc, Mutex};
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (time)
 use std::time::SystemTime;
 
-// jimy-betanzos - dependencia: recorrer carpetas (walkdir)
 use walkdir::WalkDir;
 
-// jimy-betanzos - dependencia: módulo propio rules
 use crate::rules::{jb_protection, JbCategoryDef, JbFilter, JbKind, JbProtect, JbSpecial, JbTarget};
-// jimy-betanzos - dependencia: módulo propio sys
 use crate::sys;
 
-// jimy-betanzos: no seguir enlaces evita salir de la carpeta analizada y borrar algo ajeno.
-/// Enlace o unión (reparse point en Windows, enlace simbólico en Linux y macOS): nunca se sigue.
 #[cfg(windows)]
 fn jb_is_link(m: &std::fs::Metadata) -> bool {
-    // jimy-betanzos - dependencia: biblioteca estándar de Rust (os)
     use std::os::windows::fs::MetadataExt;
     m.file_attributes() & 0x400 != 0
 }
-/// jimy-betanzos: Indica si una entrada es un enlace o unión.
 #[cfg(unix)]
 fn jb_is_link(m: &std::fs::Metadata) -> bool {
     m.file_type().is_symlink()
 }
-/// En categorías seguras solo guardamos una muestra (ahorra RAM con miles de temporales).
 const SAMPLE: usize = 40;
 const REVIEW_LIMIT: usize = 5000;
 
-/// jimy-betanzos: Avance del escaneo: archivos vistos y carpeta actual.
 #[derive(Default, Clone)]
 pub struct JbProgress {
     pub label: String,
@@ -49,14 +29,11 @@ pub struct JbProgress {
     pub bytes: u64,
     pub step: usize,
     pub steps: usize,
-    /// Al limpiar: bytes seleccionados, para un porcentaje real.
     pub total_bytes: u64,
 }
 
-/// jimy-betanzos: Avance compartido entre los hilos del escaneo.
 pub type JbShared = Arc<Mutex<JbProgress>>;
 
-/// jimy-betanzos: Archivo encontrado con su tamaño y fecha.
 #[derive(Clone)]
 pub struct JbFoundItem {
     pub path: PathBuf,
@@ -65,7 +42,6 @@ pub struct JbFoundItem {
     pub origin: &'static str,
 }
 
-/// jimy-betanzos: Resultado del escaneo de una categoría.
 #[derive(Clone)]
 pub struct JbCatResult {
     pub id: &'static str,
@@ -80,18 +56,14 @@ pub struct JbCatResult {
     pub selected: bool,
     pub notes: Vec<String>,
     pub expanded: bool,
-    /// Archivo mostrado en el visor (el último que se señaló).
     pub preview: Option<usize>,
 }
 
-/// jimy-betanzos: Métodos de CatResult.
 impl JbCatResult {
-    /// jimy-betanzos: Categorías que se marcan como bloque (no archivo por archivo).
     pub fn jb_whole(&self) -> bool {
         self.kind == JbKind::Safe || self.special != JbSpecial::None
     }
 
-    /// jimy-betanzos: Tamaño de lo que está seleccionado para limpiar.
     pub fn jb_selected_size(&self) -> u64 {
         if self.jb_whole() {
             if self.selected { self.size } else { 0 }
@@ -100,7 +72,6 @@ impl JbCatResult {
         }
     }
 
-    /// jimy-betanzos: Cantidad de archivos seleccionados para limpiar.
     pub fn jb_selected_count(&self) -> u64 {
         if self.jb_whole() {
             if self.selected { self.count } else { 0 }
@@ -110,7 +81,6 @@ impl JbCatResult {
     }
 }
 
-/// jimy-betanzos: Contexto del escaneo: avance, cancelación y procesos abiertos.
 pub struct JbCtx<'a> {
     pub admin: bool,
     pub procs: &'a HashSet<String>,
@@ -118,12 +88,10 @@ pub struct JbCtx<'a> {
     pub cancel: &'a AtomicBool,
 }
 
-/// jimy-betanzos: Programa abierto que impide tocar un destino.
 pub fn jb_blocked_by(t: &JbTarget, procs: &HashSet<String>) -> Option<&'static str> {
     t.blocked_by.iter().find(|p| procs.contains(**p)).copied()
 }
 
-/// jimy-betanzos: Indica si un archivo cumple el filtro del destino.
 fn jb_matches(filter: &JbFilter, p: &Path) -> bool {
     match filter {
         JbFilter::All => true,
@@ -136,13 +104,11 @@ fn jb_matches(filter: &JbFilter, p: &Path) -> bool {
     }
 }
 
-/// jimy-betanzos: Antigüedad de un archivo en segundos.
 fn jb_age_secs(m: &std::fs::Metadata, now: SystemTime) -> Option<u64> {
     let mt = m.modified().ok()?;
     Some(now.duration_since(mt).map(|d| d.as_secs()).unwrap_or(0))
 }
 
-/// jimy-betanzos: Recorre un destino aplicando filtro y antigüedad. Nunca sigue enlaces ni uniones.
 pub fn jb_walk(
     t: &JbTarget,
     cancel: &AtomicBool,
@@ -184,14 +150,10 @@ pub fn jb_walk(
     }
 }
 
-/// jimy-betanzos: Hilos para recorrer carpetas a la vez (el SSD aguanta muchas lecturas en paralelo).
 pub fn jb_workers() -> usize {
     std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(2, 8)
 }
 
-/// jimy-betanzos: Divide un destino recursivo en "archivos sueltos de la raíz" + una tarea por subcarpeta,
-/// para que varios hilos lo recorran a la vez. Las reglas (filtro, antigüedad, programas
-/// que lo bloquean) son las mismas: solo cambia quién recorre cada parte.
 pub fn jb_split_target(t: &JbTarget) -> Vec<JbTarget> {
     if !t.recursive {
         return vec![t.clone()];
@@ -208,7 +170,6 @@ pub fn jb_split_target(t: &JbTarget) -> Vec<JbTarget> {
     v
 }
 
-/// jimy-betanzos: Lo que encuentra un hilo en un destino; luego se une con el resto de su categoría.
 #[derive(Default)]
 struct JbPartial {
     size: u64,
@@ -217,9 +178,7 @@ struct JbPartial {
     set_aside: Vec<JbFoundItem>,
 }
 
-/// jimy-betanzos: Escanea todas las categorías en paralelo (solo lectura).
 pub fn jb_scan_all(defs: &[JbCategoryDef], only: Option<&[String]>, ctx: &JbCtx) -> Vec<JbCatResult> {
-    // jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
     use std::sync::atomic::{AtomicU64, AtomicUsize};
 
     let chosen: Vec<&JbCategoryDef> = defs
@@ -227,7 +186,6 @@ pub fn jb_scan_all(defs: &[JbCategoryDef], only: Option<&[String]>, ctx: &JbCtx)
         .filter(|d| only.is_none_or(|o| o.iter().any(|x| x == d.id)))
         .collect();
 
-    // 1) Preparar cada categoría y la lista de destinos a recorrer.
     let mut out: Vec<JbCatResult> = Vec::new();
     let mut jobs: Vec<(usize, &JbCategoryDef, JbTarget)> = Vec::new();
     for d in &chosen {
@@ -291,7 +249,6 @@ pub fn jb_scan_all(defs: &[JbCategoryDef], only: Option<&[String]>, ctx: &JbCtx)
         p.label = "Analizando en paralelo".into();
     }
 
-    // 2) Recorrer todos los destinos a la vez.
     let next = AtomicUsize::new(0);
     let done = AtomicUsize::new(0);
     let files_seen = AtomicU64::new(0);
@@ -319,7 +276,6 @@ pub fn jb_scan_all(defs: &[JbCategoryDef], only: Option<&[String]>, ctx: &JbCtx)
                                 }
                             }
                             if d.kind == JbKind::Safe && jb_protection(path) != JbProtect::No {
-                                // Un video o documento dentro de una carpeta de basura: se aparta.
                                 part.set_aside.push(JbFoundItem { path: path.to_path_buf(), size, selected: false, origin: d.name });
                                 return;
                             }
@@ -346,7 +302,6 @@ pub fn jb_scan_all(defs: &[JbCategoryDef], only: Option<&[String]>, ctx: &JbCtx)
         }
     });
 
-    // 3) Unir los resultados por categoría (en el mismo orden de siempre).
     let mut set_aside: Vec<JbFoundItem> = Vec::new();
     for (k, (ci, d, _)) in jobs.iter().enumerate() {
         let part = std::mem::take(&mut *partials[k].lock().unwrap_or_else(|e| e.into_inner()));
@@ -371,7 +326,6 @@ pub fn jb_scan_all(defs: &[JbCategoryDef], only: Option<&[String]>, ctx: &JbCtx)
     }
     for r in out.iter_mut().filter(|r| !r.jb_whole()) {
         r.items.sort_by_key(|i| std::cmp::Reverse(i.size));
-        // El tamaño mostrado es el de los elementos listados, para que cuadre con la selección.
         r.size = r.items.iter().map(|i| i.size).sum();
         r.count = r.items.len() as u64;
     }

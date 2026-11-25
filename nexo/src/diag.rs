@@ -1,18 +1,5 @@
-// Proyecto: NEXO
-// Archivo: diag.rs
-// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
-
-//! Diagnóstico general (fase 3): nota de 0 a 100 por áreas y recomendaciones.
-//!
-//! La recogida de datos es de solo lectura (script de PowerShell incluido en el
-//! programa). Las únicas acciones que cambian algo son reversibles y las decide el
-//! usuario: activar/desactivar programas de inicio, cambiar el plan de energía,
-//! lanzar un análisis de Defender.
-
-// jimy-betanzos - dependencia: guardar y leer datos en JSON (serde)
 use serde::{Deserialize, Serialize};
 
-// jimy-betanzos - dependencia: módulo propio
 use crate::{config, fmt, sys};
 
 #[cfg(windows)]
@@ -22,10 +9,8 @@ mod plat;
 #[path = "unix/diag.rs"]
 mod plat;
 
-// jimy-betanzos - dependencia: módulo propio de la plataforma (Windows o Linux/macOS)
 pub use plat::{jb_active_power_plan, jb_battery_report, jb_open, jb_quick_scan, jb_quick_scan_available, jb_set_power_plan, jb_set_startup_enabled, jb_setting, jb_txt, BALANCED};
 
-/// jimy-betanzos: Programa que se abre al iniciar sesión.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct JbStartupItem {
@@ -41,31 +26,22 @@ pub struct JbStartupItem {
     pub suspicious: bool,
 }
 
-/// jimy-betanzos: Métodos de StartupItem.
 impl JbStartupItem {
-    /// jimy-betanzos: Indica si el programa de inicio es para todos los usuarios.
     pub fn jb_machine_wide(&self) -> bool {
         self.hive.starts_with("HKLM")
     }
-    /// jimy-betanzos: Indica si el archivo del programa de inicio ya no existe.
     pub fn jb_missing(&self) -> bool {
         self.signature == "missing"
     }
-    // jimy-betanzos: un programa sin firma digital no es malicioso por sí mismo, pero se
-    // marca para que el usuario lo revise.
-    /// jimy-betanzos: Indica si el programa de inicio tiene firma digital válida.
     pub fn jb_signed(&self) -> bool {
-        // "n/a": Linux y macOS no usan firmas Authenticode en los programas de inicio.
         self.signature == "Valid" || self.signature == "n/a"
     }
-    /// jimy-betanzos: El propio vigía de NEXO: es de confianza aunque no tenga firma comercial.
     pub fn jb_is_nexo(&self) -> bool {
         let ours = crate::install::jb_installed_exe().to_string_lossy().to_lowercase();
         self.name == "NEXO Vigia" && self.exe.to_lowercase() == ours
     }
 }
 
-/// jimy-betanzos: Datos de un disco: tamaño, espacio libre, tipo y salud.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct JbDisk {
@@ -78,7 +54,6 @@ pub struct JbDisk {
     pub hours: Option<i64>,
 }
 
-/// jimy-betanzos: Datos de la batería: capacidad de diseño y capacidad actual.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct JbBattery {
@@ -87,15 +62,12 @@ pub struct JbBattery {
     pub cycles: i64,
 }
 
-/// jimy-betanzos: Métodos de Battery.
 impl JbBattery {
-    /// jimy-betanzos: Salud de la batería en porcentaje (actual / diseño).
     pub fn jb_health(&self) -> Option<f32> {
         (self.design > 0 && self.full > 0).then(|| (self.full as f32 / self.design as f32 * 100.0).min(100.0))
     }
 }
 
-/// jimy-betanzos: Estado del antivirus: protección, firmas y último análisis.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct JbDefender {
@@ -107,7 +79,6 @@ pub struct JbDefender {
     pub tamper: bool,
 }
 
-/// jimy-betanzos: Estado del firewall en un perfil de red.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct JbFirewall {
@@ -115,7 +86,6 @@ pub struct JbFirewall {
     pub enabled: bool,
 }
 
-/// jimy-betanzos: Tarea programada encontrada en el equipo.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct JbTask {
@@ -125,7 +95,6 @@ pub struct JbTask {
     pub why: String,
 }
 
-/// jimy-betanzos: Datos crudos que se leen del sistema antes de calificarlos.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct JbRaw {
@@ -146,7 +115,6 @@ pub struct JbRaw {
     pub tasks_total: i64,
 }
 
-/// jimy-betanzos: Acción que ofrece una recomendación (botón).
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
 pub enum JbAction {
     GoClean,
@@ -157,9 +125,7 @@ pub enum JbAction {
     Open(String),
 }
 
-/// jimy-betanzos: Métodos de Action.
 impl JbAction {
-    /// jimy-betanzos: Texto del botón de la acción.
     pub fn jb_label(&self) -> &'static str {
         match self {
             JbAction::GoClean => "Ir a Limpieza",
@@ -174,10 +140,8 @@ impl JbAction {
     }
 }
 
-/// jimy-betanzos: Recomendación: gravedad, área, título, detalle y acción.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct JbRec {
-    /// 0 consejo · 1 conviene revisar · 2 importante
     pub severity: u8,
     pub area: String,
     pub title: String,
@@ -185,7 +149,6 @@ pub struct JbRec {
     pub action: Option<JbAction>,
 }
 
-/// jimy-betanzos: Resultado completo del diagnóstico con notas por área.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct JbReport {
@@ -206,7 +169,6 @@ pub struct JbReport {
 pub const AREAS: [&str; 5] = ["Seguridad", "Almacenamiento", "Memoria", "Arranque", "Batería"];
 const WEIGHTS: [f32; 5] = [30.0, 25.0, 15.0, 15.0, 15.0];
 
-/// jimy-betanzos: Convierte la nota de 0 a 100 en una palabra (Excelente, Bueno…).
 pub fn jb_grade(score: u8) -> &'static str {
     match score {
         90..=100 => "Excelente",
@@ -216,15 +178,12 @@ pub fn jb_grade(score: u8) -> &'static str {
     }
 }
 
-/// jimy-betanzos: Avance del diagnóstico en milésimas (0–1000).
 pub type JbProgress = std::sync::atomic::AtomicU32;
 
-/// jimy-betanzos: Hace el diagnóstico completo sin mostrar avance.
 pub fn jb_run() -> Result<JbReport, String> {
     jb_run_with_progress(&JbProgress::new(0))
 }
 
-/// jimy-betanzos: Hace el diagnóstico completo informando el avance.
 pub fn jb_run_with_progress(progress: &JbProgress) -> Result<JbReport, String> {
     let raw = plat::jb_run_script(progress)?;
     progress.store(950, std::sync::atomic::Ordering::Relaxed);
@@ -248,13 +207,10 @@ pub fn jb_run_with_progress(progress: &JbProgress) -> Result<JbReport, String> {
     Ok(rep)
 }
 
-/// jimy-betanzos: Agrega una recomendación a la lista.
 fn jb_rec(v: &mut Vec<JbRec>, severity: u8, area: &str, title: String, detail: String, action: Option<JbAction>) {
     v.push(JbRec { severity, area: area.into(), title, detail, action });
 }
 
-/// jimy-betanzos: Entradas de `hosts` que no vienen de herramientas conocidas (Docker, Laragon, WSL...)
-/// ni apuntan al propio equipo.
 pub fn jb_unknown_hosts(hosts: &[String]) -> Vec<String> {
     const KNOWN: &[&str] = &[
         "docker.internal", "kubernetes", "laragon", ".test", ".localhost", "wsl", "localhost",
@@ -271,12 +227,10 @@ pub fn jb_unknown_hosts(hosts: &[String]) -> Vec<String> {
         .collect()
 }
 
-/// jimy-betanzos: Califica los datos y genera las recomendaciones.
 pub fn jb_analyze(rep: &mut JbReport) {
     let r = &rep.raw;
     let mut v: Vec<JbRec> = Vec::new();
 
-    // Seguridad (los textos y accesos directos dependen del sistema: ver plat::txt y plat::setting)
     let open = |k: &str| plat::jb_setting(k).map(|t| JbAction::Open(t.to_string()));
     let d = &r.defender;
     if !d.available {
@@ -333,7 +287,6 @@ pub fn jb_analyze(rep: &mut JbReport) {
         jb_rec(&mut v, 2, "Seguridad", format!("Tarea programada sospechosa: {}", t.name), format!("{}: {}", t.why, t.exe), open("tasks"));
     }
 
-    // Almacenamiento
     let free_pct = if rep.disk_total > 0 { rep.disk_free as f64 / rep.disk_total as f64 * 100.0 } else { 100.0 };
     if free_pct < 15.0 {
         jb_rec(&mut v, 2, "Almacenamiento", "Disco casi lleno".into(), format!("Quedan {} ({:.0} %). Con menos del 15 % libre Windows se vuelve lento.", fmt::jb_bytes(rep.disk_free), free_pct), Some(JbAction::GoClean));
@@ -353,7 +306,6 @@ pub fn jb_analyze(rep: &mut JbReport) {
         }
     }
 
-    // Memoria y rendimiento
     if rep.ram_load >= 85 {
         jb_rec(&mut v, 1, "Memoria", format!("RAM al {} % ahora mismo", rep.ram_load), "Revisa qué programas consumen más y estabiliza.".into(), Some(JbAction::GoRam));
     }
@@ -367,7 +319,6 @@ pub fn jb_analyze(rep: &mut JbReport) {
         jb_rec(&mut v, 1, "Memoria", format!("Plan de energía: {}", rep.power_name), "«Equilibrado» es el recomendado: rinde al máximo cuando hace falta y ahorra batería el resto del tiempo.".into(), Some(JbAction::SetBalanced));
     }
 
-    // Arranque
     let enabled: Vec<&JbStartupItem> = r.startup.iter().filter(|s| s.enabled).collect();
     if enabled.len() > 8 {
         jb_rec(&mut v, 1, "Arranque", format!("{} programas arrancan con {}", enabled.len(), plat::jb_txt("os")), "Desactiva los que no uses a diario: el encendido será más rápido.".into(), None);
@@ -376,7 +327,6 @@ pub fn jb_analyze(rep: &mut JbReport) {
         jb_rec(&mut v, 0, "Arranque", format!("Entrada de inicio rota: {}", s.name), "Apunta a un programa que ya no existe. Puedes desactivarla sin riesgo.".into(), None);
     }
 
-    // Batería
     if let Some(h) = r.battery.jb_health() {
         if h < 60.0 {
             jb_rec(&mut v, 2, "Batería", format!("Batería muy desgastada: {:.0} % de su capacidad", h), "Dura bastante menos que nueva. Si se apaga sola, conviene cambiarla.".into(), Some(JbAction::BatteryReport));
@@ -388,10 +338,8 @@ pub fn jb_analyze(rep: &mut JbReport) {
         }
     }
 
-    // Notas por área: 100 menos penalizaciones; la batería parte de su salud real.
     let mut areas = Vec::new();
     for a in AREAS {
-        // Los consejos (severidad 0) son sugerencias: no restan puntos.
         let penalty: i32 = v.iter().filter(|x| x.area == a).map(|x| [0, 15, 35][x.severity as usize]).sum();
         let base: i32 = match a {
             "Batería" => match r.battery.jb_health() {
@@ -419,12 +367,10 @@ pub fn jb_analyze(rep: &mut JbReport) {
     rep.recs = v;
 }
 
-/// jimy-betanzos: Ruta del archivo donde se guarda el último diagnóstico.
 fn jb_path() -> std::path::PathBuf {
     config::jb_data_dir().join("diagnostico.json")
 }
 
-/// jimy-betanzos: Guarda el diagnóstico en disco.
 pub fn jb_save(rep: &JbReport) {
     let _ = std::fs::create_dir_all(config::jb_data_dir());
     if let Ok(s) = serde_json::to_string(rep) {
@@ -432,7 +378,6 @@ pub fn jb_save(rep: &JbReport) {
     }
 }
 
-/// jimy-betanzos: Lee el último diagnóstico guardado.
 pub fn jb_load() -> Option<JbReport> {
     std::fs::read_to_string(jb_path()).ok().and_then(|s| serde_json::from_str(&s).ok())
 }

@@ -1,41 +1,22 @@
-// Proyecto: NEXO
-// Archivo: thumbs.rs
-// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
-
-//! Miniaturas de archivos con el mismo sistema que usa el Explorador de Windows.
-//!
-//! Sirve para fotos, videos, PDF y documentos (Windows ya las tiene en su caché).
-//! Si un archivo no tiene miniatura, se devuelve su icono.
-
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (ffi)
 use std::ffi::c_void;
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (mem)
 use std::mem::size_of;
-// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::Path;
 
-// jimy-betanzos - dependencia: funciones de Windows (windows)
 use windows::core::HSTRING;
-// jimy-betanzos - dependencia: funciones de Windows (windows)
 use windows::Win32::Foundation::SIZE;
-// jimy-betanzos - dependencia: funciones de Windows (windows)
 use windows::Win32::Graphics::Gdi::{
     DeleteObject, GetDC, GetDIBits, GetObjectW, ReleaseDC, BITMAP, BITMAPINFO, BITMAPINFOHEADER, BI_RGB,
     DIB_RGB_COLORS, HGDIOBJ,
 };
-// jimy-betanzos - dependencia: funciones de Windows (windows)
 use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
-// jimy-betanzos - dependencia: funciones de Windows (windows)
 use windows::Win32::UI::Shell::{IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_BIGGERSIZEOK, SIIGBF_RESIZETOFIT};
 
-/// jimy-betanzos: Cada hilo que pide miniaturas necesita COM inicializado.
 pub fn jb_init_thread() {
     unsafe {
         let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
     }
 }
 
-/// jimy-betanzos: (ancho, alto, RGBA premultiplicado) de la miniatura, del lado mayor `size`.
 pub fn jb_shell_thumbnail(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
     unsafe {
         let factory: IShellItemImageFactory = SHCreateItemFromParsingName(&HSTRING::from(path.as_os_str()), None).ok()?;
@@ -52,7 +33,7 @@ pub fn jb_shell_thumbnail(path: &Path, size: u32) -> Option<(usize, usize, Vec<u
                 bmiHeader: BITMAPINFOHEADER {
                     biSize: size_of::<BITMAPINFOHEADER>() as u32,
                     biWidth: w,
-                    biHeight: -h, // de arriba hacia abajo
+                    biHeight: -h,
                     biPlanes: 1,
                     biBitCount: 32,
                     biCompression: BI_RGB.0,
@@ -65,7 +46,6 @@ pub fn jb_shell_thumbnail(path: &Path, size: u32) -> Option<(usize, usize, Vec<u
             let lines = GetDIBits(dc, hbmp, 0, h as u32, Some(buf.as_mut_ptr() as *mut c_void), &mut bi, DIB_RGB_COLORS);
             ReleaseDC(None, dc);
             if lines > 0 {
-                // BGRA → RGBA. Las fotos vienen sin canal alfa: se vuelven opacas.
                 let no_alpha = buf.as_chunks::<4>().0.iter().all(|p| p[3] == 0);
                 for p in buf.as_chunks_mut::<4>().0 {
                     p.swap(0, 2);
@@ -81,5 +61,4 @@ pub fn jb_shell_thumbnail(path: &Path, size: u32) -> Option<(usize, usize, Vec<u
     }
 }
 
-// jimy-betanzos - dependencia: módulo propio bmp
 pub use crate::bmp::jb_bmp;
