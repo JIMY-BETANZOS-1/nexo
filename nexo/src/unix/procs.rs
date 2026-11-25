@@ -1,7 +1,6 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo/src/unix/procs.rs
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: procs.rs
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 //! Parte de Linux y macOS de `procs`: lista de procesos, CPU y cierre.
 //!
@@ -10,10 +9,10 @@
 //! Ni Linux ni macOS permiten «compactar» la memoria de otro programa como Windows: en su
 //! lugar, Estabilizar libera la caché de memoria del sistema con permiso del usuario.
 
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (process)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (process)
 use std::process::Command;
 
-// jimy-betanzos · dependencia: módulo propio de la interfaz
+// jimy-betanzos - dependencia: módulo propio de la interfaz
 use super::{JbAppGroup, JbProcInfo, JbWin};
 
 /// Compactar un programa concreto no existe en Linux ni en macOS.
@@ -22,20 +21,20 @@ pub const PER_APP_TRIM: bool = false;
 /// Unidades de 100 ns por segundo (las mismas que usa Windows para el tiempo de CPU).
 const HNS: f64 = 1e7;
 
-/// jimy-betanzos · Ejecuta un comando y devuelve su salida.
+/// jimy-betanzos: Ejecuta un comando y devuelve su salida.
 fn jb_run(program: &str, args: &[&str]) -> Option<String> {
     let out = Command::new(program).args(args).output().ok()?;
     out.status.success().then(|| String::from_utf8_lossy(&out.stdout).to_string())
 }
 
-/// jimy-betanzos · Ticks de reloj por segundo del sistema.
+/// jimy-betanzos: Ticks de reloj por segundo del sistema.
 #[cfg(target_os = "linux")]
 fn jb_clk_tck() -> f64 {
     let v = unsafe { libc::sysconf(libc::_SC_CLK_TCK) };
     if v > 0 { v as f64 } else { 100.0 }
 }
 
-/// jimy-betanzos · Lista los procesos con su memoria y CPU.
+/// jimy-betanzos: Lista los procesos con su memoria y CPU.
 #[cfg(target_os = "linux")]
 pub fn jb_list_processes() -> Vec<JbProcInfo> {
     let page = unsafe { libc::sysconf(libc::_SC_PAGESIZE) }.max(4096) as u64;
@@ -80,7 +79,7 @@ pub fn jb_list_processes() -> Vec<JbProcInfo> {
     out
 }
 
-/// jimy-betanzos · Lista los procesos con su memoria y CPU.
+/// jimy-betanzos: Lista los procesos con su memoria y CPU.
 #[cfg(target_os = "macos")]
 pub fn jb_list_processes() -> Vec<JbProcInfo> {
     let me = unsafe { libc::geteuid() };
@@ -108,7 +107,7 @@ pub fn jb_list_processes() -> Vec<JbProcInfo> {
     out
 }
 
-/// jimy-betanzos · "1:02.35" o "1-02:03:04" → segundos.
+/// jimy-betanzos: "1:02.35" o "1-02:03:04" → segundos.
 #[cfg(target_os = "macos")]
 fn jb_parse_cpu_time(t: &str) -> f64 {
     let (days, rest) = match t.split_once('-') {
@@ -122,7 +121,7 @@ fn jb_parse_cpu_time(t: &str) -> f64 {
     days * 86400.0 + secs
 }
 
-/// jimy-betanzos · Ventanas con título (solo Linux con X11 y la herramienta `wmctrl`). Sirve para detectar
+/// jimy-betanzos: Ventanas con título (solo Linux con X11 y la herramienta `wmctrl`). Sirve para detectar
 /// documentos «sin guardar»; si no está disponible, NEXO usa solo la lista de editores.
 pub fn jb_top_windows() -> Vec<JbWin> {
     #[cfg_attr(target_os = "macos", allow(unused_mut))]
@@ -142,7 +141,7 @@ pub fn jb_top_windows() -> Vec<JbWin> {
     v
 }
 
-/// jimy-betanzos · Programa en primer plano (macOS: `lsappinfo`; Linux con X11: `xdotool`).
+/// jimy-betanzos: Programa en primer plano (macOS: `lsappinfo`; Linux con X11: `xdotool`).
 pub fn jb_foreground_pid() -> u32 {
     #[cfg(target_os = "macos")]
     {
@@ -156,7 +155,7 @@ pub fn jb_foreground_pid() -> u32 {
     }
 }
 
-/// jimy-betanzos · (inactivo, total) acumulados del sistema en unidades de 100 ns.
+/// jimy-betanzos: (inactivo, total) acumulados del sistema en unidades de 100 ns.
 pub fn jb_cpu_times() -> Option<(u64, u64)> {
     #[cfg(target_os = "linux")]
     {
@@ -178,12 +177,12 @@ pub fn jb_cpu_times() -> Option<(u64, u64)> {
     }
 }
 
-/// jimy-betanzos · No hay compactación por programa en Linux ni macOS.
+/// jimy-betanzos: No hay compactación por programa en Linux ni macOS.
 pub fn jb_trim(_g: &JbAppGroup) -> u64 {
     0
 }
 
-/// jimy-betanzos · Estabilizar en Linux y macOS: libera la caché de memoria del sistema (archivos que el
+/// jimy-betanzos: Estabilizar en Linux y macOS: libera la caché de memoria del sistema (archivos que el
 /// sistema guardó por si acaso). No cierra programas. Pide la contraseña al usuario.
 pub fn jb_stabilize_system() -> (usize, u64) {
     let before = crate::sys::jb_memory().avail;
@@ -198,7 +197,7 @@ pub fn jb_stabilize_system() -> (usize, u64) {
     (1, crate::sys::jb_memory().avail.saturating_sub(before))
 }
 
-/// jimy-betanzos · Pide al programa que se cierre como si pulsaras «Salir»: puede preguntarte si guardar.
+/// jimy-betanzos: Pide al programa que se cierre como si pulsaras «Salir»: puede preguntarte si guardar.
 pub fn jb_close_gracefully(g: &JbAppGroup) -> usize {
     #[cfg(target_os = "macos")]
     {
@@ -214,7 +213,7 @@ pub fn jb_close_gracefully(g: &JbAppGroup) -> usize {
     jb_signal_all(g, libc::SIGTERM)
 }
 
-/// jimy-betanzos · Cierre forzado: se pierde lo no guardado. Solo con doble confirmación del usuario.
+/// jimy-betanzos: Cierre forzado: se pierde lo no guardado. Solo con doble confirmación del usuario.
 pub fn jb_force_kill(g: &JbAppGroup) -> usize {
     if g.system {
         return 0;
@@ -222,7 +221,7 @@ pub fn jb_force_kill(g: &JbAppGroup) -> usize {
     jb_signal_all(g, libc::SIGKILL)
 }
 
-/// jimy-betanzos · Envía una señal a todos los procesos de un programa.
+/// jimy-betanzos: Envía una señal a todos los procesos de un programa.
 fn jb_signal_all(g: &JbAppGroup, sig: i32) -> usize {
     g.pids.iter().filter(|&&pid| unsafe { libc::kill(pid as i32, sig) } == 0).count()
 }

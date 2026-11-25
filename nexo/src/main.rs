@@ -1,7 +1,6 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo/src/main.rs
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: main.rs
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 // Sin ventana de consola: la app gráfica y el modo automático corren en silencio.
 #![cfg_attr(windows, windows_subsystem = "windows")]
@@ -55,7 +54,7 @@ mod vigia;
 #[path = "unix/vigia.rs"]
 mod vigia;
 
-/// jimy-betanzos · Punto de entrada: decide el modo según los argumentos y abre la ventana.
+/// jimy-betanzos: Punto de entrada: decide el modo según los argumentos y abre la ventana.
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|a| a == "--vigia") {

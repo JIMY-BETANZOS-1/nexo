@@ -1,7 +1,6 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo/src/unix/vigia.rs
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: vigia.rs
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 //! Vigía en Linux y macOS: proceso mínimo en segundo plano (sin ventana) que cada 30 s
 //! revisa RAM, memoria de intercambio, CPU, fugas de memoria, disco y programas nuevos al
@@ -10,45 +9,45 @@
 //! A diferencia de Windows, no muestra un icono junto al reloj (eso exigiría bibliotecas
 //! gráficas distintas en cada escritorio de Linux): se controla desde NEXO › Memoria RAM.
 
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (collections)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (collections)
 use std::collections::{HashMap, HashSet, VecDeque};
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::PathBuf;
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (time)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (time)
 use std::time::{Duration, Instant, SystemTime};
 
-// jimy-betanzos · dependencia: módulo propio config
+// jimy-betanzos - dependencia: módulo propio config
 use crate::config::{self, JbConfig};
-// jimy-betanzos · dependencia: módulo propio procs
+// jimy-betanzos - dependencia: módulo propio procs
 use crate::procs::{JbAppGroup, JbSampler};
-// jimy-betanzos · dependencia: módulo propio
+// jimy-betanzos - dependencia: módulo propio
 use crate::{fmt, install, notify, sys};
 
 const TICK: Duration = Duration::from_secs(30);
 const LEAK_SAMPLES: usize = 20; // 20 × 30 s = 10 min
 const LEAK_BYTES: u64 = 1 << 30;
 
-/// jimy-betanzos · Archivo donde el vigía guarda su número de proceso.
+/// jimy-betanzos: Archivo donde el vigía guarda su número de proceso.
 fn jb_pid_file() -> PathBuf {
     config::jb_data_dir().join("vigia.pid")
 }
 
-/// jimy-betanzos · Indica si un proceso sigue vivo.
+/// jimy-betanzos: Indica si un proceso sigue vivo.
 fn jb_alive(pid: i32) -> bool {
     pid > 0 && unsafe { libc::kill(pid, 0) } == 0
 }
 
-/// jimy-betanzos · Lee el número de proceso del vigía.
+/// jimy-betanzos: Lee el número de proceso del vigía.
 fn jb_read_pid() -> Option<i32> {
     std::fs::read_to_string(jb_pid_file()).ok()?.trim().parse().ok().filter(|&p| jb_alive(p))
 }
 
-/// jimy-betanzos · Indica si el vigía está en marcha.
+/// jimy-betanzos: Indica si el vigía está en marcha.
 pub fn jb_is_running() -> bool {
     jb_read_pid().is_some()
 }
 
-/// jimy-betanzos · Arranca el vigía en segundo plano.
+/// jimy-betanzos: Arranca el vigía en segundo plano.
 pub fn jb_start() -> bool {
     std::process::Command::new(install::jb_installed_exe())
         .arg("--vigia")
@@ -59,7 +58,7 @@ pub fn jb_start() -> bool {
         .is_ok()
 }
 
-/// jimy-betanzos · Detiene el vigía y espera a que termine. Devuelve si estaba activo.
+/// jimy-betanzos: Detiene el vigía y espera a que termine. Devuelve si estaba activo.
 pub fn jb_stop_and_wait() -> bool {
     let Some(pid) = jb_read_pid() else { return false };
     unsafe {
@@ -75,7 +74,7 @@ pub fn jb_stop_and_wait() -> bool {
     true
 }
 
-/// jimy-betanzos · Texto con los programas que más memoria usan.
+/// jimy-betanzos: Texto con los programas que más memoria usan.
 fn jb_top_consumers(groups: &[JbAppGroup], n: usize) -> String {
     groups
         .iter()
@@ -86,7 +85,7 @@ fn jb_top_consumers(groups: &[JbAppGroup], n: usize) -> String {
         .join(" · ")
 }
 
-/// jimy-betanzos · Estado del vigía entre una revisión y la siguiente.
+/// jimy-betanzos: Estado del vigía entre una revisión y la siguiente.
 struct JbState {
     sampler: JbSampler,
     cfg: JbConfig,
@@ -99,9 +98,9 @@ struct JbState {
     startup: Option<HashSet<String>>,
 }
 
-/// jimy-betanzos · Métodos de State.
+/// jimy-betanzos: Métodos de State.
 impl JbState {
-    /// jimy-betanzos · Envía un aviso si no se repitió hace poco.
+    /// jimy-betanzos: Envía un aviso si no se repitió hace poco.
     fn jb_alert(&mut self, key: &str, cooldown: Duration, title: &str, text: &str) {
         if self.last_alert.get(key).is_some_and(|t| t.elapsed() < cooldown) {
             return;
@@ -111,7 +110,7 @@ impl JbState {
         config::jb_push_alert(key.split(':').next().unwrap_or(key), &format!("{}: {}", title, text));
     }
 
-    /// jimy-betanzos · Revisión periódica de memoria, CPU y disco.
+    /// jimy-betanzos: Revisión periódica de memoria, CPU y disco.
     fn jb_tick(&mut self) {
         let mtime = config::jb_config_mtime();
         if mtime != self.cfg_mtime {
@@ -217,7 +216,7 @@ impl JbState {
     }
 }
 
-/// jimy-betanzos · Bucle principal del vigía.
+/// jimy-betanzos: Bucle principal del vigía.
 pub fn jb_run() {
     if jb_is_running() {
         return;

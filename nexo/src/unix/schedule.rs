@@ -1,44 +1,43 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo/src/unix/schedule.rs
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: schedule.rs
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 //! Limpieza automática programada en Linux (temporizador de systemd del usuario, o cron
 //! si systemd no está disponible) y macOS (LaunchAgent con calendario de launchd).
 //! NEXO no queda residente: el sistema lo lanza con `--auto`, limpia y se cierra.
 
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::PathBuf;
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (process)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (process)
 use std::process::Command;
 
-// jimy-betanzos · dependencia: módulo propio config
+// jimy-betanzos - dependencia: módulo propio config
 use crate::config::{JbConfig, JbFrequency};
-// jimy-betanzos · dependencia: módulo propio install
+// jimy-betanzos - dependencia: módulo propio install
 use crate::install;
 
 #[allow(dead_code)]
 pub const TASK: &str = "NEXO-LimpiezaAutomatica";
 
-/// jimy-betanzos · Carpeta personal del usuario.
+/// jimy-betanzos: Carpeta personal del usuario.
 fn jb_home() -> PathBuf {
     std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(std::env::temp_dir)
 }
 
-/// jimy-betanzos · Ejecuta un comando e indica si terminó bien.
+/// jimy-betanzos: Ejecuta un comando e indica si terminó bien.
 fn jb_ok(c: &mut Command) -> bool {
     c.output().map(|o| o.status.success()).unwrap_or(false)
 }
 
-// ───────────────────────── macOS ─────────────────────────
+// macOS
 
-/// jimy-betanzos · Ruta del LaunchAgent de la limpieza automática.
+/// jimy-betanzos: Ruta del LaunchAgent de la limpieza automática.
 #[cfg(target_os = "macos")]
 fn jb_plist_path() -> PathBuf {
     jb_home().join("Library/LaunchAgents/com.nexo.limpieza.plist")
 }
 
-/// jimy-betanzos · Programa la limpieza automática.
+/// jimy-betanzos: Programa la limpieza automática.
 #[cfg(target_os = "macos")]
 pub fn jb_enable(cfg: &JbConfig, _admin: bool) -> Result<(), String> {
     let exe = install::jb_install()?;
@@ -74,7 +73,7 @@ pub fn jb_enable(cfg: &JbConfig, _admin: bool) -> Result<(), String> {
     }
 }
 
-/// jimy-betanzos · Quita la limpieza automática programada.
+/// jimy-betanzos: Quita la limpieza automática programada.
 #[cfg(target_os = "macos")]
 pub fn jb_disable() -> Result<(), String> {
     let p = jb_plist_path();
@@ -85,21 +84,21 @@ pub fn jb_disable() -> Result<(), String> {
     std::fs::remove_file(&p).map_err(|e| e.to_string())
 }
 
-/// jimy-betanzos · Indica si la limpieza automática está programada.
+/// jimy-betanzos: Indica si la limpieza automática está programada.
 #[cfg(target_os = "macos")]
 pub fn jb_is_registered() -> bool {
     jb_plist_path().exists()
 }
 
-// ───────────────────────── Linux ─────────────────────────
+// Linux
 
-/// jimy-betanzos · Carpeta de servicios de systemd del usuario.
+/// jimy-betanzos: Carpeta de servicios de systemd del usuario.
 #[cfg(not(target_os = "macos"))]
 fn jb_unit_dir() -> PathBuf {
     std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).unwrap_or_else(|| jb_home().join(".config")).join("systemd/user")
 }
 
-/// jimy-betanzos · Indica si el sistema usa systemd.
+/// jimy-betanzos: Indica si el sistema usa systemd.
 #[cfg(not(target_os = "macos"))]
 fn jb_has_systemd() -> bool {
     jb_ok(Command::new("systemctl").args(["--user", "show-environment"]))
@@ -108,16 +107,16 @@ fn jb_has_systemd() -> bool {
 #[cfg(not(target_os = "macos"))]
 const CRON_MARK: &str = "# NEXO-LimpiezaAutomatica";
 
-/// jimy-betanzos · Lee la tabla de cron del usuario.
+/// jimy-betanzos: Lee la tabla de cron del usuario.
 #[cfg(not(target_os = "macos"))]
 fn jb_crontab() -> String {
     Command::new("crontab").arg("-l").output().map(|o| String::from_utf8_lossy(&o.stdout).to_string()).unwrap_or_default()
 }
 
-/// jimy-betanzos · Guarda la tabla de cron del usuario.
+/// jimy-betanzos: Guarda la tabla de cron del usuario.
 #[cfg(not(target_os = "macos"))]
 fn jb_set_crontab(text: &str) -> Result<(), String> {
-    // jimy-betanzos · dependencia: biblioteca estándar de Rust (io)
+    // jimy-betanzos - dependencia: biblioteca estándar de Rust (io)
     use std::io::Write;
     let mut child = Command::new("crontab").arg("-").stdin(std::process::Stdio::piped()).spawn().map_err(|e| e.to_string())?;
     child.stdin.take().ok_or("sin entrada")?.write_all(text.as_bytes()).map_err(|e| e.to_string())?;
@@ -128,7 +127,7 @@ fn jb_set_crontab(text: &str) -> Result<(), String> {
     }
 }
 
-/// jimy-betanzos · Programa la limpieza automática.
+/// jimy-betanzos: Programa la limpieza automática.
 #[cfg(not(target_os = "macos"))]
 pub fn jb_enable(cfg: &JbConfig, _admin: bool) -> Result<(), String> {
     let exe = install::jb_install()?;
@@ -165,7 +164,7 @@ pub fn jb_enable(cfg: &JbConfig, _admin: bool) -> Result<(), String> {
     jb_set_crontab(&(lines.join("\n") + "\n"))
 }
 
-/// jimy-betanzos · Quita la limpieza automática programada.
+/// jimy-betanzos: Quita la limpieza automática programada.
 #[cfg(not(target_os = "macos"))]
 pub fn jb_disable() -> Result<(), String> {
     let dir = jb_unit_dir();
@@ -183,7 +182,7 @@ pub fn jb_disable() -> Result<(), String> {
     Ok(())
 }
 
-/// jimy-betanzos · Indica si la limpieza automática está programada.
+/// jimy-betanzos: Indica si la limpieza automática está programada.
 #[cfg(not(target_os = "macos"))]
 pub fn jb_is_registered() -> bool {
     jb_unit_dir().join("nexo-limpieza.timer").exists() || jb_crontab().contains(CRON_MARK)

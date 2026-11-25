@@ -1,17 +1,16 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo/src/ui/mod.rs
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: mod.rs
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 mod app;
 mod theme;
 mod thumbcache;
 mod widgets;
 
-// jimy-betanzos · dependencia: ventana e interfaz gráfica (eframe/egui)
+// jimy-betanzos - dependencia: ventana e interfaz gráfica (eframe/egui)
 use eframe::egui;
 
-/// jimy-betanzos · Abre la ventana de NEXO.
+/// jimy-betanzos: Abre la ventana de NEXO.
 pub fn jb_run(start_page: Option<String>) {
     // La ventana de NEXO trabaja siempre como administrador (para limpiar también lo de
     // Windows). Si el usuario rechaza el aviso, se abre igual con permisos normales.

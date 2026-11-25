@@ -1,7 +1,6 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo-ios/NEXO/UI/Views.swift
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: Views.swift
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 import SwiftUI
 

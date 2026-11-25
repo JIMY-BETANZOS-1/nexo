@@ -1,30 +1,29 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo/src/rules_win.rs
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: rules_win.rs
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 //! Reglas de Windows: carpetas de basura conocidas y carpetas personales prohibidas.
 
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::PathBuf;
 
-// jimy-betanzos · dependencia: funciones de Windows (windows-sys)
+// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::UI::Shell::{
     FOLDERID_Desktop, FOLDERID_Documents, FOLDERID_Downloads, FOLDERID_Music, FOLDERID_Pictures,
     FOLDERID_Screenshots, FOLDERID_Videos,
 };
 
-// jimy-betanzos · dependencia: módulo propio de la interfaz
+// jimy-betanzos - dependencia: módulo propio de la interfaz
 use super::*;
-// jimy-betanzos · dependencia: módulo propio sys
+// jimy-betanzos - dependencia: módulo propio sys
 use crate::sys;
 
-/// jimy-betanzos · Lee una carpeta de una variable de entorno de Windows.
+/// jimy-betanzos: Lee una carpeta de una variable de entorno de Windows.
 fn jb_env_path(var: &str, fallback: &str) -> PathBuf {
     std::env::var_os(var).map(PathBuf::from).unwrap_or_else(|| PathBuf::from(fallback))
 }
 
-/// jimy-betanzos · Detecta las carpetas de Windows del usuario y del sistema.
+/// jimy-betanzos: Detecta las carpetas de Windows del usuario y del sistema.
 pub fn jb_detect() -> JbEnv {
     let profile = jb_env_path("USERPROFILE", "C:\\Users\\Default");
     let pictures = sys::jb_known_folder(&FOLDERID_Pictures);
@@ -82,7 +81,7 @@ const CHROMIUM: &[(&str, &[&str])] = &[
 
 const CACHE_DIRS: &[&str] = &["Cache", "Code Cache", "GPUCache"];
 
-/// jimy-betanzos · Carpetas de caché de los navegadores instalados.
+/// jimy-betanzos: Carpetas de caché de los navegadores instalados.
 fn jb_browser_targets(env: &JbEnv) -> Vec<JbTarget> {
     let mut out = Vec::new();
     for (rel, procs) in CHROMIUM {
@@ -129,7 +128,7 @@ fn jb_browser_targets(env: &JbEnv) -> Vec<JbTarget> {
     out
 }
 
-/// jimy-betanzos · Carpetas de caché de aplicaciones conocidas.
+/// jimy-betanzos: Carpetas de caché de aplicaciones conocidas.
 fn jb_app_cache_targets(env: &JbEnv) -> Vec<JbTarget> {
     let r = &env.roaming;
     let l = &env.local;
@@ -156,7 +155,7 @@ fn jb_app_cache_targets(env: &JbEnv) -> Vec<JbTarget> {
 
 const UPDATE_PROCS: &[&str] = &["tiworker.exe", "trustedinstaller.exe", "wuauclt.exe"];
 
-/// jimy-betanzos · Lista completa de categorías de limpieza de Windows.
+/// jimy-betanzos: Lista completa de categorías de limpieza de Windows.
 pub fn jb_categories(env: &JbEnv) -> Vec<JbCategoryDef> {
     let w = &env.windir;
     let l = &env.local;
@@ -319,12 +318,12 @@ pub fn jb_categories(env: &JbEnv) -> Vec<JbCategoryDef> {
 }
 
 
-/// jimy-betanzos · En Windows no hay categorías que dependan de un comando del sistema.
+/// jimy-betanzos: En Windows no hay categorías que dependan de un comando del sistema.
 pub fn jb_system_size(_id: &str) -> (u64, u64) {
     (0, 0)
 }
 
-/// jimy-betanzos · Limpieza de sistema especial (en Windows no se usa).
+/// jimy-betanzos: Limpieza de sistema especial (en Windows no se usa).
 pub fn jb_system_clean(_id: &str) -> Result<u64, String> {
     Err("No disponible en Windows.".into())
 }

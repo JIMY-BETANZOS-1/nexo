@@ -1,7 +1,6 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo/src/rules.rs
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: rules.rs
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 //! Reglas de limpieza: qué se puede borrar, qué va a la Papelera y qué está protegido.
 //!
@@ -9,7 +8,7 @@
 //! automática. Si aparecen dentro de una carpeta de basura, se apartan a la lista
 //! "Videos y documentos" para que el usuario decida, y aun así van a la Papelera.
 
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::{Path, PathBuf};
 
 // Carpetas de basura y categorías propias de cada sistema.
@@ -20,7 +19,7 @@ mod plat;
 #[path = "unix/rules.rs"]
 mod plat;
 
-// jimy-betanzos · dependencia: módulo propio de la plataforma (Windows o Linux/macOS)
+// jimy-betanzos - dependencia: módulo propio de la plataforma (Windows o Linux/macOS)
 pub use plat::{jb_categories, jb_system_clean, jb_system_size};
 
 
@@ -45,7 +44,7 @@ pub const PACKAGE_EXT: &[&str] = &[
     "tar", "gz",
 ];
 
-/// jimy-betanzos · Nivel de protección de un archivo (normal o protegido).
+/// jimy-betanzos: Nivel de protección de un archivo (normal o protegido).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum JbProtect {
     No,
@@ -53,12 +52,12 @@ pub enum JbProtect {
     Document,
 }
 
-/// jimy-betanzos · Extensión de un archivo en minúsculas.
+/// jimy-betanzos: Extensión de un archivo en minúsculas.
 pub fn jb_ext_of(p: &Path) -> String {
     p.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase()
 }
 
-/// jimy-betanzos · Decide si un archivo es video o documento (protegido).
+/// jimy-betanzos: Decide si un archivo es video o documento (protegido).
 pub fn jb_protection(p: &Path) -> JbProtect {
     let e = jb_ext_of(p);
     if VIDEO_EXT.contains(&e.as_str()) {
@@ -70,7 +69,7 @@ pub fn jb_protection(p: &Path) -> JbProtect {
     }
 }
 
-/// jimy-betanzos · Tipo de categoría: segura, para revisar o protegida.
+/// jimy-betanzos: Tipo de categoría: segura, para revisar o protegida.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum JbKind {
     /// Basura real: se elimina definitivamente. Única clase que usa el modo automático.
@@ -81,7 +80,7 @@ pub enum JbKind {
     Protected,
 }
 
-/// jimy-betanzos · Filtro de archivos de un destino (todos, por extensión o prefijo).
+/// jimy-betanzos: Filtro de archivos de un destino (todos, por extensión o prefijo).
 #[derive(Clone)]
 pub enum JbFilter {
     All,
@@ -91,7 +90,7 @@ pub enum JbFilter {
     ProtectedOnly,
 }
 
-/// jimy-betanzos · Carpeta que se escanea con su filtro y antigüedad mínima.
+/// jimy-betanzos: Carpeta que se escanea con su filtro y antigüedad mínima.
 #[derive(Clone)]
 pub struct JbTarget {
     pub root: PathBuf,
@@ -104,7 +103,7 @@ pub struct JbTarget {
     pub blocked_by: &'static [&'static str],
 }
 
-/// jimy-betanzos · Tratamiento especial de una categoría (Papelera, sistema…).
+/// jimy-betanzos: Tratamiento especial de una categoría (Papelera, sistema…).
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum JbSpecial {
     None,
@@ -115,7 +114,7 @@ pub enum JbSpecial {
     System(&'static str),
 }
 
-/// jimy-betanzos · Categoría de limpieza: nombre, descripción, tipo y destinos.
+/// jimy-betanzos: Categoría de limpieza: nombre, descripción, tipo y destinos.
 pub struct JbCategoryDef {
     pub id: &'static str,
     pub name: &'static str,
@@ -126,15 +125,15 @@ pub struct JbCategoryDef {
     pub targets: Vec<JbTarget>,
 }
 
-/// jimy-betanzos · Métodos de CategoryDef.
+/// jimy-betanzos: Métodos de CategoryDef.
 impl JbCategoryDef {
-    /// jimy-betanzos · Indica si la categoría necesita permiso de administrador.
+    /// jimy-betanzos: Indica si la categoría necesita permiso de administrador.
     pub fn jb_admin_only(&self) -> bool {
         !self.targets.is_empty() && self.targets.iter().all(|t| t.admin)
     }
 }
 
-/// jimy-betanzos · Carpetas del usuario y del sistema que usan las reglas.
+/// jimy-betanzos: Carpetas del usuario y del sistema que usan las reglas.
 #[cfg_attr(unix, allow(dead_code))]
 pub struct JbEnv {
     pub local: PathBuf,
@@ -148,20 +147,20 @@ pub struct JbEnv {
     pub forbidden: Vec<PathBuf>,
 }
 
-/// jimy-betanzos · Métodos de Env.
+/// jimy-betanzos: Métodos de Env.
 impl JbEnv {
-    /// jimy-betanzos · Detecta las carpetas reales del equipo.
+    /// jimy-betanzos: Detecta las carpetas reales del equipo.
     pub fn jb_detect() -> JbEnv {
         plat::jb_detect()
     }
 
-    /// jimy-betanzos · Indica si una ruta está dentro de una carpeta personal prohibida.
+    /// jimy-betanzos: Indica si una ruta está dentro de una carpeta personal prohibida.
     pub fn jb_is_forbidden(&self, p: &Path) -> bool {
         self.forbidden.iter().any(|f| jb_is_inside(p, f))
     }
 }
 
-/// jimy-betanzos · Normaliza una ruta para compararla (minúsculas, sin separador final).
+/// jimy-betanzos: Normaliza una ruta para compararla (minúsculas, sin separador final).
 fn jb_norm(p: &Path) -> String {
     p.to_string_lossy().trim_end_matches(std::path::MAIN_SEPARATOR).to_lowercase()
 }
@@ -172,19 +171,19 @@ pub fn jb_is_inside(p: &Path, root: &Path) -> bool {
     s == r || s.starts_with(&(r + std::path::MAIN_SEPARATOR_STR))
 }
 
-/// jimy-betanzos · Crea un destino de escaneo.
+/// jimy-betanzos: Crea un destino de escaneo.
 pub(crate) fn jb_t(root: PathBuf, recursive: bool, filter: JbFilter, min_age_h: u64) -> JbTarget {
     JbTarget { root, recursive, filter, min_age_h, admin: false, blocked_by: &[] }
 }
 
-/// jimy-betanzos · Marca un destino como de administrador.
+/// jimy-betanzos: Marca un destino como de administrador.
 #[cfg_attr(unix, allow(dead_code))]
 pub(crate) fn jb_admin(mut x: JbTarget) -> JbTarget {
     x.admin = true;
     x
 }
 
-/// jimy-betanzos · Marca un destino que no se toca si cierto programa está abierto.
+/// jimy-betanzos: Marca un destino que no se toca si cierto programa está abierto.
 pub(crate) fn jb_blocked(mut x: JbTarget, by: &'static [&'static str]) -> JbTarget {
     x.blocked_by = by;
     x
@@ -192,7 +191,7 @@ pub(crate) fn jb_blocked(mut x: JbTarget, by: &'static [&'static str]) -> JbTarg
 
 // jimy-betanzos: el modo automático solo usa basura real (categorías seguras sin tratamiento especial).
 // Videos, documentos, capturas y descargas quedan fuera siempre, aunque el usuario lo active.
-/// jimy-betanzos · Categorías que el modo automático puede usar (solo basura real).
+/// jimy-betanzos: Categorías que el modo automático puede usar (solo basura real).
 pub fn jb_auto_eligible(defs: &[JbCategoryDef]) -> Vec<&JbCategoryDef> {
     defs.iter().filter(|d| d.kind == JbKind::Safe && d.special == JbSpecial::None).collect()
 }

@@ -1,7 +1,6 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo-ios/NEXO/Core/Device.swift
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: Device.swift
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 import LocalAuthentication
 import UIKit

@@ -1,30 +1,29 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo/src/clean.rs
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: clean.rs
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 //! Limpieza. Solo actúa sobre lo que el usuario dejó seleccionado.
 //!
 //! - Categorías seguras (basura del sistema): borrado definitivo.
 //! - Revisión y protegidos (capturas, descargas, videos, documentos): a la Papelera.
 
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (fs)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (fs)
 use std::fs;
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::{Path, PathBuf};
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
 use std::sync::Mutex;
 
-// jimy-betanzos · dependencia: módulo propio rules
+// jimy-betanzos - dependencia: módulo propio rules
 use crate::rules::{jb_is_inside, jb_protection, JbCategoryDef, JbEnv, JbKind, JbProtect, JbSpecial, JbTarget};
-// jimy-betanzos · dependencia: módulo propio scan
+// jimy-betanzos - dependencia: módulo propio scan
 use crate::scan::{jb_blocked_by, jb_walk, JbCatResult, JbCtx};
-// jimy-betanzos · dependencia: módulo propio sys
+// jimy-betanzos - dependencia: módulo propio sys
 use crate::sys;
 
-/// jimy-betanzos · Resultado de una limpieza: archivos, espacio liberado y errores.
+/// jimy-betanzos: Resultado de una limpieza: archivos, espacio liberado y errores.
 #[derive(Default, Clone)]
 pub struct JbCleanReport {
     pub freed: u64,
@@ -34,7 +33,7 @@ pub struct JbCleanReport {
     pub per_cat: Vec<(String, u64)>,
 }
 
-/// jimy-betanzos · Borra un archivo aunque sea de solo lectura.
+/// jimy-betanzos: Borra un archivo aunque sea de solo lectura.
 fn jb_remove_file_force(p: &Path) -> std::io::Result<()> {
     match fs::remove_file(p) {
         Ok(()) => Ok(()),
@@ -54,7 +53,7 @@ fn jb_remove_file_force(p: &Path) -> std::io::Result<()> {
     }
 }
 
-/// jimy-betanzos · Borra la basura de un destino seguro. Devuelve (liberado, archivos, omitidos).
+/// jimy-betanzos: Borra la basura de un destino seguro. Devuelve (liberado, archivos, omitidos).
 fn jb_clean_target(t: &JbTarget, env: &JbEnv, ctx: &JbCtx, files_total: &AtomicU64, bytes_total: &AtomicU64) -> (u64, u64, u64) {
     let (mut freed, mut files, mut skipped) = (0u64, 0u64, 0u64);
     let mut dirs: Vec<PathBuf> = Vec::new();
@@ -100,7 +99,7 @@ fn jb_clean_target(t: &JbTarget, env: &JbEnv, ctx: &JbCtx, files_total: &AtomicU
 
 // jimy-betanzos: lo «Para revisar» y lo «Protegido» va a la Papelera (se puede recuperar);
 // solo la basura del sistema se elimina de forma definitiva.
-/// jimy-betanzos · Limpia las categorías seleccionadas y devuelve el resumen.
+/// jimy-betanzos: Limpia las categorías seleccionadas y devuelve el resumen.
 pub fn jb_clean(defs: &[JbCategoryDef], results: &[JbCatResult], env: &JbEnv, ctx: &JbCtx) -> JbCleanReport {
     let mut rep = JbCleanReport::default();
     let selected: Vec<(&JbCatResult, &JbCategoryDef)> = results

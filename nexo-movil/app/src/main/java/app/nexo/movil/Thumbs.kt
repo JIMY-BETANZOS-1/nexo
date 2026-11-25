@@ -1,7 +1,6 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo-movil/app/src/main/java/app/nexo/movil/Thumbs.kt
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: Thumbs.kt
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 package app.nexo.movil
 

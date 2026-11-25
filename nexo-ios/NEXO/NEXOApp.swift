@@ -1,7 +1,6 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo-ios/NEXO/NEXOApp.swift
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: NEXOApp.swift
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 import SwiftUI
 

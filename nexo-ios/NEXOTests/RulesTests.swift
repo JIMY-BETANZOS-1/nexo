@@ -1,7 +1,6 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo-ios/NEXOTests/RulesTests.swift
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: RulesTests.swift
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 import XCTest
 @testable import NEXO

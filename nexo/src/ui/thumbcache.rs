@@ -1,7 +1,6 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo/src/ui/thumbcache.rs
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: thumbcache.rs
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 //! Miniaturas para la interfaz: se generan en varios hilos y se guardan como texturas.
 //!
@@ -9,16 +8,16 @@
 //!   al desplazarte rápido no se pierde tiempo en lo que ya no estás viendo.
 //! - Memoria acotada: como mucho 300 miniaturas pequeñas y 24 vistas grandes.
 
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (collections)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (collections)
 use std::collections::{HashMap, HashSet, VecDeque};
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::{Path, PathBuf};
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
 use std::sync::mpsc::{channel, Receiver};
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
 use std::sync::{Arc, Condvar, Mutex};
 
-// jimy-betanzos · dependencia: ventana e interfaz gráfica (eframe/egui)
+// jimy-betanzos - dependencia: ventana e interfaz gráfica (eframe/egui)
 use eframe::egui::{self, ColorImage, TextureHandle, TextureOptions};
 
 pub const SMALL: u32 = 64;
@@ -27,16 +26,16 @@ const MAX_SMALL: usize = 300;
 const MAX_BIG: usize = 24;
 const MAX_QUEUE: usize = 160;
 
-/// jimy-betanzos · Clave de una miniatura: archivo y tamaño.
+/// jimy-betanzos: Clave de una miniatura: archivo y tamaño.
 type JbKey = (PathBuf, u32);
 
-/// jimy-betanzos · Cola de miniaturas pendientes.
+/// jimy-betanzos: Cola de miniaturas pendientes.
 struct JbQueue {
     jobs: Mutex<Vec<JbKey>>,
     signal: Condvar,
 }
 
-/// jimy-betanzos · Caché de miniaturas de la interfaz.
+/// jimy-betanzos: Caché de miniaturas de la interfaz.
 pub struct JbThumbCache {
     queue: Arc<JbQueue>,
     rx: Receiver<(JbKey, Option<ColorImage>)>,
@@ -46,9 +45,9 @@ pub struct JbThumbCache {
     order_big: VecDeque<JbKey>,
 }
 
-/// jimy-betanzos · Métodos de ThumbCache.
+/// jimy-betanzos: Métodos de ThumbCache.
 impl JbThumbCache {
-    /// jimy-betanzos · Crea la caché y sus hilos de trabajo.
+    /// jimy-betanzos: Crea la caché y sus hilos de trabajo.
     pub fn jb_new() -> Self {
         let queue = Arc::new(JbQueue { jobs: Mutex::new(Vec::new()), signal: Condvar::new() });
         let (tx, rx) = channel();
@@ -86,7 +85,7 @@ impl JbThumbCache {
         }
     }
 
-    /// jimy-betanzos · Recoge las miniaturas terminadas. Devuelve si aún hay trabajo pendiente.
+    /// jimy-betanzos: Recoge las miniaturas terminadas. Devuelve si aún hay trabajo pendiente.
     pub fn jb_poll(&mut self, ctx: &egui::Context) -> bool {
         while let Ok((key, img)) = self.rx.try_recv() {
             self.pending.remove(&key);
@@ -104,7 +103,7 @@ impl JbThumbCache {
         !self.pending.is_empty()
     }
 
-    /// jimy-betanzos · La miniatura si ya está lista; si no, la pide y devuelve None (aún cargando).
+    /// jimy-betanzos: La miniatura si ya está lista; si no, la pide y devuelve None (aún cargando).
     pub fn jb_get(&mut self, path: &Path, size: u32) -> Option<Option<TextureHandle>> {
         let key = (path.to_path_buf(), size);
         if let Some(t) = self.tex.get(&key) {

@@ -1,7 +1,6 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo-movil/app/src/main/java/app/nexo/movil/Scanner.kt
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: Scanner.kt
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 package app.nexo.movil
 

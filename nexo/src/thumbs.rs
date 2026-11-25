@@ -1,42 +1,41 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo/src/thumbs.rs
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: thumbs.rs
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 //! Miniaturas de archivos con el mismo sistema que usa el Explorador de Windows.
 //!
 //! Sirve para fotos, videos, PDF y documentos (Windows ya las tiene en su caché).
 //! Si un archivo no tiene miniatura, se devuelve su icono.
 
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (ffi)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (ffi)
 use std::ffi::c_void;
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (mem)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (mem)
 use std::mem::size_of;
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::Path;
 
-// jimy-betanzos · dependencia: funciones de Windows (windows)
+// jimy-betanzos - dependencia: funciones de Windows (windows)
 use windows::core::HSTRING;
-// jimy-betanzos · dependencia: funciones de Windows (windows)
+// jimy-betanzos - dependencia: funciones de Windows (windows)
 use windows::Win32::Foundation::SIZE;
-// jimy-betanzos · dependencia: funciones de Windows (windows)
+// jimy-betanzos - dependencia: funciones de Windows (windows)
 use windows::Win32::Graphics::Gdi::{
     DeleteObject, GetDC, GetDIBits, GetObjectW, ReleaseDC, BITMAP, BITMAPINFO, BITMAPINFOHEADER, BI_RGB,
     DIB_RGB_COLORS, HGDIOBJ,
 };
-// jimy-betanzos · dependencia: funciones de Windows (windows)
+// jimy-betanzos - dependencia: funciones de Windows (windows)
 use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
-// jimy-betanzos · dependencia: funciones de Windows (windows)
+// jimy-betanzos - dependencia: funciones de Windows (windows)
 use windows::Win32::UI::Shell::{IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_BIGGERSIZEOK, SIIGBF_RESIZETOFIT};
 
-/// jimy-betanzos · Cada hilo que pide miniaturas necesita COM inicializado.
+/// jimy-betanzos: Cada hilo que pide miniaturas necesita COM inicializado.
 pub fn jb_init_thread() {
     unsafe {
         let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
     }
 }
 
-/// jimy-betanzos · (ancho, alto, RGBA premultiplicado) de la miniatura, del lado mayor `size`.
+/// jimy-betanzos: (ancho, alto, RGBA premultiplicado) de la miniatura, del lado mayor `size`.
 pub fn jb_shell_thumbnail(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
     unsafe {
         let factory: IShellItemImageFactory = SHCreateItemFromParsingName(&HSTRING::from(path.as_os_str()), None).ok()?;
@@ -82,5 +81,5 @@ pub fn jb_shell_thumbnail(path: &Path, size: u32) -> Option<(usize, usize, Vec<u
     }
 }
 
-// jimy-betanzos · dependencia: módulo propio bmp
+// jimy-betanzos - dependencia: módulo propio bmp
 pub use crate::bmp::jb_bmp;

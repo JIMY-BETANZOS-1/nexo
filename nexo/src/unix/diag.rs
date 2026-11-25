@@ -1,21 +1,20 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo/src/unix/diag.rs
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: diag.rs
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 //! Parte de Linux y macOS del diagnóstico. Recoge los mismos datos que el script de
 //! PowerShell de Windows, en solo lectura, leyendo archivos del sistema y con comandos
 //! estándar (lsblk, systemctl, ss, fdesetup, socketfilterfw, ioreg, pmset…). Cada parte
 //! informa su avance; si un comando no existe, esa comprobación queda «sin datos».
 
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::{Path, PathBuf};
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (process)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (process)
 use std::process::Command;
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
 use std::sync::atomic::Ordering;
 
-// jimy-betanzos · dependencia: módulo propio de la interfaz
+// jimy-betanzos - dependencia: módulo propio de la interfaz
 use super::{JbBattery, JbDefender, JbDisk, JbFirewall, JbProgress, JbRaw, JbStartupItem, JbTask};
 
 /// Plan de energía recomendado (power-profiles-daemon en Linux).
@@ -28,30 +27,30 @@ pub const AV_MISSING_SEVERITY: u8 = 1;
 /// Linux y macOS no firman los programas de inicio como Windows (Authenticode).
 pub const CHECK_SIGNATURES: bool = false;
 
-/// jimy-betanzos · Carpeta personal del usuario.
+/// jimy-betanzos: Carpeta personal del usuario.
 fn jb_home() -> PathBuf {
     std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/"))
 }
 
-/// jimy-betanzos · Ejecuta un comando y devuelve su salida.
+/// jimy-betanzos: Ejecuta un comando y devuelve su salida.
 fn jb_run(program: &str, args: &[&str]) -> Option<String> {
     let out = Command::new(program).args(args).output().ok()?;
     Some(String::from_utf8_lossy(&out.stdout).to_string() + &String::from_utf8_lossy(&out.stderr))
 }
 
-/// jimy-betanzos · Indica si un comando está instalado.
+/// jimy-betanzos: Indica si un comando está instalado.
 #[cfg_attr(target_os = "macos", allow(dead_code))]
 fn jb_exists_cmd(cmd: &str) -> bool {
     Command::new("sh").args(["-c", &format!("command -v {} >/dev/null 2>&1", cmd)]).status().map(|s| s.success()).unwrap_or(false)
 }
 
-/// jimy-betanzos · Días desde la última modificación de un archivo.
+/// jimy-betanzos: Días desde la última modificación de un archivo.
 fn jb_days_since(p: &Path) -> Option<i64> {
     let m = std::fs::metadata(p).ok()?.modified().ok()?;
     Some((std::time::SystemTime::now().duration_since(m).ok()?.as_secs() / 86400) as i64)
 }
 
-/// jimy-betanzos · Indica si un programa se ejecuta desde una carpeta sospechosa.
+/// jimy-betanzos: Indica si un programa se ejecuta desde una carpeta sospechosa.
 fn jb_suspicious_path(p: &str) -> bool {
     let h = jb_home().to_string_lossy().to_string();
     ["/tmp/", "/var/tmp/", "/dev/shm/", "/private/tmp/", "/Users/Shared/"].iter().any(|d| p.starts_with(d))
@@ -60,9 +59,9 @@ fn jb_suspicious_path(p: &str) -> bool {
         || p.starts_with(&format!("{}/Downloads/", h))
 }
 
-// ───────────────────────── partes del diagnóstico ─────────────────────────
+// partes del diagnóstico
 
-/// jimy-betanzos · Programas que se abren al iniciar sesión.
+/// jimy-betanzos: Programas que se abren al iniciar sesión.
 #[cfg(not(target_os = "macos"))]
 fn jb_startup() -> Vec<JbStartupItem> {
     let mut out = Vec::new();
@@ -99,7 +98,7 @@ fn jb_startup() -> Vec<JbStartupItem> {
     out
 }
 
-/// jimy-betanzos · Programas que se abren al iniciar sesión.
+/// jimy-betanzos: Programas que se abren al iniciar sesión.
 #[cfg(target_os = "macos")]
 fn jb_startup() -> Vec<JbStartupItem> {
     let mut out = Vec::new();
@@ -138,7 +137,7 @@ fn jb_startup() -> Vec<JbStartupItem> {
     out
 }
 
-/// jimy-betanzos · Discos del equipo con su espacio.
+/// jimy-betanzos: Discos del equipo con su espacio.
 fn jb_disks() -> Vec<JbDisk> {
     #[cfg(target_os = "macos")]
     {
@@ -174,7 +173,7 @@ fn jb_disks() -> Vec<JbDisk> {
     }
 }
 
-/// jimy-betanzos · Datos de la batería.
+/// jimy-betanzos: Datos de la batería.
 fn jb_battery() -> JbBattery {
     #[cfg(target_os = "macos")]
     {
@@ -198,7 +197,7 @@ fn jb_battery() -> JbBattery {
     }
 }
 
-/// jimy-betanzos · Estado del antivirus (ClamAV o XProtect).
+/// jimy-betanzos: Estado del antivirus (ClamAV o XProtect).
 fn jb_antivirus() -> JbDefender {
     #[cfg(target_os = "macos")]
     {
@@ -216,7 +215,7 @@ fn jb_antivirus() -> JbDefender {
     }
 }
 
-/// jimy-betanzos · Estado del firewall.
+/// jimy-betanzos: Estado del firewall.
 fn jb_firewall() -> Vec<JbFirewall> {
     #[cfg(target_os = "macos")]
     {
@@ -239,7 +238,7 @@ fn jb_firewall() -> Vec<JbFirewall> {
     }
 }
 
-/// jimy-betanzos · macOS: Gatekeeper (equivalente a «preguntar antes de abrir apps desconocidas»).
+/// jimy-betanzos: macOS: Gatekeeper (equivalente a «preguntar antes de abrir apps desconocidas»).
 fn jb_gatekeeper() -> Option<bool> {
     #[cfg(target_os = "macos")]
     return jb_run("spctl", &["--status"]).map(|s| s.contains("enabled"));
@@ -247,7 +246,7 @@ fn jb_gatekeeper() -> Option<bool> {
     None
 }
 
-/// jimy-betanzos · Servidor SSH escuchando (acceso remoto al equipo).
+/// jimy-betanzos: Servidor SSH escuchando (acceso remoto al equipo).
 fn jb_remote_access() -> bool {
     #[cfg(target_os = "macos")]
     let text = jb_run("netstat", &["-an", "-p", "tcp"]).unwrap_or_default();
@@ -256,7 +255,7 @@ fn jb_remote_access() -> bool {
     text.lines().any(|l| (l.contains(":22 ") || l.contains(".22 ")) && l.to_uppercase().contains("LISTEN"))
 }
 
-/// jimy-betanzos · Configuración de proxy del sistema.
+/// jimy-betanzos: Configuración de proxy del sistema.
 fn jb_proxy() -> String {
     for k in ["https_proxy", "HTTPS_PROXY", "http_proxy", "HTTP_PROXY"] {
         if let Ok(v) = std::env::var(k) {
@@ -282,7 +281,7 @@ fn jb_proxy() -> String {
     String::new()
 }
 
-/// jimy-betanzos · Entradas extra del archivo hosts.
+/// jimy-betanzos: Entradas extra del archivo hosts.
 fn jb_hosts() -> Vec<String> {
     // El nombre del propio equipo también es una entrada normal.
     let me = std::fs::read_to_string("/etc/hostname").ok().or_else(|| jb_run("hostname", &[])).unwrap_or_default().trim().to_lowercase();
@@ -302,7 +301,7 @@ fn jb_hosts() -> Vec<String> {
         .collect()
 }
 
-/// jimy-betanzos · 1 cifrado · 2 sin cifrar · 0 desconocido.
+/// jimy-betanzos: 1 cifrado · 2 sin cifrar · 0 desconocido.
 fn jb_encryption() -> i64 {
     #[cfg(target_os = "macos")]
     {
@@ -316,7 +315,7 @@ fn jb_encryption() -> i64 {
     }
 }
 
-/// jimy-betanzos · Días desde la última actualización del sistema.
+/// jimy-betanzos: Días desde la última actualización del sistema.
 fn jb_last_update_days() -> i64 {
     #[cfg(target_os = "macos")]
     let files = ["/Library/Receipts/InstallHistory.plist"];
@@ -325,7 +324,7 @@ fn jb_last_update_days() -> i64 {
     files.iter().filter_map(|f| jb_days_since(Path::new(f))).min().unwrap_or(-1)
 }
 
-/// jimy-betanzos · Días que el equipo lleva encendido.
+/// jimy-betanzos: Días que el equipo lleva encendido.
 fn jb_uptime_days() -> f64 {
     #[cfg(target_os = "macos")]
     {
@@ -340,7 +339,7 @@ fn jb_uptime_days() -> f64 {
     }
 }
 
-/// jimy-betanzos · Nombre y versión del sistema operativo.
+/// jimy-betanzos: Nombre y versión del sistema operativo.
 fn jb_os_name() -> String {
     #[cfg(target_os = "macos")]
     {
@@ -356,7 +355,7 @@ fn jb_os_name() -> String {
     }
 }
 
-/// jimy-betanzos · Tareas programadas del usuario (cron) que ejecutan algo desde carpetas temporales.
+/// jimy-betanzos: Tareas programadas del usuario (cron) que ejecutan algo desde carpetas temporales.
 fn jb_tasks() -> (Vec<JbTask>, i64) {
     let text = jb_run("crontab", &["-l"]).unwrap_or_default();
     let lines: Vec<&str> = text.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')).collect();
@@ -370,7 +369,7 @@ fn jb_tasks() -> (Vec<JbTask>, i64) {
     (bad, lines.len() as i64)
 }
 
-/// jimy-betanzos · Recoge todos los datos del diagnóstico (solo lectura).
+/// jimy-betanzos: Recoge todos los datos del diagnóstico (solo lectura).
 pub fn jb_run_script(progress: &JbProgress) -> Result<JbRaw, String> {
     let step = |i: u32| progress.store(60 + 860 * i / 8, Ordering::Relaxed);
     let mut raw = JbRaw { startup: jb_startup(), ..Default::default() };
@@ -398,9 +397,9 @@ pub fn jb_run_script(progress: &JbProgress) -> Result<JbRaw, String> {
     Ok(raw)
 }
 
-// ───────────────────────── acciones ─────────────────────────
+// acciones
 
-/// jimy-betanzos · (identificador, nombre) del perfil de energía activo. Solo Linux con power-profiles-daemon.
+/// jimy-betanzos: (identificador, nombre) del perfil de energía activo. Solo Linux con power-profiles-daemon.
 pub fn jb_active_power_plan() -> (String, String) {
     #[cfg(target_os = "macos")]
     return (String::new(), String::new());
@@ -419,12 +418,12 @@ pub fn jb_active_power_plan() -> (String, String) {
     }
 }
 
-/// jimy-betanzos · Cambia el perfil de energía.
+/// jimy-betanzos: Cambia el perfil de energía.
 pub fn jb_set_power_plan(id: &str) -> bool {
     Command::new("powerprofilesctl").args(["set", id]).status().map(|s| s.success()).unwrap_or(false)
 }
 
-/// jimy-betanzos · Activa o desactiva un programa de inicio sin borrarlo (se puede volver a activar).
+/// jimy-betanzos: Activa o desactiva un programa de inicio sin borrarlo (se puede volver a activar).
 pub fn jb_set_startup_enabled(item: &JbStartupItem, on: bool) -> Result<(), String> {
     if item.jb_machine_wide() && cfg!(target_os = "macos") {
         return Err("Este programa es de todo el equipo: desactívalo en Ajustes del Sistema › General › Ítems de inicio.".into());
@@ -462,7 +461,7 @@ pub fn jb_set_startup_enabled(item: &JbStartupItem, on: bool) -> Result<(), Stri
     }
 }
 
-/// jimy-betanzos · Indica si hay un antivirus que pueda hacer un análisis rápido.
+/// jimy-betanzos: Indica si hay un antivirus que pueda hacer un análisis rápido.
 pub fn jb_quick_scan_available() -> bool {
     #[cfg(target_os = "macos")]
     return false; // XProtect analiza solo; no ofrece un análisis manual
@@ -470,7 +469,7 @@ pub fn jb_quick_scan_available() -> bool {
     jb_exists_cmd("clamscan")
 }
 
-/// jimy-betanzos · Análisis rápido con ClamAV de las carpetas donde suele llegar software (Descargas y
+/// jimy-betanzos: Análisis rápido con ClamAV de las carpetas donde suele llegar software (Descargas y
 /// Escritorio). Devuelve 0 si está limpio y 2 si encontró amenazas (como Defender).
 pub fn jb_quick_scan() -> Result<i32, String> {
     let env = crate::rules::JbEnv::jb_detect();
@@ -487,7 +486,7 @@ pub fn jb_quick_scan() -> Result<i32, String> {
     })
 }
 
-/// jimy-betanzos · Abre la información de batería del sistema.
+/// jimy-betanzos: Abre la información de batería del sistema.
 pub fn jb_battery_report() {
     #[cfg(target_os = "macos")]
     jb_open("x-apple.systempreferences:com.apple.Battery-Settings.extension");
@@ -497,7 +496,7 @@ pub fn jb_battery_report() {
     }
 }
 
-/// jimy-betanzos · Abre un ajuste del sistema o una dirección.
+/// jimy-betanzos: Abre un ajuste del sistema o una dirección.
 pub fn jb_open(target: &str) {
     #[cfg(target_os = "macos")]
     let _ = Command::new("open").arg(target).spawn();
@@ -505,9 +504,9 @@ pub fn jb_open(target: &str) {
     let _ = Command::new("xdg-open").arg(target).spawn();
 }
 
-// ───────────────────────── textos ─────────────────────────
+// textos
 
-/// jimy-betanzos · Textos que dependen del sistema operativo.
+/// jimy-betanzos: Textos que dependen del sistema operativo.
 pub fn jb_txt(k: &str) -> &'static str {
     #[cfg(target_os = "macos")]
     let t = match k {
@@ -550,7 +549,7 @@ pub fn jb_txt(k: &str) -> &'static str {
     t
 }
 
-/// jimy-betanzos · Ajuste del sistema asociado a una comprobación.
+/// jimy-betanzos: Ajuste del sistema asociado a una comprobación.
 pub fn jb_setting(k: &str) -> Option<&'static str> {
     #[cfg(target_os = "macos")]
     return Some(match k {

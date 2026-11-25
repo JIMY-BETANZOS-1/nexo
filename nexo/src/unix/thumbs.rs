@@ -1,7 +1,6 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo/src/unix/thumbs.rs
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: thumbs.rs
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 //! Miniaturas en Linux y macOS.
 //!
@@ -9,18 +8,18 @@
 //! la herramienta del sistema si existe: Vista rápida (`qlmanage`) en macOS, y
 //! `pdftoppm` o `ffmpegthumbnailer` en Linux. Si no hay miniatura, el visor muestra un icono.
 
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (path)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (path)
 use std::path::Path;
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (process)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (process)
 use std::process::Command;
 
-// jimy-betanzos · dependencia: módulo propio bmp
+// jimy-betanzos - dependencia: módulo propio bmp
 pub use crate::bmp::jb_bmp;
 
-/// jimy-betanzos · Linux y macOS no necesitan preparar el hilo (en Windows se inicializa COM).
+/// jimy-betanzos: Linux y macOS no necesitan preparar el hilo (en Windows se inicializa COM).
 pub fn jb_init_thread() {}
 
-/// jimy-betanzos · Lee una imagen y la reduce al tamaño de miniatura.
+/// jimy-betanzos: Lee una imagen y la reduce al tamaño de miniatura.
 fn jb_decode(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
     let img = image::open(path).ok()?.thumbnail(size, size).to_rgba8();
     let (w, h) = (img.width() as usize, img.height() as usize);
@@ -35,7 +34,7 @@ fn jb_decode(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
     Some((w, h, px))
 }
 
-/// jimy-betanzos · Genera la miniatura con una herramienta del sistema en una carpeta temporal.
+/// jimy-betanzos: Genera la miniatura con una herramienta del sistema en una carpeta temporal.
 fn jb_external(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
     let tmp = std::env::temp_dir().join(format!("nexo_mini_{}_{}", std::process::id(), size));
     let _ = std::fs::create_dir_all(&tmp);
@@ -68,7 +67,7 @@ fn jb_external(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
     r
 }
 
-/// jimy-betanzos · (ancho, alto, RGBA premultiplicado) de la miniatura, del lado mayor `size`.
+/// jimy-betanzos: (ancho, alto, RGBA premultiplicado) de la miniatura, del lado mayor `size`.
 pub fn jb_shell_thumbnail(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
     jb_decode(path, size).or_else(|| jb_external(path, size))
 }

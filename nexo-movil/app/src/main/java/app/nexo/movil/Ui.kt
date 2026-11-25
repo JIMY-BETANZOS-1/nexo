@@ -1,7 +1,6 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo-movil/app/src/main/java/app/nexo/movil/Ui.kt
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: Ui.kt
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 package app.nexo.movil
 

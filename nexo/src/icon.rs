@@ -1,15 +1,14 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo/src/icon.rs
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: icon.rs
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 //! Icono de NEXO (hexágono azul acero) generado en código, para la ventana, la bandeja,
 //! el ejecutable de Windows (build.rs) y los instaladores de Linux y macOS.
 
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (f32)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (f32)
 use std::f32::consts::{FRAC_PI_2, TAU};
 
-/// jimy-betanzos · Píxeles RGBA de n×n.
+/// jimy-betanzos: Píxeles RGBA de n×n.
 pub fn jb_rgba(n: u32) -> Vec<u8> {
     let mut out = vec![0u8; (n * n * 4) as usize];
     let s = n as f32 / 64.0;
@@ -42,7 +41,7 @@ pub fn jb_rgba(n: u32) -> Vec<u8> {
     out
 }
 
-/// jimy-betanzos · Archivo .ico (64×64, 32 bits) para el acceso directo y las notificaciones.
+/// jimy-betanzos: Archivo .ico (64×64, 32 bits) para el acceso directo y las notificaciones.
 #[cfg_attr(unix, allow(dead_code))]
 pub fn jb_write_ico(path: &std::path::Path) -> std::io::Result<()> {
     let n = 64u32;

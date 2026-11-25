@@ -1,7 +1,6 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo/src/vigia.rs
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: vigia.rs
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 //! Vigía: proceso diminuto en la bandeja del sistema (junto al reloj).
 //!
@@ -10,31 +9,31 @@
 //! inactivos de segundo plano. Nunca cierra nada por su cuenta.
 //! Sin interfaz gráfica pesada: solo la API de Windows, para ocupar unos pocos MB.
 
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (cell)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (cell)
 use std::cell::RefCell;
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (collections)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (collections)
 use std::collections::{HashMap, HashSet, VecDeque};
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (ffi)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (ffi)
 use std::ffi::c_void;
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (mem)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (mem)
 use std::mem::{size_of, zeroed};
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (ptr)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (ptr)
 use std::ptr::{null, null_mut};
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (time)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (time)
 use std::time::{Duration, Instant, SystemTime};
 
-// jimy-betanzos · dependencia: funciones de Windows (windows-sys)
+// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
-// jimy-betanzos · dependencia: funciones de Windows (windows-sys)
+// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::Graphics::Gdi::{CreateBitmap, DeleteObject};
-// jimy-betanzos · dependencia: funciones de Windows (windows-sys)
+// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
-// jimy-betanzos · dependencia: funciones de Windows (windows-sys)
+// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::UI::Shell::{
     Shell_NotifyIconW, NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIIF_INFO, NIIF_WARNING, NIM_ADD,
     NIM_DELETE, NIM_MODIFY, NOTIFYICONDATAW,
 };
-// jimy-betanzos · dependencia: funciones de Windows (windows-sys)
+// jimy-betanzos - dependencia: funciones de Windows (windows-sys)
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     AppendMenuW, CreateIconIndirect, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu,
     DestroyWindow, DispatchMessageW, FindWindowW, GetCursorPos, GetMessageW, KillTimer, PostMessageW,
@@ -44,11 +43,11 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     WM_NULL, WM_RBUTTONUP, WM_TIMER, WM_USER, WNDCLASSEXW, WS_EX_TOOLWINDOW, WS_POPUP,
 };
 
-// jimy-betanzos · dependencia: módulo propio config
+// jimy-betanzos - dependencia: módulo propio config
 use crate::config::{self, JbConfig};
-// jimy-betanzos · dependencia: módulo propio procs
+// jimy-betanzos - dependencia: módulo propio procs
 use crate::procs::{self, JbAppGroup, JbSampler};
-// jimy-betanzos · dependencia: módulo propio
+// jimy-betanzos - dependencia: módulo propio
 use crate::{fmt, icon, install, sys};
 
 const CLASS: &str = "NEXO_VIGIA";
@@ -63,35 +62,35 @@ const CMD_STABILIZE: usize = 2;
 const CMD_PAUSE: usize = 3;
 const CMD_EXIT: usize = 4;
 
-/// jimy-betanzos · Convierte un texto al formato de Windows (UTF-16).
+/// jimy-betanzos: Convierte un texto al formato de Windows (UTF-16).
 fn jb_w(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(Some(0)).collect()
 }
 
-/// jimy-betanzos · Copia un texto en un búfer de Windows.
+/// jimy-betanzos: Copia un texto en un búfer de Windows.
 fn jb_copy_w(dst: &mut [u16], s: &str) {
     let v: Vec<u16> = s.encode_utf16().take(dst.len() - 1).collect();
     dst[..v.len()].copy_from_slice(&v);
     dst[v.len()] = 0;
 }
 
-/// jimy-betanzos · Busca la ventana oculta del vigía.
+/// jimy-betanzos: Busca la ventana oculta del vigía.
 pub fn jb_find() -> HWND {
     let cls = jb_w(CLASS);
     unsafe { FindWindowW(cls.as_ptr(), null()) }
 }
 
-/// jimy-betanzos · Indica si el vigía está en marcha.
+/// jimy-betanzos: Indica si el vigía está en marcha.
 pub fn jb_is_running() -> bool {
     !jb_find().is_null()
 }
 
-/// jimy-betanzos · Arranca el vigía en segundo plano.
+/// jimy-betanzos: Arranca el vigía en segundo plano.
 pub fn jb_start() -> bool {
     std::process::Command::new(install::jb_installed_exe()).arg("--vigia").spawn().is_ok()
 }
 
-/// jimy-betanzos · Pide al vigía que se cierre y espera a que suelte el ejecutable. Devuelve si estaba activo.
+/// jimy-betanzos: Pide al vigía que se cierre y espera a que suelte el ejecutable. Devuelve si estaba activo.
 pub fn jb_stop_and_wait() -> bool {
     let h = jb_find();
     if h.is_null() {
@@ -110,7 +109,7 @@ pub fn jb_stop_and_wait() -> bool {
     true
 }
 
-/// jimy-betanzos · Estado del vigía entre una revisión y la siguiente.
+/// jimy-betanzos: Estado del vigía entre una revisión y la siguiente.
 struct JbState {
     hwnd: HWND,
     icon: HICON,
@@ -134,12 +133,12 @@ thread_local! {
     static ST: RefCell<Option<JbState>> = const { RefCell::new(None) };
 }
 
-/// jimy-betanzos · Acceso al estado sin reentradas (si ya está en uso, se omite este mensaje).
+/// jimy-betanzos: Acceso al estado sin reentradas (si ya está en uso, se omite este mensaje).
 fn jb_with_state<R>(f: impl FnOnce(&mut JbState) -> R) -> Option<R> {
     ST.with(|s| s.try_borrow_mut().ok().and_then(|mut g| g.as_mut().map(f)))
 }
 
-/// jimy-betanzos · Crea el icono de la bandeja del sistema.
+/// jimy-betanzos: Crea el icono de la bandeja del sistema.
 fn jb_make_icon(n: u32) -> HICON {
     unsafe {
         let mut px = icon::jb_rgba(n);
@@ -157,7 +156,7 @@ fn jb_make_icon(n: u32) -> HICON {
     }
 }
 
-/// jimy-betanzos · Datos del icono de la bandeja.
+/// jimy-betanzos: Datos del icono de la bandeja.
 fn jb_nid(hwnd: HWND) -> NOTIFYICONDATAW {
     let mut n: NOTIFYICONDATAW = unsafe { zeroed() };
     n.cbSize = size_of::<NOTIFYICONDATAW>() as u32;
@@ -166,7 +165,7 @@ fn jb_nid(hwnd: HWND) -> NOTIFYICONDATAW {
     n
 }
 
-/// jimy-betanzos · Agrega el icono a la bandeja del sistema.
+/// jimy-betanzos: Agrega el icono a la bandeja del sistema.
 fn jb_tray_add(hwnd: HWND, icon: HICON) {
     let mut n = jb_nid(hwnd);
     n.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
@@ -178,7 +177,7 @@ fn jb_tray_add(hwnd: HWND, icon: HICON) {
     }
 }
 
-/// jimy-betanzos · Cambia el texto que aparece al pasar el mouse.
+/// jimy-betanzos: Cambia el texto que aparece al pasar el mouse.
 fn jb_tray_tip(hwnd: HWND, text: &str) {
     let mut n = jb_nid(hwnd);
     n.uFlags = NIF_TIP;
@@ -188,7 +187,7 @@ fn jb_tray_tip(hwnd: HWND, text: &str) {
     }
 }
 
-/// jimy-betanzos · Muestra un aviso desde la bandeja.
+/// jimy-betanzos: Muestra un aviso desde la bandeja.
 fn jb_balloon(hwnd: HWND, title: &str, text: &str, warn: bool) {
     let mut n = jb_nid(hwnd);
     n.uFlags = NIF_INFO;
@@ -200,7 +199,7 @@ fn jb_balloon(hwnd: HWND, title: &str, text: &str, warn: bool) {
     }
 }
 
-/// jimy-betanzos · Abre la ventana de NEXO en una pantalla.
+/// jimy-betanzos: Abre la ventana de NEXO en una pantalla.
 fn jb_open_nexo(page: Option<&str>) {
     let exe = std::env::current_exe().unwrap_or_else(|_| install::jb_installed_exe());
     let mut c = std::process::Command::new(exe);
@@ -210,7 +209,7 @@ fn jb_open_nexo(page: Option<&str>) {
     let _ = c.spawn();
 }
 
-/// jimy-betanzos · Texto con los programas que más memoria usan.
+/// jimy-betanzos: Texto con los programas que más memoria usan.
 fn jb_top_consumers(groups: &[JbAppGroup], n: usize) -> String {
     groups
         .iter()
@@ -221,14 +220,14 @@ fn jb_top_consumers(groups: &[JbAppGroup], n: usize) -> String {
         .join(" · ")
 }
 
-/// jimy-betanzos · Métodos de State.
+/// jimy-betanzos: Métodos de State.
 impl JbState {
-    /// jimy-betanzos · Indica si los avisos están en pausa.
+    /// jimy-betanzos: Indica si los avisos están en pausa.
     fn jb_paused(&self) -> bool {
         self.paused_until.is_some_and(|t| t > Instant::now())
     }
 
-    /// jimy-betanzos · Envía un aviso si no se repitió hace poco.
+    /// jimy-betanzos: Envía un aviso si no se repitió hace poco.
     fn jb_alert(&mut self, key: &str, cooldown: Duration, title: &str, text: &str, warn: bool, suppressed: bool) {
         if suppressed {
             return;
@@ -247,7 +246,7 @@ impl JbState {
         procs::jb_trim_idle(groups)
     }
 
-    /// jimy-betanzos · Revisión periódica de memoria, CPU y disco.
+    /// jimy-betanzos: Revisión periódica de memoria, CPU y disco.
     fn jb_tick(&mut self) {
         let mtime = config::jb_config_mtime();
         if mtime != self.cfg_mtime {
@@ -419,7 +418,7 @@ impl JbState {
     }
 }
 
-/// jimy-betanzos · Muestra el menú del icono de la bandeja.
+/// jimy-betanzos: Muestra el menú del icono de la bandeja.
 unsafe fn jb_show_menu(hwnd: HWND, paused: bool) -> usize {
     let m = CreatePopupMenu();
     let items: [(usize, &str); 3] = [
@@ -443,7 +442,7 @@ unsafe fn jb_show_menu(hwnd: HWND, paused: bool) -> usize {
     cmd.max(0) as usize
 }
 
-/// jimy-betanzos · Ejecuta la opción elegida en el menú de la bandeja.
+/// jimy-betanzos: Ejecuta la opción elegida en el menú de la bandeja.
 fn jb_command(hwnd: HWND, cmd: usize) {
     match cmd {
         CMD_OPEN => jb_open_nexo(None),
@@ -511,7 +510,7 @@ unsafe extern "system" fn jb_wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARA
     }
 }
 
-/// jimy-betanzos · Bucle principal del vigía.
+/// jimy-betanzos: Bucle principal del vigía.
 pub fn jb_run() {
     if jb_is_running() {
         return;

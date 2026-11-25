@@ -1,7 +1,6 @@
-﻿; ═══════════════════════════════════════════════════════════════════════
-;  NEXO · nexo/empaquetar/nexo.iss
-;  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-; ═══════════════════════════════════════════════════════════════════════
+﻿; Proyecto: NEXO
+; Archivo: nexo.iss
+; Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 ;
 ; Instalador clásico de Windows (Inno Setup 6): Bienvenida → Información →
 ; Carpeta → Accesos directos → Instalar → Finalizar. Se instala en el perfil del

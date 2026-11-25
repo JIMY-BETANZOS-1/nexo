@@ -1,7 +1,6 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo-ios/NEXO/Core/Library.swift
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: Library.swift
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 import Photos
 import UIKit

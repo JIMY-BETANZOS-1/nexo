@@ -1,27 +1,26 @@
-// ════════════════════════════════════════════════════════════════════════
-//  NEXO · nexo/src/auto.rs
-//  Autor: Chatta Betanzos, Jimy Alexander  ·  jimy-betanzos
-// ════════════════════════════════════════════════════════════════════════
+// Proyecto: NEXO
+// Archivo: auto.rs
+// Autor: Chatta Betanzos, Jimy Alexander (jimy-betanzos)
 
 //! Modo automático (lo lanza el Programador de tareas con `--auto`).
 //!
 //! Solo limpia basura real (categorías seguras). Capturas, descargas, videos y
 //! documentos NUNCA se tocan aquí: solo se cuentan para avisarte.
 
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
 use std::sync::atomic::AtomicBool;
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (sync)
 use std::sync::{Arc, Mutex};
-// jimy-betanzos · dependencia: biblioteca estándar de Rust (time)
+// jimy-betanzos - dependencia: biblioteca estándar de Rust (time)
 use std::time::Duration;
 
-// jimy-betanzos · dependencia: módulo propio config
+// jimy-betanzos - dependencia: módulo propio config
 use crate::config::{jb_push_history, JbConfig, JbHistoryEntry};
-// jimy-betanzos · dependencia: módulo propio rules
+// jimy-betanzos - dependencia: módulo propio rules
 use crate::rules::{jb_categories, JbEnv, JbKind};
-// jimy-betanzos · dependencia: módulo propio scan
+// jimy-betanzos - dependencia: módulo propio scan
 use crate::scan::{jb_scan_all, JbCtx, JbProgress};
-// jimy-betanzos · dependencia: módulo propio
+// jimy-betanzos - dependencia: módulo propio
 use crate::{clean, fmt, sys};
 
 /// Instalaciones o actualizaciones en curso (Windows, Linux y macOS).
@@ -34,7 +33,7 @@ const RETRY_WAIT: Duration = Duration::from_secs(10 * 60);
 
 // jimy-betanzos: la limpieza automática se pospone si molestaría al usuario: batería baja,
 // pantalla completa (juego, video, presentación) o una instalación en curso.
-/// jimy-betanzos · Devuelve el motivo por el que conviene esperar, o None si se puede limpiar ya.
+/// jimy-betanzos: Devuelve el motivo por el que conviene esperar, o None si se puede limpiar ya.
 pub fn jb_wait_reason() -> Option<String> {
     let pw = sys::jb_power();
     if pw.has_battery && !pw.on_ac && pw.percent.is_some_and(|p| p < 40) {
@@ -50,7 +49,7 @@ pub fn jb_wait_reason() -> Option<String> {
     None
 }
 
-/// jimy-betanzos · Escaneo completo de solo lectura volcado a un archivo de texto.
+/// jimy-betanzos: Escaneo completo de solo lectura volcado a un archivo de texto.
 pub fn jb_report(out: &std::path::Path) {
     let env = JbEnv::jb_detect();
     let defs = jb_categories(&env);
@@ -74,7 +73,7 @@ pub fn jb_report(out: &std::path::Path) {
     let _ = std::fs::write(out, s);
 }
 
-/// jimy-betanzos · Recorre todo el camino del modo automático sin borrar nada (para comprobarlo).
+/// jimy-betanzos: Recorre todo el camino del modo automático sin borrar nada (para comprobarlo).
 pub fn jb_simulate() -> String {
     let env = JbEnv::jb_detect();
     let defs = jb_categories(&env);
@@ -106,7 +105,7 @@ pub fn jb_simulate() -> String {
     s
 }
 
-/// jimy-betanzos · Ejecuta la limpieza automática completa y la anota en el historial.
+/// jimy-betanzos: Ejecuta la limpieza automática completa y la anota en el historial.
 pub fn jb_run() {
     sys::jb_background_process();
     let mut cfg = JbConfig::jb_load();
