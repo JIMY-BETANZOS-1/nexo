@@ -45,9 +45,9 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 
 // jimy-betanzos · dependencia: módulo propio config
-use crate::config::{self, Config};
+use crate::config::{self, JbConfig};
 // jimy-betanzos · dependencia: módulo propio procs
-use crate::procs::{self, AppGroup, Sampler};
+use crate::procs::{self, JbAppGroup, JbSampler};
 // jimy-betanzos · dependencia: módulo propio
 use crate::{fmt, icon, install, sys};
 
@@ -64,36 +64,36 @@ const CMD_PAUSE: usize = 3;
 const CMD_EXIT: usize = 4;
 
 /// jimy-betanzos · Convierte un texto al formato de Windows (UTF-16).
-fn w(s: &str) -> Vec<u16> {
+fn jb_w(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(Some(0)).collect()
 }
 
 /// jimy-betanzos · Copia un texto en un búfer de Windows.
-fn copy_w(dst: &mut [u16], s: &str) {
+fn jb_copy_w(dst: &mut [u16], s: &str) {
     let v: Vec<u16> = s.encode_utf16().take(dst.len() - 1).collect();
     dst[..v.len()].copy_from_slice(&v);
     dst[v.len()] = 0;
 }
 
 /// jimy-betanzos · Busca la ventana oculta del vigía.
-pub fn find() -> HWND {
-    let cls = w(CLASS);
+pub fn jb_find() -> HWND {
+    let cls = jb_w(CLASS);
     unsafe { FindWindowW(cls.as_ptr(), null()) }
 }
 
 /// jimy-betanzos · Indica si el vigía está en marcha.
-pub fn is_running() -> bool {
-    !find().is_null()
+pub fn jb_is_running() -> bool {
+    !jb_find().is_null()
 }
 
 /// jimy-betanzos · Arranca el vigía en segundo plano.
-pub fn start() -> bool {
-    std::process::Command::new(install::installed_exe()).arg("--vigia").spawn().is_ok()
+pub fn jb_start() -> bool {
+    std::process::Command::new(install::jb_installed_exe()).arg("--vigia").spawn().is_ok()
 }
 
 /// jimy-betanzos · Pide al vigía que se cierre y espera a que suelte el ejecutable. Devuelve si estaba activo.
-pub fn stop_and_wait() -> bool {
-    let h = find();
+pub fn jb_stop_and_wait() -> bool {
+    let h = jb_find();
     if h.is_null() {
         return false;
     }
@@ -101,7 +101,7 @@ pub fn stop_and_wait() -> bool {
         PostMessageW(h, WM_CLOSE, 0, 0);
     }
     for _ in 0..40 {
-        if find().is_null() {
+        if jb_find().is_null() {
             break;
         }
         std::thread::sleep(Duration::from_millis(100));
@@ -111,11 +111,11 @@ pub fn stop_and_wait() -> bool {
 }
 
 /// jimy-betanzos · Estado del vigía entre una revisión y la siguiente.
-struct State {
+struct JbState {
     hwnd: HWND,
     icon: HICON,
-    sampler: Sampler,
-    cfg: Config,
+    sampler: JbSampler,
+    cfg: JbConfig,
     cfg_mtime: Option<SystemTime>,
     last_alert: HashMap<String, Instant>,
     last_stabilize: Option<Instant>,
@@ -131,18 +131,18 @@ struct State {
 }
 
 thread_local! {
-    static ST: RefCell<Option<State>> = const { RefCell::new(None) };
+    static ST: RefCell<Option<JbState>> = const { RefCell::new(None) };
 }
 
 /// jimy-betanzos · Acceso al estado sin reentradas (si ya está en uso, se omite este mensaje).
-fn with_state<R>(f: impl FnOnce(&mut State) -> R) -> Option<R> {
+fn jb_with_state<R>(f: impl FnOnce(&mut JbState) -> R) -> Option<R> {
     ST.with(|s| s.try_borrow_mut().ok().and_then(|mut g| g.as_mut().map(f)))
 }
 
 /// jimy-betanzos · Crea el icono de la bandeja del sistema.
-fn make_icon(n: u32) -> HICON {
+fn jb_make_icon(n: u32) -> HICON {
     unsafe {
-        let mut px = icon::rgba(n);
+        let mut px = icon::jb_rgba(n);
         for p in px.chunks_mut(4) {
             p.swap(0, 2);
         }
@@ -158,7 +158,7 @@ fn make_icon(n: u32) -> HICON {
 }
 
 /// jimy-betanzos · Datos del icono de la bandeja.
-fn nid(hwnd: HWND) -> NOTIFYICONDATAW {
+fn jb_nid(hwnd: HWND) -> NOTIFYICONDATAW {
     let mut n: NOTIFYICONDATAW = unsafe { zeroed() };
     n.cbSize = size_of::<NOTIFYICONDATAW>() as u32;
     n.hWnd = hwnd;
@@ -167,33 +167,33 @@ fn nid(hwnd: HWND) -> NOTIFYICONDATAW {
 }
 
 /// jimy-betanzos · Agrega el icono a la bandeja del sistema.
-fn tray_add(hwnd: HWND, icon: HICON) {
-    let mut n = nid(hwnd);
+fn jb_tray_add(hwnd: HWND, icon: HICON) {
+    let mut n = jb_nid(hwnd);
     n.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
     n.uCallbackMessage = WM_TRAY;
     n.hIcon = icon;
-    copy_w(&mut n.szTip, "NEXO · Vigía activo");
+    jb_copy_w(&mut n.szTip, "NEXO · Vigía activo");
     unsafe {
         Shell_NotifyIconW(NIM_ADD, &n);
     }
 }
 
 /// jimy-betanzos · Cambia el texto que aparece al pasar el mouse.
-fn tray_tip(hwnd: HWND, text: &str) {
-    let mut n = nid(hwnd);
+fn jb_tray_tip(hwnd: HWND, text: &str) {
+    let mut n = jb_nid(hwnd);
     n.uFlags = NIF_TIP;
-    copy_w(&mut n.szTip, text);
+    jb_copy_w(&mut n.szTip, text);
     unsafe {
         Shell_NotifyIconW(NIM_MODIFY, &n);
     }
 }
 
 /// jimy-betanzos · Muestra un aviso desde la bandeja.
-fn balloon(hwnd: HWND, title: &str, text: &str, warn: bool) {
-    let mut n = nid(hwnd);
+fn jb_balloon(hwnd: HWND, title: &str, text: &str, warn: bool) {
+    let mut n = jb_nid(hwnd);
     n.uFlags = NIF_INFO;
-    copy_w(&mut n.szInfoTitle, title);
-    copy_w(&mut n.szInfo, text);
+    jb_copy_w(&mut n.szInfoTitle, title);
+    jb_copy_w(&mut n.szInfo, text);
     n.dwInfoFlags = if warn { NIIF_WARNING } else { NIIF_INFO };
     unsafe {
         Shell_NotifyIconW(NIM_MODIFY, &n);
@@ -201,8 +201,8 @@ fn balloon(hwnd: HWND, title: &str, text: &str, warn: bool) {
 }
 
 /// jimy-betanzos · Abre la ventana de NEXO en una pantalla.
-fn open_nexo(page: Option<&str>) {
-    let exe = std::env::current_exe().unwrap_or_else(|_| install::installed_exe());
+fn jb_open_nexo(page: Option<&str>) {
+    let exe = std::env::current_exe().unwrap_or_else(|_| install::jb_installed_exe());
     let mut c = std::process::Command::new(exe);
     if let Some(p) = page {
         c.args(["--pagina", p]);
@@ -211,25 +211,25 @@ fn open_nexo(page: Option<&str>) {
 }
 
 /// jimy-betanzos · Texto con los programas que más memoria usan.
-fn top_consumers(groups: &[AppGroup], n: usize) -> String {
+fn jb_top_consumers(groups: &[JbAppGroup], n: usize) -> String {
     groups
         .iter()
         .filter(|g| !g.system)
         .take(n)
-        .map(|g| format!("{} {}", g.name, fmt::bytes(g.private)))
+        .map(|g| format!("{} {}", g.name, fmt::jb_bytes(g.private)))
         .collect::<Vec<_>>()
         .join(" · ")
 }
 
 /// jimy-betanzos · Métodos de State.
-impl State {
+impl JbState {
     /// jimy-betanzos · Indica si los avisos están en pausa.
-    fn paused(&self) -> bool {
+    fn jb_paused(&self) -> bool {
         self.paused_until.is_some_and(|t| t > Instant::now())
     }
 
     /// jimy-betanzos · Envía un aviso si no se repitió hace poco.
-    fn alert(&mut self, key: &str, cooldown: Duration, title: &str, text: &str, warn: bool, suppressed: bool) {
+    fn jb_alert(&mut self, key: &str, cooldown: Duration, title: &str, text: &str, warn: bool, suppressed: bool) {
         if suppressed {
             return;
         }
@@ -237,29 +237,29 @@ impl State {
             return;
         }
         self.last_alert.insert(key.to_string(), Instant::now());
-        balloon(self.hwnd, title, text, warn);
-        config::push_alert(key.split(':').next().unwrap_or(key), &format!("{}: {}", title, text));
+        jb_balloon(self.hwnd, title, text, warn);
+        config::jb_push_alert(key.split(':').next().unwrap_or(key), &format!("{}: {}", title, text));
     }
 
     // jimy-betanzos: el vigía solo actúa con la RAM en nivel crítico y nunca cierra programas.
-    fn stabilize(&mut self, groups: &[AppGroup]) -> (usize, u64) {
+    fn jb_stabilize(&mut self, groups: &[JbAppGroup]) -> (usize, u64) {
         self.last_stabilize = Some(Instant::now());
-        procs::trim_idle(groups)
+        procs::jb_trim_idle(groups)
     }
 
     /// jimy-betanzos · Revisión periódica de memoria, CPU y disco.
-    fn tick(&mut self) {
-        let mtime = config::config_mtime();
+    fn jb_tick(&mut self) {
+        let mtime = config::jb_config_mtime();
         if mtime != self.cfg_mtime {
-            self.cfg = Config::load();
+            self.cfg = JbConfig::jb_load();
             self.cfg_mtime = mtime;
         }
-        let mem = sys::memory();
-        let (groups, cpu) = self.sampler.sample(false);
-        tray_tip(self.hwnd, &format!("NEXO Vigía · RAM {} % · CPU {:.0} %", mem.load, cpu));
+        let mem = sys::jb_memory();
+        let (groups, cpu) = self.sampler.jb_sample(false);
+        jb_tray_tip(self.hwnd, &format!("NEXO Vigía · RAM {} % · CPU {:.0} %", mem.load, cpu));
 
-        let paused = self.paused();
-        let busy = sys::user_busy();
+        let paused = self.jb_paused();
+        let busy = sys::jb_user_busy();
 
         // Fugas: un programa que crece sin parar durante 10 minutos.
         if self.cfg.alert_leaks {
@@ -282,11 +282,11 @@ impl State {
             }
             self.hist.retain(|k, _| seen.contains(k));
             if let Some((name, grow)) = leak {
-                self.alert(
+                self.jb_alert(
                     &format!("fuga:{}", name),
                     Duration::from_secs(3600),
                     "Posible fuga de memoria",
-                    &format!("{} creció {} en 10 min sin parar. Si va lento, guarda tu trabajo y reinícialo.", name, fmt::bytes(grow)),
+                    &format!("{} creció {} en 10 min sin parar. Si va lento, guarda tu trabajo y reinícialo.", name, fmt::jb_bytes(grow)),
                     true,
                     paused || busy,
                 );
@@ -300,46 +300,46 @@ impl State {
         if self.crit >= 2 {
             let recent = self.last_stabilize.is_some_and(|t| t.elapsed() < Duration::from_secs(600));
             if self.cfg.auto_stabilize && !recent {
-                let (n, freed) = self.stabilize(&groups);
-                self.alert(
+                let (n, freed) = self.jb_stabilize(&groups);
+                self.jb_alert(
                     "critica",
                     Duration::from_secs(900),
                     "Memoria crítica · estabilizada",
                     &format!(
                         "RAM al {} %. Compacté {} programas inactivos y recuperé {}. No se cerró nada. Más consumo: {}",
-                        load, n, fmt::bytes(freed), top_consumers(&groups, 3)
+                        load, n, fmt::jb_bytes(freed), jb_top_consumers(&groups, 3)
                     ),
                     true,
                     paused,
                 );
             } else {
-                self.alert(
+                self.jb_alert(
                     "critica",
                     Duration::from_secs(900),
                     "Memoria crítica",
-                    &format!("RAM al {} %. Más consumo: {}. Abre NEXO para estabilizar o cerrar algo.", load, top_consumers(&groups, 3)),
+                    &format!("RAM al {} %. Más consumo: {}. Abre NEXO para estabilizar o cerrar algo.", load, jb_top_consumers(&groups, 3)),
                     true,
                     paused,
                 );
             }
         } else if self.high >= 2 {
-            self.alert(
+            self.jb_alert(
                 "ram",
                 Duration::from_secs(1200),
                 "Memoria alta",
-                &format!("RAM al {} %. Más consumo: {}.", load, top_consumers(&groups, 3)),
+                &format!("RAM al {} %. Más consumo: {}.", load, jb_top_consumers(&groups, 3)),
                 false,
                 paused || busy,
             );
         }
 
         // Memoria virtual: si se agota, los programas empiezan a fallar.
-        if mem.commit_pct() >= 90.0 {
-            self.alert(
+        if mem.jb_commit_pct() >= 90.0 {
+            self.jb_alert(
                 "virtual",
                 Duration::from_secs(900),
                 "Memoria virtual casi agotada",
-                &format!("Al {:.0} %. Guarda tu trabajo: los programas podrían fallar. Más consumo: {}", mem.commit_pct(), top_consumers(&groups, 2)),
+                &format!("Al {:.0} %. Guarda tu trabajo: los programas podrían fallar. Más consumo: {}", mem.jb_commit_pct(), jb_top_consumers(&groups, 2)),
                 true,
                 paused,
             );
@@ -353,7 +353,7 @@ impl State {
                 .filter(|g| g.exe != "system idle process")
                 .max_by(|a, b| a.cpu_pct.total_cmp(&b.cpu_pct))
             {
-                self.alert(
+                self.jb_alert(
                     "cpu",
                     Duration::from_secs(1800),
                     "Procesador al máximo",
@@ -366,13 +366,13 @@ impl State {
 
         // Disco del sistema por debajo del 10 % libre.
         if self.cfg.alert_disk {
-            let (free, total) = sys::disk_space(&sys::system_drive());
+            let (free, total) = sys::jb_disk_space(&sys::jb_system_drive());
             if total > 0 && (free as f64 / total as f64) < 0.10 {
-                self.alert(
+                self.jb_alert(
                     "disco",
                     Duration::from_secs(12 * 3600),
                     "Disco casi lleno",
-                    &format!("Quedan {} libres. Abre NEXO › Limpieza para recuperar espacio.", fmt::bytes(free)),
+                    &format!("Quedan {} libres. Abre NEXO › Limpieza para recuperar espacio.", fmt::jb_bytes(free)),
                     true,
                     paused || busy,
                 );
@@ -387,7 +387,7 @@ impl State {
             } else if self.defender_seen {
                 self.defender_missing += 1;
                 if self.defender_missing >= 2 {
-                    self.alert(
+                    self.jb_alert(
                         "defensor",
                         Duration::from_secs(3600),
                         "Microsoft Defender no está funcionando",
@@ -397,12 +397,12 @@ impl State {
                     );
                 }
             }
-            let now_entries = sys::startup_entries();
+            let now_entries = sys::jb_startup_entries();
             if let Some(prev) = &self.startup {
                 let new: Vec<String> = now_entries.difference(prev).cloned().collect();
                 if let Some(first) = new.first() {
                     let more = if new.len() > 1 { format!(" (y {} más)", new.len() - 1) } else { String::new() };
-                    self.alert(
+                    self.jb_alert(
                         &format!("inicio:{}", first),
                         Duration::from_secs(24 * 3600),
                         "Nuevo programa al inicio de Windows",
@@ -415,12 +415,12 @@ impl State {
             self.startup = Some(now_entries);
         }
 
-        sys::trim_own_memory();
+        sys::jb_trim_own_memory();
     }
 }
 
 /// jimy-betanzos · Muestra el menú del icono de la bandeja.
-unsafe fn show_menu(hwnd: HWND, paused: bool) -> usize {
+unsafe fn jb_show_menu(hwnd: HWND, paused: bool) -> usize {
     let m = CreatePopupMenu();
     let items: [(usize, &str); 3] = [
         (CMD_OPEN, "Abrir NEXO"),
@@ -428,11 +428,11 @@ unsafe fn show_menu(hwnd: HWND, paused: bool) -> usize {
         (CMD_PAUSE, if paused { "Reanudar avisos" } else { "Pausar avisos 1 hora" }),
     ];
     for (id, text) in items {
-        let t = w(text);
+        let t = jb_w(text);
         AppendMenuW(m, MF_STRING, id, t.as_ptr());
     }
     AppendMenuW(m, MF_SEPARATOR, 0, null());
-    let t = w("Cerrar el vigía");
+    let t = jb_w("Cerrar el vigía");
     AppendMenuW(m, MF_STRING, CMD_EXIT, t.as_ptr());
     let mut pt: POINT = zeroed();
     GetCursorPos(&mut pt);
@@ -444,21 +444,21 @@ unsafe fn show_menu(hwnd: HWND, paused: bool) -> usize {
 }
 
 /// jimy-betanzos · Ejecuta la opción elegida en el menú de la bandeja.
-fn command(hwnd: HWND, cmd: usize) {
+fn jb_command(hwnd: HWND, cmd: usize) {
     match cmd {
-        CMD_OPEN => open_nexo(None),
+        CMD_OPEN => jb_open_nexo(None),
         CMD_STABILIZE => {
-            with_state(|s| {
-                let (groups, _) = s.sampler.sample(false);
-                let (n, freed) = s.stabilize(&groups);
-                let text = format!("Compacté {} programas inactivos y recuperé {}. No se cerró nada.", n, fmt::bytes(freed));
-                balloon(s.hwnd, "Memoria estabilizada", &text, false);
-                config::push_alert("estabilizada", &text);
+            jb_with_state(|s| {
+                let (groups, _) = s.sampler.jb_sample(false);
+                let (n, freed) = s.jb_stabilize(&groups);
+                let text = format!("Compacté {} programas inactivos y recuperé {}. No se cerró nada.", n, fmt::jb_bytes(freed));
+                jb_balloon(s.hwnd, "Memoria estabilizada", &text, false);
+                config::jb_push_alert("estabilizada", &text);
             });
         }
         CMD_PAUSE => {
-            with_state(|s| {
-                s.paused_until = if s.paused() { None } else { Some(Instant::now() + Duration::from_secs(3600)) };
+            jb_with_state(|s| {
+                s.paused_until = if s.jb_paused() { None } else { Some(Instant::now() + Duration::from_secs(3600)) };
             });
         }
         CMD_EXIT => unsafe {
@@ -468,24 +468,24 @@ fn command(hwnd: HWND, cmd: usize) {
     }
 }
 
-unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
+unsafe extern "system" fn jb_wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
     match msg {
         WM_TIMER => {
             if wp == 2 {
                 KillTimer(hwnd, 2);
             }
-            with_state(|s| s.tick());
+            jb_with_state(|s| s.jb_tick());
             0
         }
         WM_TRAY => {
             match (lp & 0xFFFF) as u32 {
                 WM_RBUTTONUP | WM_CONTEXTMENU => {
-                    let paused = with_state(|s| s.paused()).unwrap_or(false);
-                    let cmd = show_menu(hwnd, paused);
-                    command(hwnd, cmd);
+                    let paused = jb_with_state(|s| s.jb_paused()).unwrap_or(false);
+                    let cmd = jb_show_menu(hwnd, paused);
+                    jb_command(hwnd, cmd);
                 }
-                WM_LBUTTONDBLCLK => open_nexo(None),
-                NIN_BALLOONUSERCLICK => open_nexo(Some("ram")),
+                WM_LBUTTONDBLCLK => jb_open_nexo(None),
+                NIN_BALLOONUSERCLICK => jb_open_nexo(Some("ram")),
                 _ => {}
             }
             0
@@ -500,9 +500,9 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
         }
         _ => {
             // Si el Explorador se reinicia, el icono de la bandeja se vuelve a poner.
-            if let Some((tb, icon)) = with_state(|s| (s.taskbar_msg, s.icon)) {
+            if let Some((tb, icon)) = jb_with_state(|s| (s.taskbar_msg, s.icon)) {
                 if tb != 0 && msg == tb {
-                    tray_add(hwnd, icon);
+                    jb_tray_add(hwnd, icon);
                     return 0;
                 }
             }
@@ -512,34 +512,34 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
 }
 
 /// jimy-betanzos · Bucle principal del vigía.
-pub fn run() {
-    if is_running() {
+pub fn jb_run() {
+    if jb_is_running() {
         return;
     }
-    sys::background_process();
+    sys::jb_background_process();
     unsafe {
         let hinst = GetModuleHandleW(null());
-        let cls = w(CLASS);
+        let cls = jb_w(CLASS);
         let mut wc: WNDCLASSEXW = zeroed();
         wc.cbSize = size_of::<WNDCLASSEXW>() as u32;
-        wc.lpfnWndProc = Some(wndproc);
+        wc.lpfnWndProc = Some(jb_wndproc);
         wc.hInstance = hinst;
         wc.lpszClassName = cls.as_ptr();
         RegisterClassExW(&wc);
-        let title = w("NEXO Vigía");
+        let title = jb_w("NEXO Vigía");
         let hwnd = CreateWindowExW(WS_EX_TOOLWINDOW, cls.as_ptr(), title.as_ptr(), WS_POPUP, 0, 0, 0, 0, null_mut(), null_mut(), hinst, null());
         if hwnd.is_null() {
             return;
         }
-        let icon = make_icon(32);
-        let tb = w("TaskbarCreated");
+        let icon = jb_make_icon(32);
+        let tb = jb_w("TaskbarCreated");
         ST.with(|s| {
-            *s.borrow_mut() = Some(State {
+            *s.borrow_mut() = Some(JbState {
                 hwnd,
                 icon,
-                sampler: Sampler::default(),
-                cfg: Config::load(),
-                cfg_mtime: config::config_mtime(),
+                sampler: JbSampler::default(),
+                cfg: JbConfig::jb_load(),
+                cfg_mtime: config::jb_config_mtime(),
                 last_alert: HashMap::new(),
                 last_stabilize: None,
                 high: 0,
@@ -553,17 +553,17 @@ pub fn run() {
                 startup: None,
             })
         });
-        tray_add(hwnd, icon);
+        jb_tray_add(hwnd, icon);
         SetTimer(hwnd, 1, TICK_MS, None);
         SetTimer(hwnd, 2, 4000, None);
-        sys::trim_own_memory();
+        sys::jb_trim_own_memory();
 
         let mut msg: MSG = zeroed();
         while GetMessageW(&mut msg, null_mut(), 0, 0) > 0 {
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
         }
-        let mut n = nid(hwnd);
+        let mut n = jb_nid(hwnd);
         n.uFlags = 0;
         Shell_NotifyIconW(NIM_DELETE, &n);
     }

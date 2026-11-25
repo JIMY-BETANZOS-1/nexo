@@ -15,13 +15,13 @@ use std::path::Path;
 use std::process::Command;
 
 // jimy-betanzos · dependencia: módulo propio bmp
-pub use crate::bmp::bmp;
+pub use crate::bmp::jb_bmp;
 
 /// jimy-betanzos · Linux y macOS no necesitan preparar el hilo (en Windows se inicializa COM).
-pub fn init_thread() {}
+pub fn jb_init_thread() {}
 
 /// jimy-betanzos · Lee una imagen y la reduce al tamaño de miniatura.
-fn decode(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
+fn jb_decode(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
     let img = image::open(path).ok()?.thumbnail(size, size).to_rgba8();
     let (w, h) = (img.width() as usize, img.height() as usize);
     let mut px = img.into_raw();
@@ -36,7 +36,7 @@ fn decode(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
 }
 
 /// jimy-betanzos · Genera la miniatura con una herramienta del sistema en una carpeta temporal.
-fn external(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
+fn jb_external(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
     let tmp = std::env::temp_dir().join(format!("nexo_mini_{}_{}", std::process::id(), size));
     let _ = std::fs::create_dir_all(&tmp);
     let out = tmp.join("mini.png");
@@ -59,16 +59,16 @@ fn external(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
                 .arg(path)
                 .arg(tmp.join("mini"))
                 .output();
-        } else if crate::rules::protection(path) == crate::rules::Protect::Video {
+        } else if crate::rules::jb_protection(path) == crate::rules::JbProtect::Video {
             let _ = Command::new("ffmpegthumbnailer").arg("-i").arg(path).arg("-o").arg(&out).args(["-s", &size.to_string()]).output();
         }
     }
-    let r = decode(&out, size);
+    let r = jb_decode(&out, size);
     let _ = std::fs::remove_dir_all(&tmp);
     r
 }
 
 /// jimy-betanzos · (ancho, alto, RGBA premultiplicado) de la miniatura, del lado mayor `size`.
-pub fn shell_thumbnail(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
-    decode(path, size).or_else(|| external(path, size))
+pub fn jb_shell_thumbnail(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
+    jb_decode(path, size).or_else(|| jb_external(path, size))
 }

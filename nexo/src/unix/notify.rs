@@ -7,7 +7,7 @@
 //! notificaciones mediante `osascript`).
 
 /// jimy-betanzos · Muestra una notificación del sistema.
-pub fn toast(title: &str, line1: &str, line2: &str) {
+pub fn jb_toast(title: &str, line1: &str, line2: &str) {
     let body = if line2.is_empty() { line1.to_string() } else { format!("{}\n{}", line1, line2) };
     #[cfg(target_os = "macos")]
     {
@@ -17,7 +17,7 @@ pub fn toast(title: &str, line1: &str, line2: &str) {
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let icon = crate::install::install_dir().join("nexo.png");
+        let icon = crate::install::jb_install_dir().join("nexo.png");
         let mut c = std::process::Command::new("notify-send");
         c.args(["-a", "NEXO"]);
         if icon.exists() {

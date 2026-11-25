@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use crate::{install, sys};
 
 /// jimy-betanzos · Busca el programa adb (Android platform-tools) en las carpetas habituales.
-pub fn adb_path() -> Option<PathBuf> {
+pub fn jb_adb_path() -> Option<PathBuf> {
     let bin = if cfg!(windows) { "adb.exe" } else { "adb" };
     let mut c: Vec<PathBuf> = Vec::new();
     if let Ok(exe) = std::env::current_exe() {
@@ -26,7 +26,7 @@ pub fn adb_path() -> Option<PathBuf> {
             c.push(d.join("platform-tools").join(bin));
         }
     }
-    c.push(install::install_dir().join("platform-tools").join(bin));
+    c.push(install::jb_install_dir().join("platform-tools").join(bin));
     for var in ["ANDROID_HOME", "ANDROID_SDK_ROOT"] {
         if let Some(v) = std::env::var_os(var) {
             c.push(PathBuf::from(v).join("platform-tools").join(bin));
@@ -49,9 +49,9 @@ pub fn adb_path() -> Option<PathBuf> {
 }
 
 /// jimy-betanzos · Ejecuta adb con los argumentos dados y devuelve su salida.
-fn run(args: &[&str]) -> Result<String, String> {
-    let adb = adb_path().ok_or("No se encontró ADB")?;
-    let out = sys::hidden_cmd(&adb.to_string_lossy()).args(args).output().map_err(|e| e.to_string())?;
+fn jb_run(args: &[&str]) -> Result<String, String> {
+    let adb = jb_adb_path().ok_or("No se encontró ADB")?;
+    let out = sys::jb_hidden_cmd(&adb.to_string_lossy()).args(args).output().map_err(|e| e.to_string())?;
     let so = String::from_utf8_lossy(&out.stdout).to_string();
     if out.status.success() {
         Ok(so)
@@ -62,33 +62,33 @@ fn run(args: &[&str]) -> Result<String, String> {
 }
 
 /// jimy-betanzos · Ejecuta un comando dentro del celular indicado.
-fn shell(serial: &str, cmd: &str) -> Result<String, String> {
-    run(&["-s", serial, "shell", cmd])
+fn jb_shell(serial: &str, cmd: &str) -> Result<String, String> {
+    jb_run(&["-s", serial, "shell", cmd])
 }
 
 /// jimy-betanzos · Celular detectado por adb: número de serie, estado y modelo.
 #[derive(Clone, Default)]
-pub struct Dev {
+pub struct JbDev {
     pub serial: String,
     pub state: String,
     pub model: String,
 }
 
 /// jimy-betanzos · Métodos de Dev.
-impl Dev {
+impl JbDev {
     /// jimy-betanzos · Indica si el celular ya autorizó la depuración.
-    pub fn ready(&self) -> bool {
+    pub fn jb_ready(&self) -> bool {
         self.state == "device"
     }
     /// jimy-betanzos · Indica si el celular está conectado por WiFi.
-    pub fn wifi(&self) -> bool {
+    pub fn jb_wifi(&self) -> bool {
         self.serial.contains(':') || self.serial.contains("._adb-tls-connect")
     }
 }
 
 /// jimy-betanzos · Lista los celulares conectados por USB o WiFi.
-pub fn devices() -> Result<Vec<Dev>, String> {
-    let out = run(&["devices", "-l"])?;
+pub fn jb_devices() -> Result<Vec<JbDev>, String> {
+    let out = jb_run(&["devices", "-l"])?;
     Ok(out
         .lines()
         .skip(1)
@@ -102,26 +102,26 @@ pub fn devices() -> Result<Vec<Dev>, String> {
                 .find_map(|t| t.strip_prefix("model:"))
                 .unwrap_or("")
                 .replace('_', " ");
-            Dev { serial, state, model }
+            JbDev { serial, state, model }
         })
         .collect())
 }
 
 /// jimy-betanzos · Vincula un celular por WiFi con su código de 6 dígitos.
-pub fn pair(addr: &str, code: &str) -> Result<String, String> {
-    let out = run(&["pair", addr.trim(), code.trim()])?;
+pub fn jb_pair(addr: &str, code: &str) -> Result<String, String> {
+    let out = jb_run(&["pair", addr.trim(), code.trim()])?;
     if out.to_lowercase().contains("success") { Ok("Vinculado correctamente.".into()) } else { Err(out.trim().to_string()) }
 }
 
 /// jimy-betanzos · Conecta un celular ya vinculado por WiFi.
-pub fn connect(addr: &str) -> Result<String, String> {
-    let out = run(&["connect", addr.trim()])?;
+pub fn jb_connect(addr: &str) -> Result<String, String> {
+    let out = jb_run(&["connect", addr.trim()])?;
     if out.contains("connected") { Ok("Conectado.".into()) } else { Err(out.trim().to_string()) }
 }
 
 /// jimy-betanzos · Datos del celular: marca, modelo, Android, almacenamiento y batería.
 #[derive(Clone, Default)]
-pub struct Info {
+pub struct JbInfo {
     pub brand: String,
     pub model: String,
     pub android: String,
@@ -135,13 +135,13 @@ pub struct Info {
 }
 
 /// jimy-betanzos · Lee el valor de una clave en un texto «clave: valor».
-fn kv(text: &str, key: &str) -> Option<String> {
+fn jb_kv(text: &str, key: &str) -> Option<String> {
     text.lines().find_map(|l| l.trim().strip_prefix(key).map(|v| v.trim().to_string()))
 }
 
 /// jimy-betanzos · Calcula el espacio total y libre del almacenamiento del celular.
-fn data_space(serial: &str) -> (u64, u64) {
-    let out = shell(serial, "df -k /data").unwrap_or_default();
+fn jb_data_space(serial: &str) -> (u64, u64) {
+    let out = jb_shell(serial, "df -k /data").unwrap_or_default();
     let line = out.lines().nth(1).unwrap_or("");
     let cols: Vec<&str> = line.split_whitespace().collect();
     if cols.len() >= 4 {
@@ -154,20 +154,20 @@ fn data_space(serial: &str) -> (u64, u64) {
 }
 
 /// jimy-betanzos · Lee los datos principales del celular.
-pub fn info(serial: &str) -> Result<Info, String> {
-    let props = shell(serial, "getprop ro.product.brand; getprop ro.product.model; getprop ro.build.version.release")?;
+pub fn jb_info(serial: &str) -> Result<JbInfo, String> {
+    let props = jb_shell(serial, "getprop ro.product.brand; getprop ro.product.model; getprop ro.build.version.release")?;
     let mut p = props.lines().map(|s| s.trim().to_string());
-    let bat = shell(serial, "dumpsys battery").unwrap_or_default();
-    let mem = shell(serial, "cat /proc/meminfo").unwrap_or_default();
-    let kb = |k: &str| kv(&mem, k).and_then(|v| v.split_whitespace().next().and_then(|n| n.parse::<u64>().ok())).unwrap_or(0) * 1024;
-    let (data_free, data_total) = data_space(serial);
-    Ok(Info {
+    let bat = jb_shell(serial, "dumpsys battery").unwrap_or_default();
+    let mem = jb_shell(serial, "cat /proc/meminfo").unwrap_or_default();
+    let kb = |k: &str| jb_kv(&mem, k).and_then(|v| v.split_whitespace().next().and_then(|n| n.parse::<u64>().ok())).unwrap_or(0) * 1024;
+    let (data_free, data_total) = jb_data_space(serial);
+    Ok(JbInfo {
         brand: p.next().unwrap_or_default(),
         model: p.next().unwrap_or_default(),
         android: p.next().unwrap_or_default(),
-        battery: kv(&bat, "level:").and_then(|v| v.parse().ok()).unwrap_or(0),
-        temp_c: kv(&bat, "temperature:").and_then(|v| v.parse::<f32>().ok()).unwrap_or(0.0) / 10.0,
-        health: match kv(&bat, "health:").as_deref() {
+        battery: jb_kv(&bat, "level:").and_then(|v| v.parse().ok()).unwrap_or(0),
+        temp_c: jb_kv(&bat, "temperature:").and_then(|v| v.parse::<f32>().ok()).unwrap_or(0.0) / 10.0,
+        health: match jb_kv(&bat, "health:").as_deref() {
             Some("2") => "buena",
             Some("3") => "sobrecalentada",
             Some("4") => "agotada",
@@ -183,10 +183,10 @@ pub fn info(serial: &str) -> Result<Info, String> {
 }
 
 /// jimy-betanzos · Borra la caché de TODAS las apps (no toca datos, cuentas ni archivos). Devuelve lo liberado.
-pub fn trim_caches(serial: &str) -> Result<u64, String> {
-    let (before, _) = data_space(serial);
-    shell(serial, "pm trim-caches 999G")?;
-    let (after, _) = data_space(serial);
+pub fn jb_trim_caches(serial: &str) -> Result<u64, String> {
+    let (before, _) = jb_data_space(serial);
+    jb_shell(serial, "pm trim-caches 999G")?;
+    let (after, _) = jb_data_space(serial);
     Ok(after.saturating_sub(before))
 }
 
@@ -219,7 +219,7 @@ const BLOAT: &[(&str, &str, &str)] = &[
 
 /// jimy-betanzos · App preinstalada que se puede desactivar.
 #[derive(Clone)]
-pub struct Bloat {
+pub struct JbBloat {
     pub pkg: String,
     pub name: String,
     pub why: String,
@@ -227,28 +227,28 @@ pub struct Bloat {
 }
 
 /// jimy-betanzos · Lista las apps preinstaladas conocidas que tiene el celular.
-pub fn bloat(serial: &str) -> Result<Vec<Bloat>, String> {
-    let all = shell(serial, "pm list packages")?;
-    let disabled = shell(serial, "pm list packages -d").unwrap_or_default();
+pub fn jb_bloat(serial: &str) -> Result<Vec<JbBloat>, String> {
+    let all = jb_shell(serial, "pm list packages")?;
+    let disabled = jb_shell(serial, "pm list packages -d").unwrap_or_default();
     let has = |list: &str, pkg: &str| list.lines().any(|l| l.trim() == format!("package:{}", pkg));
     Ok(BLOAT
         .iter()
         .filter(|(pkg, _, _)| has(&all, pkg))
-        .map(|(pkg, name, why)| Bloat { pkg: pkg.to_string(), name: name.to_string(), why: why.to_string(), enabled: !has(&disabled, pkg) })
+        .map(|(pkg, name, why)| JbBloat { pkg: pkg.to_string(), name: name.to_string(), why: why.to_string(), enabled: !has(&disabled, pkg) })
         .collect())
 }
 
 /// jimy-betanzos · Activa o desactiva una app del celular (es reversible).
-pub fn set_enabled(serial: &str, pkg: &str, on: bool) -> Result<(), String> {
+pub fn jb_set_enabled(serial: &str, pkg: &str, on: bool) -> Result<(), String> {
     let cmd = if on { format!("pm enable {}", pkg) } else { format!("pm disable-user --user 0 {}", pkg) };
-    let out = shell(serial, &cmd)?;
+    let out = jb_shell(serial, &cmd)?;
     if out.to_lowercase().contains("new state") { Ok(()) } else { Err(out.trim().to_string()) }
 }
 
 /// jimy-betanzos · Consumo de batería por app (mAh desde la última carga completa), con datos del sistema.
-pub fn battery_usage(serial: &str) -> Result<Vec<(String, f64)>, String> {
-    let stats = shell(serial, "dumpsys batterystats --charged")?;
-    let pkgs = shell(serial, "cmd package list packages -U").unwrap_or_default();
+pub fn jb_battery_usage(serial: &str) -> Result<Vec<(String, f64)>, String> {
+    let stats = jb_shell(serial, "dumpsys batterystats --charged")?;
+    let pkgs = jb_shell(serial, "cmd package list packages -U").unwrap_or_default();
     let mut by_uid: HashMap<u32, String> = HashMap::new();
     for l in pkgs.lines() {
         let (Some(p), Some(u)) = (l.split_whitespace().find_map(|t| t.strip_prefix("package:")), l.split_whitespace().find_map(|t| t.strip_prefix("uid:"))) else { continue };
@@ -286,8 +286,8 @@ pub fn battery_usage(serial: &str) -> Result<Vec<(String, f64)>, String> {
 }
 
 /// jimy-betanzos · APK de NEXO móvil empaquetado junto a NEXO para Windows (si existe).
-pub fn mobile_apk() -> Option<PathBuf> {
-    let mut c = vec![install::install_dir().join("nexo-movil.apk")];
+pub fn jb_mobile_apk() -> Option<PathBuf> {
+    let mut c = vec![install::jb_install_dir().join("nexo-movil.apk")];
     if let Ok(exe) = std::env::current_exe() {
         if let Some(d) = exe.parent() {
             c.insert(0, d.join("nexo-movil.apk"));
@@ -297,7 +297,7 @@ pub fn mobile_apk() -> Option<PathBuf> {
 }
 
 /// jimy-betanzos · Instala o actualiza NEXO móvil en el celular.
-pub fn install_apk(serial: &str, apk: &std::path::Path) -> Result<String, String> {
-    let out = run(&["-s", serial, "install", "-r", &apk.to_string_lossy()])?;
+pub fn jb_install_apk(serial: &str, apk: &std::path::Path) -> Result<String, String> {
+    let out = jb_run(&["-s", serial, "install", "-r", &apk.to_string_lossy()])?;
     if out.contains("Success") { Ok("NEXO móvil instalado.".into()) } else { Err(out.trim().to_string()) }
 }

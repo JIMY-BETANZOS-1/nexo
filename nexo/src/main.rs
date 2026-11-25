@@ -60,42 +60,42 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|a| a == "--vigia") {
         // Vigía en la bandeja: unos pocos MB, revisa cada 30 s.
-        vigia::run();
+        vigia::jb_run();
         return;
     }
     if args.iter().any(|a| a == "--auto") {
         // Lanzado por el Programador de tareas: limpia, avisa y se cierra.
-        auto::run();
+        auto::jb_run();
         return;
     }
     if let Some(i) = args.iter().position(|a| a == "--informe") {
         // Diagnóstico de solo lectura: escribe lo que encontraría, sin borrar nada.
         let out = args.get(i + 1).cloned().unwrap_or_else(|| "nexo_informe.txt".into());
-        auto::report(std::path::Path::new(&out));
+        auto::jb_report(std::path::Path::new(&out));
         return;
     }
     // Mantenimiento y comprobaciones (sin interfaz).
     let out_arg = |flag: &str| args.iter().position(|a| a == flag).map(|i| args.get(i + 1).cloned().unwrap_or_else(|| "nexo_salida.txt".into()));
     if args.iter().any(|a| a == "--instalar") {
-        let r = install::install();
+        let r = install::jb_install();
         if let Some(o) = out_arg("--instalar") {
             let _ = std::fs::write(o, format!("{:?}", r.map(|p| p.display().to_string())));
         }
         return;
     }
     if let Some(o) = out_arg("--desinstalar") {
-        let _ = std::fs::write(o, install::uninstall().join("\n"));
+        let _ = std::fs::write(o, install::jb_uninstall().join("\n"));
         return;
     }
     #[cfg(unix)]
     if let Some(i) = args.iter().position(|a| a == "--exportar-icono") {
         // Empaquetado (macOS/Linux): guarda el icono de NEXO como PNG de 1024 px.
         let out = args.get(i + 1).cloned().unwrap_or_else(|| "nexo.png".into());
-        let _ = image::save_buffer(&out, &icon::rgba(1024), 1024, 1024, image::ExtendedColorType::Rgba8);
+        let _ = image::save_buffer(&out, &icon::jb_rgba(1024), 1024, 1024, image::ExtendedColorType::Rgba8);
         return;
     }
     if args.iter().any(|a| a == "--probar-aviso") {
-        notify::toast("Prueba de aviso", "Así se verán los avisos de NEXO.", "Es solo una prueba: no pasa nada.");
+        notify::jb_toast("Prueba de aviso", "Así se verán los avisos de NEXO.", "Es solo una prueba: no pasa nada.");
         std::thread::sleep(std::time::Duration::from_secs(2));
         return;
     }
@@ -103,9 +103,9 @@ fn main() {
         // Compara el escaneo con prioridad de segundo plano frente a la interactiva.
         let t = |interactive: bool| {
             std::thread::spawn(move || {
-                if interactive { sys::interactive_thread() } else { sys::background_thread() }
+                if interactive { sys::jb_interactive_thread() } else { sys::jb_background_thread() }
                 let start = std::time::Instant::now();
-                auto::report(&std::env::temp_dir().join("nexo_medir.txt"));
+                auto::jb_report(&std::env::temp_dir().join("nexo_medir.txt"));
                 start.elapsed().as_secs_f32()
             })
             .join()
@@ -119,22 +119,22 @@ fn main() {
     if let Some(i) = args.iter().position(|a| a == "--miniatura") {
         // Comprobación: guarda la miniatura de un archivo como BMP.
         let (Some(src), Some(dst)) = (args.get(i + 1), args.get(i + 2)) else { return };
-        thumbs::init_thread();
-        if let Some((w, h, px)) = thumbs::shell_thumbnail(std::path::Path::new(src), 128) {
-            let _ = std::fs::write(dst, thumbs::bmp(w, h, &px));
+        thumbs::jb_init_thread();
+        if let Some((w, h, px)) = thumbs::jb_shell_thumbnail(std::path::Path::new(src), 128) {
+            let _ = std::fs::write(dst, thumbs::jb_bmp(w, h, &px));
         }
         return;
     }
     if let Some(o) = out_arg("--simular-auto") {
-        let _ = std::fs::write(o, auto::simulate());
+        let _ = std::fs::write(o, auto::jb_simulate());
         return;
     }
     if let Some(i) = args.iter().position(|a| a == "--diagnostico") {
         // Diagnóstico de solo lectura volcado a texto (sin interfaz).
         let out = args.get(i + 1).cloned().unwrap_or_else(|| "nexo_diagnostico.txt".into());
-        let text = match diag::run() {
+        let text = match diag::jb_run() {
             Ok(r) => {
-                let mut s = format!("Nota: {}/100 ({})\n", r.overall, diag::grade(r.overall));
+                let mut s = format!("Nota: {}/100 ({})\n", r.overall, diag::jb_grade(r.overall));
                 for (a, v) in &r.areas {
                     s += &format!("  {:<15} {}\n", a, v.map_or("—".to_string(), |x| x.to_string()));
                 }
@@ -150,5 +150,5 @@ fn main() {
         return;
     }
     let page = args.iter().position(|a| a == "--pagina").and_then(|i| args.get(i + 1).cloned());
-    ui::run(page);
+    ui::jb_run(page);
 }

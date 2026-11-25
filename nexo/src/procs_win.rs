@@ -32,18 +32,18 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 
 // jimy-betanzos · dependencia: módulo propio de la interfaz
-use super::{ProcInfo, Win};
+use super::{JbProcInfo, JbWin};
 
 /// Windows puede compactar (vaciar el conjunto de trabajo de) cada programa por separado.
 pub const PER_APP_TRIM: bool = true;
 
 /// jimy-betanzos · Convierte un tiempo de Windows (FILETIME) a número.
-fn ft(f: FILETIME) -> u64 {
+fn jb_ft(f: FILETIME) -> u64 {
     ((f.dwHighDateTime as u64) << 32) | f.dwLowDateTime as u64
 }
 
 /// jimy-betanzos · Lista los procesos de Windows con su memoria y CPU.
-pub fn list_processes() -> Vec<ProcInfo> {
+pub fn jb_list_processes() -> Vec<JbProcInfo> {
     let mut out = Vec::with_capacity(300);
     unsafe {
         let snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -55,7 +55,7 @@ pub fn list_processes() -> Vec<ProcInfo> {
         let mut ok = Process32FirstW(snap, &mut e) != 0;
         while ok {
             let len = e.szExeFile.iter().position(|&c| c == 0).unwrap_or(e.szExeFile.len());
-            let mut p = ProcInfo {
+            let mut p = JbProcInfo {
                 pid: e.th32ProcessID,
                 exe: String::from_utf16_lossy(&e.szExeFile[..len]).to_lowercase(),
                 ..Default::default()
@@ -71,7 +71,7 @@ pub fn list_processes() -> Vec<ProcInfo> {
                 }
                 let (mut c, mut x, mut k, mut u): (FILETIME, FILETIME, FILETIME, FILETIME) = (zeroed(), zeroed(), zeroed(), zeroed());
                 if GetProcessTimes(h, &mut c, &mut x, &mut k, &mut u) != 0 {
-                    p.cpu = ft(k) + ft(u);
+                    p.cpu = jb_ft(k) + jb_ft(u);
                 }
                 let mut io: IO_COUNTERS = zeroed();
                 if GetProcessIoCounters(h, &mut io) != 0 {
@@ -87,8 +87,8 @@ pub fn list_processes() -> Vec<ProcInfo> {
     out
 }
 
-unsafe extern "system" fn enum_cb(h: HWND, lp: LPARAM) -> BOOL {
-    let v = &mut *(lp as *mut Vec<Win>);
+unsafe extern "system" fn jb_enum_cb(h: HWND, lp: LPARAM) -> BOOL {
+    let v = &mut *(lp as *mut Vec<JbWin>);
     if IsWindowVisible(h) == 0 || !GetWindow(h, GW_OWNER).is_null() {
         return 1;
     }
@@ -100,21 +100,21 @@ unsafe extern "system" fn enum_cb(h: HWND, lp: LPARAM) -> BOOL {
     let n = GetWindowTextW(h, buf.as_mut_ptr(), buf.len() as i32).max(0) as usize;
     let mut pid = 0u32;
     GetWindowThreadProcessId(h, &mut pid);
-    v.push(Win { hwnd: h as isize, pid, title: String::from_utf16_lossy(&buf[..n]) });
+    v.push(JbWin { hwnd: h as isize, pid, title: String::from_utf16_lossy(&buf[..n]) });
     1
 }
 
 /// jimy-betanzos · Ventanas principales visibles (con título y sin dueño).
-pub fn top_windows() -> Vec<Win> {
-    let mut v: Vec<Win> = Vec::new();
+pub fn jb_top_windows() -> Vec<JbWin> {
+    let mut v: Vec<JbWin> = Vec::new();
     unsafe {
-        EnumWindows(Some(enum_cb), &mut v as *mut Vec<Win> as LPARAM);
+        EnumWindows(Some(jb_enum_cb), &mut v as *mut Vec<JbWin> as LPARAM);
     }
     v
 }
 
 /// jimy-betanzos · Proceso de la ventana que el usuario está usando.
-pub fn foreground_pid() -> u32 {
+pub fn jb_foreground_pid() -> u32 {
     unsafe {
         let mut pid = 0;
         GetWindowThreadProcessId(GetForegroundWindow(), &mut pid);
@@ -123,18 +123,18 @@ pub fn foreground_pid() -> u32 {
 }
 
 /// jimy-betanzos · (inactivo, total) del sistema en unidades de 100 ns.
-pub fn cpu_times() -> Option<(u64, u64)> {
+pub fn jb_cpu_times() -> Option<(u64, u64)> {
     unsafe {
         let (mut i, mut k, mut u): (FILETIME, FILETIME, FILETIME) = (zeroed(), zeroed(), zeroed());
         if GetSystemTimes(&mut i, &mut k, &mut u) == 0 {
             return None;
         }
-        Some((ft(i), ft(k) + ft(u)))
+        Some((jb_ft(i), jb_ft(k) + jb_ft(u)))
     }
 }
 
 /// jimy-betanzos · Compacta (vacía el conjunto de trabajo) de un programa. No lo cierra ni pierde datos.
-pub fn trim(g: &super::AppGroup) -> u64 {
+pub fn jb_trim(g: &super::JbAppGroup) -> u64 {
     let mut freed = 0u64;
     for &pid in &g.pids {
         unsafe {
@@ -155,7 +155,7 @@ pub fn trim(g: &super::AppGroup) -> u64 {
 }
 
 /// jimy-betanzos · Pide al programa que se cierre como si pulsaras la X: puede preguntarte si guardar.
-pub fn close_gracefully(g: &super::AppGroup) -> usize {
+pub fn jb_close_gracefully(g: &super::JbAppGroup) -> usize {
     let mut n = 0;
     for (h, _) in &g.windows {
         unsafe {
@@ -168,7 +168,7 @@ pub fn close_gracefully(g: &super::AppGroup) -> usize {
 }
 
 /// jimy-betanzos · Cierre forzado: se pierde lo no guardado. Solo con doble confirmación del usuario.
-pub fn force_kill(g: &super::AppGroup) -> usize {
+pub fn jb_force_kill(g: &super::JbAppGroup) -> usize {
     if g.system {
         return 0;
     }

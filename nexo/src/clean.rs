@@ -18,15 +18,15 @@ use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Mutex;
 
 // jimy-betanzos · dependencia: módulo propio rules
-use crate::rules::{is_inside, protection, CategoryDef, Env, Kind, Protect, Special, Target};
+use crate::rules::{jb_is_inside, jb_protection, JbCategoryDef, JbEnv, JbKind, JbProtect, JbSpecial, JbTarget};
 // jimy-betanzos · dependencia: módulo propio scan
-use crate::scan::{blocked_by, walk, CatResult, Ctx};
+use crate::scan::{jb_blocked_by, jb_walk, JbCatResult, JbCtx};
 // jimy-betanzos · dependencia: módulo propio sys
 use crate::sys;
 
 /// jimy-betanzos · Resultado de una limpieza: archivos, espacio liberado y errores.
 #[derive(Default, Clone)]
-pub struct CleanReport {
+pub struct JbCleanReport {
     pub freed: u64,
     pub files: u64,
     pub skipped: u64,
@@ -35,7 +35,7 @@ pub struct CleanReport {
 }
 
 /// jimy-betanzos · Borra un archivo aunque sea de solo lectura.
-fn remove_file_force(p: &Path) -> std::io::Result<()> {
+fn jb_remove_file_force(p: &Path) -> std::io::Result<()> {
     match fs::remove_file(p) {
         Ok(()) => Ok(()),
         Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
@@ -55,20 +55,20 @@ fn remove_file_force(p: &Path) -> std::io::Result<()> {
 }
 
 /// jimy-betanzos · Borra la basura de un destino seguro. Devuelve (liberado, archivos, omitidos).
-fn clean_target(t: &Target, env: &Env, ctx: &Ctx, files_total: &AtomicU64, bytes_total: &AtomicU64) -> (u64, u64, u64) {
+fn jb_clean_target(t: &JbTarget, env: &JbEnv, ctx: &JbCtx, files_total: &AtomicU64, bytes_total: &AtomicU64) -> (u64, u64, u64) {
     let (mut freed, mut files, mut skipped) = (0u64, 0u64, 0u64);
     let mut dirs: Vec<PathBuf> = Vec::new();
     let min_age = t.min_age_h * 3600;
-    walk(
+    jb_walk(
         t,
         ctx.cancel,
         |path, size| {
             // Doble seguro: jamás borrar videos/documentos ni nada de carpetas personales.
-            if protection(path) != Protect::No || env.is_forbidden(path) || !is_inside(path, &t.root) {
+            if jb_protection(path) != JbProtect::No || env.jb_is_forbidden(path) || !jb_is_inside(path, &t.root) {
                 skipped += 1;
                 return;
             }
-            match remove_file_force(path) {
+            match jb_remove_file_force(path) {
                 Ok(()) => {
                     freed += size;
                     files += 1;
@@ -101,23 +101,23 @@ fn clean_target(t: &Target, env: &Env, ctx: &Ctx, files_total: &AtomicU64, bytes
 // jimy-betanzos: lo «Para revisar» y lo «Protegido» va a la Papelera (se puede recuperar);
 // solo la basura del sistema se elimina de forma definitiva.
 /// jimy-betanzos · Limpia las categorías seleccionadas y devuelve el resumen.
-pub fn clean(defs: &[CategoryDef], results: &[CatResult], env: &Env, ctx: &Ctx) -> CleanReport {
-    let mut rep = CleanReport::default();
-    let selected: Vec<(&CatResult, &CategoryDef)> = results
+pub fn jb_clean(defs: &[JbCategoryDef], results: &[JbCatResult], env: &JbEnv, ctx: &JbCtx) -> JbCleanReport {
+    let mut rep = JbCleanReport::default();
+    let selected: Vec<(&JbCatResult, &JbCategoryDef)> = results
         .iter()
-        .filter(|r| r.selected_size() > 0 || (r.whole() && r.selected && r.count > 0))
+        .filter(|r| r.jb_selected_size() > 0 || (r.jb_whole() && r.selected && r.count > 0))
         .filter_map(|r| defs.iter().find(|d| d.id == r.id).map(|d| (r, d)))
         .collect();
     let mut freed_by_cat = vec![0u64; selected.len()];
 
     // 1) Basura segura: todos sus destinos se borran a la vez.
-    let jobs: Vec<(usize, Target)> = selected
+    let jobs: Vec<(usize, JbTarget)> = selected
         .iter()
         .enumerate()
-        .filter(|(_, (_, d))| d.kind == Kind::Safe && d.special == Special::None)
+        .filter(|(_, (_, d))| d.kind == JbKind::Safe && d.special == JbSpecial::None)
         .flat_map(|(i, (_, d))| d.targets.iter().map(move |t| (i, t)))
-        .filter(|(_, t)| !(t.admin && !ctx.admin) && blocked_by(t, ctx.procs).is_none())
-        .flat_map(|(i, t)| crate::scan::split_target(t).into_iter().map(move |part| (i, part)))
+        .filter(|(_, t)| !(t.admin && !ctx.admin) && jb_blocked_by(t, ctx.procs).is_none())
+        .flat_map(|(i, t)| crate::scan::jb_split_target(t).into_iter().map(move |part| (i, part)))
         .collect();
     if let Ok(mut p) = ctx.progress.lock() {
         p.steps = jobs.len() + selected.len();
@@ -128,15 +128,15 @@ pub fn clean(defs: &[CategoryDef], results: &[CatResult], env: &Env, ctx: &Ctx) 
     let bytes_total = AtomicU64::new(0);
     let partials: Vec<Mutex<(u64, u64, u64)>> = jobs.iter().map(|_| Mutex::new((0, 0, 0))).collect();
     std::thread::scope(|s| {
-        for _ in 0..crate::scan::workers().min(jobs.len().max(1)) {
+        for _ in 0..crate::scan::jb_workers().min(jobs.len().max(1)) {
             s.spawn(|| {
-                sys::interactive_thread();
+                sys::jb_interactive_thread();
                 loop {
                     let k = next.fetch_add(1, Ordering::Relaxed);
                     if k >= jobs.len() || ctx.cancel.load(Ordering::Relaxed) {
                         break;
                     }
-                    let r = clean_target(&jobs[k].1, env, ctx, &files_total, &bytes_total);
+                    let r = jb_clean_target(&jobs[k].1, env, ctx, &files_total, &bytes_total);
                     if let Ok(mut slot) = partials[k].lock() {
                         *slot = r;
                     }
@@ -156,7 +156,7 @@ pub fn clean(defs: &[CategoryDef], results: &[CatResult], env: &Env, ctx: &Ctx) 
 
     // 2) Papelera de reciclaje, capturas, descargas, videos y documentos (en orden).
     for (i, (r, d)) in selected.iter().enumerate() {
-        if d.kind == Kind::Safe && d.special == Special::None {
+        if d.kind == JbKind::Safe && d.special == JbSpecial::None {
             continue;
         }
         if let Ok(mut p) = ctx.progress.lock() {
@@ -164,15 +164,15 @@ pub fn clean(defs: &[CategoryDef], results: &[CatResult], env: &Env, ctx: &Ctx) 
             p.step += 1;
         }
         let mut freed = 0u64;
-        if let Special::System(id) = d.special {
+        if let JbSpecial::System(id) = d.special {
             if r.selected {
-                if let Ok(f) = crate::rules::system_clean(id) {
+                if let Ok(f) = crate::rules::jb_system_clean(id) {
                     freed = f;
                     rep.files += r.count;
                 }
             }
-        } else if d.special == Special::RecycleBin {
-            if r.selected && sys::empty_recycle_bin() {
+        } else if d.special == JbSpecial::RecycleBin {
+            if r.selected && sys::jb_empty_recycle_bin() {
                 freed = r.size;
                 rep.files += r.count;
             }

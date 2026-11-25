@@ -16,7 +16,7 @@ fn main() {
     }
     let out = std::path::PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR"));
     let ico = out.join("nexo.ico");
-    icon::write_ico(&ico).expect("no se pudo crear el icono");
+    icon::jb_write_ico(&ico).expect("no se pudo crear el icono");
     let mut res = winresource::WindowsResource::new();
     res.set_icon(&ico.to_string_lossy());
     res.set("ProductName", "NEXO");

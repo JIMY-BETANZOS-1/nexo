@@ -24,12 +24,12 @@ mod plat;
 mod plat;
 
 // jimy-betanzos · dependencia: módulo propio de la plataforma (Windows o Linux/macOS)
-pub use plat::{active_power_plan, battery_report, open, quick_scan, quick_scan_available, set_power_plan, set_startup_enabled, setting, txt, BALANCED};
+pub use plat::{jb_active_power_plan, jb_battery_report, jb_open, jb_quick_scan, jb_quick_scan_available, jb_set_power_plan, jb_set_startup_enabled, jb_setting, jb_txt, BALANCED};
 
 /// jimy-betanzos · Programa que se abre al iniciar sesión.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
-pub struct StartupItem {
+pub struct JbStartupItem {
     pub name: String,
     pub command: String,
     pub exe: String,
@@ -43,25 +43,25 @@ pub struct StartupItem {
 }
 
 /// jimy-betanzos · Métodos de StartupItem.
-impl StartupItem {
+impl JbStartupItem {
     /// jimy-betanzos · Indica si el programa de inicio es para todos los usuarios.
-    pub fn machine_wide(&self) -> bool {
+    pub fn jb_machine_wide(&self) -> bool {
         self.hive.starts_with("HKLM")
     }
     /// jimy-betanzos · Indica si el archivo del programa de inicio ya no existe.
-    pub fn missing(&self) -> bool {
+    pub fn jb_missing(&self) -> bool {
         self.signature == "missing"
     }
     // jimy-betanzos: un programa sin firma digital no es malicioso por sí mismo, pero se
     // marca para que el usuario lo revise.
     /// jimy-betanzos · Indica si el programa de inicio tiene firma digital válida.
-    pub fn signed(&self) -> bool {
+    pub fn jb_signed(&self) -> bool {
         // "n/a": Linux y macOS no usan firmas Authenticode en los programas de inicio.
         self.signature == "Valid" || self.signature == "n/a"
     }
     /// jimy-betanzos · El propio vigía de NEXO: es de confianza aunque no tenga firma comercial.
-    pub fn is_nexo(&self) -> bool {
-        let ours = crate::install::installed_exe().to_string_lossy().to_lowercase();
+    pub fn jb_is_nexo(&self) -> bool {
+        let ours = crate::install::jb_installed_exe().to_string_lossy().to_lowercase();
         self.name == "NEXO Vigia" && self.exe.to_lowercase() == ours
     }
 }
@@ -69,7 +69,7 @@ impl StartupItem {
 /// jimy-betanzos · Datos de un disco: tamaño, espacio libre, tipo y salud.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
-pub struct Disk {
+pub struct JbDisk {
     pub name: String,
     pub media: String,
     pub health: String,
@@ -82,16 +82,16 @@ pub struct Disk {
 /// jimy-betanzos · Datos de la batería: capacidad de diseño y capacidad actual.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
-pub struct Battery {
+pub struct JbBattery {
     pub design: i64,
     pub full: i64,
     pub cycles: i64,
 }
 
 /// jimy-betanzos · Métodos de Battery.
-impl Battery {
+impl JbBattery {
     /// jimy-betanzos · Salud de la batería en porcentaje (actual / diseño).
-    pub fn health(&self) -> Option<f32> {
+    pub fn jb_health(&self) -> Option<f32> {
         (self.design > 0 && self.full > 0).then(|| (self.full as f32 / self.design as f32 * 100.0).min(100.0))
     }
 }
@@ -99,7 +99,7 @@ impl Battery {
 /// jimy-betanzos · Estado del antivirus: protección, firmas y último análisis.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
-pub struct Defender {
+pub struct JbDefender {
     pub available: bool,
     pub enabled: bool,
     pub realtime: bool,
@@ -111,7 +111,7 @@ pub struct Defender {
 /// jimy-betanzos · Estado del firewall en un perfil de red.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
-pub struct Firewall {
+pub struct JbFirewall {
     pub name: String,
     pub enabled: bool,
 }
@@ -119,7 +119,7 @@ pub struct Firewall {
 /// jimy-betanzos · Tarea programada encontrada en el equipo.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
-pub struct Task {
+pub struct JbTask {
     pub name: String,
     pub path: String,
     pub exe: String,
@@ -129,12 +129,12 @@ pub struct Task {
 /// jimy-betanzos · Datos crudos que se leen del sistema antes de calificarlos.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
-pub struct Raw {
-    pub startup: Vec<StartupItem>,
-    pub disks: Vec<Disk>,
-    pub battery: Battery,
-    pub defender: Defender,
-    pub firewall: Vec<Firewall>,
+pub struct JbRaw {
+    pub startup: Vec<JbStartupItem>,
+    pub disks: Vec<JbDisk>,
+    pub battery: JbBattery,
+    pub defender: JbDefender,
+    pub firewall: Vec<JbFirewall>,
     pub uac: Option<bool>,
     pub rdp: bool,
     pub proxy: String,
@@ -143,13 +143,13 @@ pub struct Raw {
     pub last_update_days: i64,
     pub uptime_days: f64,
     pub os: String,
-    pub tasks: Vec<Task>,
+    pub tasks: Vec<JbTask>,
     pub tasks_total: i64,
 }
 
 /// jimy-betanzos · Acción que ofrece una recomendación (botón).
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
-pub enum Action {
+pub enum JbAction {
     GoClean,
     GoRam,
     QuickScan,
@@ -159,39 +159,39 @@ pub enum Action {
 }
 
 /// jimy-betanzos · Métodos de Action.
-impl Action {
+impl JbAction {
     /// jimy-betanzos · Texto del botón de la acción.
-    pub fn label(&self) -> &'static str {
+    pub fn jb_label(&self) -> &'static str {
         match self {
-            Action::GoClean => "Ir a Limpieza",
-            Action::GoRam => "Ir a Memoria",
-            Action::QuickScan => "Analizar ahora",
-            Action::SetBalanced => "Usar Equilibrado",
-            Action::BatteryReport => "Ver informe",
-            Action::Open(t) if t.contains("LenovoCompanion") => "Abrir Vantage",
-            Action::Open(t) if t.contains("taskschd") => "Ver tareas",
-            Action::Open(_) => "Abrir ajuste",
+            JbAction::GoClean => "Ir a Limpieza",
+            JbAction::GoRam => "Ir a Memoria",
+            JbAction::QuickScan => "Analizar ahora",
+            JbAction::SetBalanced => "Usar Equilibrado",
+            JbAction::BatteryReport => "Ver informe",
+            JbAction::Open(t) if t.contains("LenovoCompanion") => "Abrir Vantage",
+            JbAction::Open(t) if t.contains("taskschd") => "Ver tareas",
+            JbAction::Open(_) => "Abrir ajuste",
         }
     }
 }
 
 /// jimy-betanzos · Recomendación: gravedad, área, título, detalle y acción.
 #[derive(Serialize, Deserialize, Clone)]
-pub struct Rec {
+pub struct JbRec {
     /// 0 consejo · 1 conviene revisar · 2 importante
     pub severity: u8,
     pub area: String,
     pub title: String,
     pub detail: String,
-    pub action: Option<Action>,
+    pub action: Option<JbAction>,
 }
 
 /// jimy-betanzos · Resultado completo del diagnóstico con notas por área.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
-pub struct Report {
+pub struct JbReport {
     pub ts: u64,
-    pub raw: Raw,
+    pub raw: JbRaw,
     pub power_guid: String,
     pub power_name: String,
     pub ram_load: u32,
@@ -201,14 +201,14 @@ pub struct Report {
     pub lenovo: bool,
     pub areas: Vec<(String, Option<u8>)>,
     pub overall: u8,
-    pub recs: Vec<Rec>,
+    pub recs: Vec<JbRec>,
 }
 
 pub const AREAS: [&str; 5] = ["Seguridad", "Almacenamiento", "Memoria", "Arranque", "Batería"];
 const WEIGHTS: [f32; 5] = [30.0, 25.0, 15.0, 15.0, 15.0];
 
 /// jimy-betanzos · Convierte la nota de 0 a 100 en una palabra (Excelente, Bueno…).
-pub fn grade(score: u8) -> &'static str {
+pub fn jb_grade(score: u8) -> &'static str {
     match score {
         90..=100 => "Excelente",
         75..=89 => "Bueno",
@@ -218,45 +218,45 @@ pub fn grade(score: u8) -> &'static str {
 }
 
 /// jimy-betanzos · Avance del diagnóstico en milésimas (0–1000).
-pub type Progress = std::sync::atomic::AtomicU32;
+pub type JbProgress = std::sync::atomic::AtomicU32;
 
 /// jimy-betanzos · Hace el diagnóstico completo sin mostrar avance.
-pub fn run() -> Result<Report, String> {
-    run_with_progress(&Progress::new(0))
+pub fn jb_run() -> Result<JbReport, String> {
+    jb_run_with_progress(&JbProgress::new(0))
 }
 
 /// jimy-betanzos · Hace el diagnóstico completo informando el avance.
-pub fn run_with_progress(progress: &Progress) -> Result<Report, String> {
-    let raw = plat::run_script(progress)?;
+pub fn jb_run_with_progress(progress: &JbProgress) -> Result<JbReport, String> {
+    let raw = plat::jb_run_script(progress)?;
     progress.store(950, std::sync::atomic::Ordering::Relaxed);
-    let (power_guid, power_name) = active_power_plan();
-    let mem = sys::memory();
-    let (disk_free, disk_total) = sys::disk_space(&sys::system_drive());
-    let mut rep = Report {
-        ts: fmt::now(),
+    let (power_guid, power_name) = jb_active_power_plan();
+    let mem = sys::jb_memory();
+    let (disk_free, disk_total) = sys::jb_disk_space(&sys::jb_system_drive());
+    let mut rep = JbReport {
+        ts: fmt::jb_now(),
         raw,
         power_guid,
         power_name,
         ram_load: mem.load,
-        commit: mem.commit_pct(),
+        commit: mem.jb_commit_pct(),
         disk_free,
         disk_total,
-        lenovo: sys::machine_model().to_uppercase().contains("LENOVO"),
+        lenovo: sys::jb_machine_model().to_uppercase().contains("LENOVO"),
         ..Default::default()
     };
-    analyze(&mut rep);
-    save(&rep);
+    jb_analyze(&mut rep);
+    jb_save(&rep);
     Ok(rep)
 }
 
 /// jimy-betanzos · Agrega una recomendación a la lista.
-fn rec(v: &mut Vec<Rec>, severity: u8, area: &str, title: String, detail: String, action: Option<Action>) {
-    v.push(Rec { severity, area: area.into(), title, detail, action });
+fn jb_rec(v: &mut Vec<JbRec>, severity: u8, area: &str, title: String, detail: String, action: Option<JbAction>) {
+    v.push(JbRec { severity, area: area.into(), title, detail, action });
 }
 
 /// jimy-betanzos · Entradas de `hosts` que no vienen de herramientas conocidas (Docker, Laragon, WSL...)
 /// ni apuntan al propio equipo.
-pub fn unknown_hosts(hosts: &[String]) -> Vec<String> {
+pub fn jb_unknown_hosts(hosts: &[String]) -> Vec<String> {
     const KNOWN: &[&str] = &[
         "docker.internal", "kubernetes", "laragon", ".test", ".localhost", "wsl", "localhost",
         "xampp", "wamp", "valet", "lando",
@@ -273,42 +273,42 @@ pub fn unknown_hosts(hosts: &[String]) -> Vec<String> {
 }
 
 /// jimy-betanzos · Califica los datos y genera las recomendaciones.
-pub fn analyze(rep: &mut Report) {
+pub fn jb_analyze(rep: &mut JbReport) {
     let r = &rep.raw;
-    let mut v: Vec<Rec> = Vec::new();
+    let mut v: Vec<JbRec> = Vec::new();
 
     // ── Seguridad (los textos y accesos directos dependen del sistema: ver plat::txt y plat::setting)
-    let open = |k: &str| plat::setting(k).map(|t| Action::Open(t.to_string()));
+    let open = |k: &str| plat::jb_setting(k).map(|t| JbAction::Open(t.to_string()));
     let d = &r.defender;
     if !d.available {
-        rec(&mut v, plat::AV_MISSING_SEVERITY, "Seguridad", plat::txt("av_missing_title").into(), plat::txt("av_missing_detail").into(), open("antivirus"));
+        jb_rec(&mut v, plat::AV_MISSING_SEVERITY, "Seguridad", plat::jb_txt("av_missing_title").into(), plat::jb_txt("av_missing_detail").into(), open("antivirus"));
     } else {
         if !d.realtime || !d.enabled {
-            rec(&mut v, 2, "Seguridad", "Protección en tiempo real DESACTIVADA".into(), format!("Tu equipo no se protege mientras navegas o abres archivos. Actívala en {}.", plat::txt("security_app")), open("realtime"));
+            jb_rec(&mut v, 2, "Seguridad", "Protección en tiempo real DESACTIVADA".into(), format!("Tu equipo no se protege mientras navegas o abres archivos. Actívala en {}.", plat::jb_txt("security_app")), open("realtime"));
         }
         if d.sig_age > 7 {
-            rec(&mut v, 1, "Seguridad", format!("Firmas del antivirus con {} días", d.sig_age), format!("Se actualizan con {} cuando hay internet.", plat::txt("updater")), open("updates"));
+            jb_rec(&mut v, 1, "Seguridad", format!("Firmas del antivirus con {} días", d.sig_age), format!("Se actualizan con {} cuando hay internet.", plat::jb_txt("updater")), open("updates"));
         }
-        if d.quick_age > 14 && plat::quick_scan_available() {
-            rec(&mut v, 1, "Seguridad", format!("Hace {} días del último análisis", d.quick_age), "Un análisis rápido tarda pocos minutos y se hace en segundo plano.".into(), Some(Action::QuickScan));
+        if d.quick_age > 14 && plat::jb_quick_scan_available() {
+            jb_rec(&mut v, 1, "Seguridad", format!("Hace {} días del último análisis", d.quick_age), "Un análisis rápido tarda pocos minutos y se hace en segundo plano.".into(), Some(JbAction::QuickScan));
         }
     }
     let off: Vec<&str> = r.firewall.iter().filter(|f| !f.enabled).map(|f| f.name.as_str()).collect();
     if !off.is_empty() {
-        rec(&mut v, 2, "Seguridad", format!("Firewall desactivado en: {}", off.join(", ")), "El firewall bloquea conexiones no deseadas. Actívalo.".into(), open("firewall"));
+        jb_rec(&mut v, 2, "Seguridad", format!("Firewall desactivado en: {}", off.join(", ")), "El firewall bloquea conexiones no deseadas. Actívalo.".into(), open("firewall"));
     }
     if r.uac == Some(false) {
-        rec(&mut v, 2, "Seguridad", plat::txt("uac_off").into(), plat::txt("uac_detail").into(), open("uac"));
+        jb_rec(&mut v, 2, "Seguridad", plat::jb_txt("uac_off").into(), plat::jb_txt("uac_detail").into(), open("uac"));
     }
     if r.rdp {
-        rec(&mut v, 1, "Seguridad", plat::txt("remote_on").into(), "Si no lo usas, desactívalo: es una puerta de entrada habitual.".into(), open("remote"));
+        jb_rec(&mut v, 1, "Seguridad", plat::jb_txt("remote_on").into(), "Si no lo usas, desactívalo: es una puerta de entrada habitual.".into(), open("remote"));
     }
     if !r.proxy.is_empty() {
-        rec(&mut v, 1, "Seguridad", format!("Proxy configurado: {}", r.proxy), "Si no lo pusiste tú, alguien podría estar viendo tu navegación.".into(), open("proxy"));
+        jb_rec(&mut v, 1, "Seguridad", format!("Proxy configurado: {}", r.proxy), "Si no lo pusiste tú, alguien podría estar viendo tu navegación.".into(), open("proxy"));
     }
-    let unknown_hosts = unknown_hosts(&r.hosts);
+    let unknown_hosts = jb_unknown_hosts(&r.hosts);
     if !unknown_hosts.is_empty() {
-        rec(
+        jb_rec(
             &mut v,
             1,
             "Seguridad",
@@ -318,74 +318,74 @@ pub fn analyze(rep: &mut Report) {
         );
     }
     if r.encryption == 2 {
-        rec(&mut v, 0, "Seguridad", "El disco no está cifrado".into(), format!("El cifrado ({}) protege tus datos si pierdes la laptop.", plat::txt("encryption")), open("encryption"));
+        jb_rec(&mut v, 0, "Seguridad", "El disco no está cifrado".into(), format!("El cifrado ({}) protege tus datos si pierdes la laptop.", plat::jb_txt("encryption")), open("encryption"));
     }
     if r.last_update_days > 45 {
-        rec(&mut v, 1, "Seguridad", format!("Sin actualizaciones desde hace {} días", r.last_update_days), "Las actualizaciones cierran fallos de seguridad.".into(), open("updates"));
+        jb_rec(&mut v, 1, "Seguridad", format!("Sin actualizaciones desde hace {} días", r.last_update_days), "Las actualizaciones cierran fallos de seguridad.".into(), open("updates"));
     }
-    for s in r.startup.iter().filter(|s| s.enabled && !s.is_nexo()) {
+    for s in r.startup.iter().filter(|s| s.enabled && !s.jb_is_nexo()) {
         if s.suspicious {
-            rec(&mut v, 2, "Seguridad", format!("Programa de inicio sospechoso: {}", s.name), format!("Arranca desde una carpeta poco habitual: {}. Si no lo reconoces, desactívalo.", s.exe), None);
-        } else if plat::CHECK_SIGNATURES && !s.signed() && !s.missing() {
-            rec(&mut v, 1, "Seguridad", format!("Programa de inicio sin firma digital: {}", s.name), "No se puede verificar quién lo creó. Si no lo reconoces, desactívalo.".into(), None);
+            jb_rec(&mut v, 2, "Seguridad", format!("Programa de inicio sospechoso: {}", s.name), format!("Arranca desde una carpeta poco habitual: {}. Si no lo reconoces, desactívalo.", s.exe), None);
+        } else if plat::CHECK_SIGNATURES && !s.jb_signed() && !s.jb_missing() {
+            jb_rec(&mut v, 1, "Seguridad", format!("Programa de inicio sin firma digital: {}", s.name), "No se puede verificar quién lo creó. Si no lo reconoces, desactívalo.".into(), None);
         }
     }
     for t in &r.tasks {
-        rec(&mut v, 2, "Seguridad", format!("Tarea programada sospechosa: {}", t.name), format!("{}: {}", t.why, t.exe), open("tasks"));
+        jb_rec(&mut v, 2, "Seguridad", format!("Tarea programada sospechosa: {}", t.name), format!("{}: {}", t.why, t.exe), open("tasks"));
     }
 
     // ── Almacenamiento
     let free_pct = if rep.disk_total > 0 { rep.disk_free as f64 / rep.disk_total as f64 * 100.0 } else { 100.0 };
     if free_pct < 15.0 {
-        rec(&mut v, 2, "Almacenamiento", "Disco casi lleno".into(), format!("Quedan {} ({:.0} %). Con menos del 15 % libre Windows se vuelve lento.", fmt::bytes(rep.disk_free), free_pct), Some(Action::GoClean));
+        jb_rec(&mut v, 2, "Almacenamiento", "Disco casi lleno".into(), format!("Quedan {} ({:.0} %). Con menos del 15 % libre Windows se vuelve lento.", fmt::jb_bytes(rep.disk_free), free_pct), Some(JbAction::GoClean));
     } else if free_pct < 25.0 {
-        rec(&mut v, 1, "Almacenamiento", format!("Espacio libre justo: {:.0} %", free_pct), format!("Quedan {}. Una limpieza te dará margen.", fmt::bytes(rep.disk_free)), Some(Action::GoClean));
+        jb_rec(&mut v, 1, "Almacenamiento", format!("Espacio libre justo: {:.0} %", free_pct), format!("Quedan {}. Una limpieza te dará margen.", fmt::jb_bytes(rep.disk_free)), Some(JbAction::GoClean));
     }
     for dk in &r.disks {
         if !dk.health.is_empty() && dk.health != "Healthy" {
-            rec(&mut v, 2, "Almacenamiento", format!("El disco {} reporta problemas", dk.name), "Haz copia de seguridad de tus videos y documentos cuanto antes.".into(), None);
+            jb_rec(&mut v, 2, "Almacenamiento", format!("El disco {} reporta problemas", dk.name), "Haz copia de seguridad de tus videos y documentos cuanto antes.".into(), None);
         }
         if let Some(wear) = dk.wear {
             if wear >= 80 {
-                rec(&mut v, 2, "Almacenamiento", format!("Desgaste del SSD: {} %", wear), "Está cerca del final de su vida útil. Haz copias de seguridad.".into(), None);
+                jb_rec(&mut v, 2, "Almacenamiento", format!("Desgaste del SSD: {} %", wear), "Está cerca del final de su vida útil. Haz copias de seguridad.".into(), None);
             } else if wear >= 50 {
-                rec(&mut v, 1, "Almacenamiento", format!("Desgaste del SSD: {} %", wear), "Todavía funciona bien, pero conviene vigilarlo.".into(), None);
+                jb_rec(&mut v, 1, "Almacenamiento", format!("Desgaste del SSD: {} %", wear), "Todavía funciona bien, pero conviene vigilarlo.".into(), None);
             }
         }
     }
 
     // ── Memoria y rendimiento
     if rep.ram_load >= 85 {
-        rec(&mut v, 1, "Memoria", format!("RAM al {} % ahora mismo", rep.ram_load), "Revisa qué programas consumen más y estabiliza.".into(), Some(Action::GoRam));
+        jb_rec(&mut v, 1, "Memoria", format!("RAM al {} % ahora mismo", rep.ram_load), "Revisa qué programas consumen más y estabiliza.".into(), Some(JbAction::GoRam));
     }
     if rep.commit >= 85.0 {
-        rec(&mut v, 1, "Memoria", format!("Memoria virtual al {:.0} %", rep.commit), "Si se agota, los programas pueden cerrarse solos.".into(), Some(Action::GoRam));
+        jb_rec(&mut v, 1, "Memoria", format!("Memoria virtual al {:.0} %", rep.commit), "Si se agota, los programas pueden cerrarse solos.".into(), Some(JbAction::GoRam));
     }
     if r.uptime_days > 7.0 {
-        rec(&mut v, 1, "Memoria", format!("Llevas {:.0} días sin reiniciar", r.uptime_days), format!("Reiniciar libera memoria y termina de instalar actualizaciones.{}", plat::txt("reboot_note")), None);
+        jb_rec(&mut v, 1, "Memoria", format!("Llevas {:.0} días sin reiniciar", r.uptime_days), format!("Reiniciar libera memoria y termina de instalar actualizaciones.{}", plat::jb_txt("reboot_note")), None);
     }
     if !rep.power_guid.is_empty() && rep.power_guid != BALANCED {
-        rec(&mut v, 1, "Memoria", format!("Plan de energía: {}", rep.power_name), "«Equilibrado» es el recomendado: rinde al máximo cuando hace falta y ahorra batería el resto del tiempo.".into(), Some(Action::SetBalanced));
+        jb_rec(&mut v, 1, "Memoria", format!("Plan de energía: {}", rep.power_name), "«Equilibrado» es el recomendado: rinde al máximo cuando hace falta y ahorra batería el resto del tiempo.".into(), Some(JbAction::SetBalanced));
     }
 
     // ── Arranque
-    let enabled: Vec<&StartupItem> = r.startup.iter().filter(|s| s.enabled).collect();
+    let enabled: Vec<&JbStartupItem> = r.startup.iter().filter(|s| s.enabled).collect();
     if enabled.len() > 8 {
-        rec(&mut v, 1, "Arranque", format!("{} programas arrancan con {}", enabled.len(), plat::txt("os")), "Desactiva los que no uses a diario: el encendido será más rápido.".into(), None);
+        jb_rec(&mut v, 1, "Arranque", format!("{} programas arrancan con {}", enabled.len(), plat::jb_txt("os")), "Desactiva los que no uses a diario: el encendido será más rápido.".into(), None);
     }
-    for s in r.startup.iter().filter(|s| s.enabled && s.missing()) {
-        rec(&mut v, 0, "Arranque", format!("Entrada de inicio rota: {}", s.name), "Apunta a un programa que ya no existe. Puedes desactivarla sin riesgo.".into(), None);
+    for s in r.startup.iter().filter(|s| s.enabled && s.jb_missing()) {
+        jb_rec(&mut v, 0, "Arranque", format!("Entrada de inicio rota: {}", s.name), "Apunta a un programa que ya no existe. Puedes desactivarla sin riesgo.".into(), None);
     }
 
     // ── Batería
-    if let Some(h) = r.battery.health() {
+    if let Some(h) = r.battery.jb_health() {
         if h < 60.0 {
-            rec(&mut v, 2, "Batería", format!("Batería muy desgastada: {:.0} % de su capacidad", h), "Dura bastante menos que nueva. Si se apaga sola, conviene cambiarla.".into(), Some(Action::BatteryReport));
+            jb_rec(&mut v, 2, "Batería", format!("Batería muy desgastada: {:.0} % de su capacidad", h), "Dura bastante menos que nueva. Si se apaga sola, conviene cambiarla.".into(), Some(JbAction::BatteryReport));
         } else if h < 80.0 {
-            rec(&mut v, 1, "Batería", format!("Batería con desgaste: {:.0} % de su capacidad", h), "Normal con el uso. Evita tenerla siempre al 100 % y con calor.".into(), Some(Action::BatteryReport));
+            jb_rec(&mut v, 1, "Batería", format!("Batería con desgaste: {:.0} % de su capacidad", h), "Normal con el uso. Evita tenerla siempre al 100 % y con calor.".into(), Some(JbAction::BatteryReport));
         }
         if rep.lenovo {
-            rec(&mut v, 0, "Batería", "Activa el modo conservación de Lenovo".into(), plat::txt("lenovo_detail").into(), open("lenovo"));
+            jb_rec(&mut v, 0, "Batería", "Activa el modo conservación de Lenovo".into(), plat::jb_txt("lenovo_detail").into(), open("lenovo"));
         }
     }
 
@@ -395,7 +395,7 @@ pub fn analyze(rep: &mut Report) {
         // Los consejos (severidad 0) son sugerencias: no restan puntos.
         let penalty: i32 = v.iter().filter(|x| x.area == a).map(|x| [0, 15, 35][x.severity as usize]).sum();
         let base: i32 = match a {
-            "Batería" => match r.battery.health() {
+            "Batería" => match r.battery.jb_health() {
                 Some(h) => h as i32,
                 None => {
                     areas.push((a.to_string(), None));
@@ -421,19 +421,19 @@ pub fn analyze(rep: &mut Report) {
 }
 
 /// jimy-betanzos · Ruta del archivo donde se guarda el último diagnóstico.
-fn path() -> std::path::PathBuf {
-    config::data_dir().join("diagnostico.json")
+fn jb_path() -> std::path::PathBuf {
+    config::jb_data_dir().join("diagnostico.json")
 }
 
 /// jimy-betanzos · Guarda el diagnóstico en disco.
-pub fn save(rep: &Report) {
-    let _ = std::fs::create_dir_all(config::data_dir());
+pub fn jb_save(rep: &JbReport) {
+    let _ = std::fs::create_dir_all(config::jb_data_dir());
     if let Ok(s) = serde_json::to_string(rep) {
-        let _ = std::fs::write(path(), s);
+        let _ = std::fs::write(jb_path(), s);
     }
 }
 
 /// jimy-betanzos · Lee el último diagnóstico guardado.
-pub fn load() -> Option<Report> {
-    std::fs::read_to_string(path()).ok().and_then(|s| serde_json::from_str(&s).ok())
+pub fn jb_load() -> Option<JbReport> {
+    std::fs::read_to_string(jb_path()).ok().and_then(|s| serde_json::from_str(&s).ok())
 }

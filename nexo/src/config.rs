@@ -11,20 +11,20 @@ use serde::{Deserialize, Serialize};
 
 /// jimy-betanzos · Frecuencia de la limpieza automática: diaria, semanal o mensual.
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Frequency {
+pub enum JbFrequency {
     Daily,
     Weekly,
     Monthly,
 }
 
 /// jimy-betanzos · Métodos de Frequency.
-impl Frequency {
+impl JbFrequency {
     /// jimy-betanzos · Nombre en español de la frecuencia.
-    pub fn label(self) -> &'static str {
+    pub fn jb_label(self) -> &'static str {
         match self {
-            Frequency::Daily => "Diario",
-            Frequency::Weekly => "Semanal",
-            Frequency::Monthly => "Mensual",
+            JbFrequency::Daily => "Diario",
+            JbFrequency::Weekly => "Semanal",
+            JbFrequency::Monthly => "Mensual",
         }
     }
 }
@@ -32,9 +32,9 @@ impl Frequency {
 /// jimy-betanzos · Configuración del usuario guardada en config.json.
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(default)]
-pub struct Config {
+pub struct JbConfig {
     pub auto_enabled: bool,
-    pub frequency: Frequency,
+    pub frequency: JbFrequency,
     pub hour: u8,
     pub auto_categories: Vec<String>,
     pub last_auto_run: Option<u64>,
@@ -54,10 +54,10 @@ pub struct Config {
 }
 
 /// jimy-betanzos · Implementación de Default para Config.
-impl Default for Config {
+impl Default for JbConfig {
     /// jimy-betanzos · Valores iniciales seguros de la configuración.
     fn default() -> Self {
-        Config {
+        JbConfig {
             vigia_enabled: false,
             ram_warn: 85,
             ram_critical: 92,
@@ -69,7 +69,7 @@ impl Default for Config {
             prev_power_plan: None,
             defender_scan_secs: 0,
             auto_enabled: false,
-            frequency: Frequency::Weekly,
+            frequency: JbFrequency::Weekly,
             hour: 12,
             auto_categories: ["temp_user", "temp_win", "thumbs", "errors", "browsers", "apps", "shaders", "update", "logs"]
                 .iter()
@@ -82,7 +82,7 @@ impl Default for Config {
 
 /// jimy-betanzos · Carpeta de datos de NEXO: %APPDATA%/NEXO (Windows), ~/.config/nexo (Linux) o
 /// ~/Library/Application Support/NEXO (macOS).
-pub fn data_dir() -> PathBuf {
+pub fn jb_data_dir() -> PathBuf {
     #[cfg(windows)]
     let dir = std::env::var_os("APPDATA").map(|b| PathBuf::from(b).join("NEXO"));
     #[cfg(target_os = "macos")]
@@ -96,18 +96,18 @@ pub fn data_dir() -> PathBuf {
 }
 
 /// jimy-betanzos · Métodos de Config.
-impl Config {
+impl JbConfig {
     /// jimy-betanzos · Lee la configuración guardada (o usa la inicial).
-    pub fn load() -> Config {
-        std::fs::read_to_string(data_dir().join("config.json"))
+    pub fn jb_load() -> JbConfig {
+        std::fs::read_to_string(jb_data_dir().join("config.json"))
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default()
     }
 
     /// jimy-betanzos · Guarda la configuración en disco.
-    pub fn save(&self) {
-        let d = data_dir();
+    pub fn jb_save(&self) {
+        let d = jb_data_dir();
         let _ = std::fs::create_dir_all(&d);
         if let Ok(s) = serde_json::to_string_pretty(self) {
             let _ = std::fs::write(d.join("config.json"), s);
@@ -118,7 +118,7 @@ impl Config {
 /// jimy-betanzos · Registro de una limpieza en el historial.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
-pub struct HistoryEntry {
+pub struct JbHistoryEntry {
     pub ts: u64,
     /// "manual", "auto" o "pospuesta".
     pub mode: String,
@@ -137,7 +137,7 @@ const HISTORY_MAX: usize = 300;
 /// jimy-betanzos · Aviso del vigía guardado para mostrarlo en la ventana.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
-pub struct AlertEntry {
+pub struct JbAlertEntry {
     pub ts: u64,
     /// "ram", "critica", "fuga", "cpu", "disco", "virtual", "estabilizada".
     pub kind: String,
@@ -145,22 +145,22 @@ pub struct AlertEntry {
 }
 
 /// jimy-betanzos · Lee los últimos avisos del vigía.
-pub fn load_alerts() -> Vec<AlertEntry> {
-    std::fs::read_to_string(data_dir().join("avisos.json"))
+pub fn jb_load_alerts() -> Vec<JbAlertEntry> {
+    std::fs::read_to_string(jb_data_dir().join("avisos.json"))
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())
         .unwrap_or_default()
 }
 
 /// jimy-betanzos · Agrega un aviso del vigía (se guardan los más recientes).
-pub fn push_alert(kind: &str, text: &str) {
-    let mut a = load_alerts();
-    a.push(AlertEntry { ts: crate::fmt::now(), kind: kind.into(), text: text.into() });
+pub fn jb_push_alert(kind: &str, text: &str) {
+    let mut a = jb_load_alerts();
+    a.push(JbAlertEntry { ts: crate::fmt::jb_now(), kind: kind.into(), text: text.into() });
     if a.len() > 100 {
         let extra = a.len() - 100;
         a.drain(0..extra);
     }
-    let d = data_dir();
+    let d = jb_data_dir();
     let _ = std::fs::create_dir_all(&d);
     if let Ok(s) = serde_json::to_string(&a) {
         let _ = std::fs::write(d.join("avisos.json"), s);
@@ -168,27 +168,27 @@ pub fn push_alert(kind: &str, text: &str) {
 }
 
 /// jimy-betanzos · Fecha de la última modificación de la configuración.
-pub fn config_mtime() -> Option<std::time::SystemTime> {
-    std::fs::metadata(data_dir().join("config.json")).and_then(|m| m.modified()).ok()
+pub fn jb_config_mtime() -> Option<std::time::SystemTime> {
+    std::fs::metadata(jb_data_dir().join("config.json")).and_then(|m| m.modified()).ok()
 }
 
 /// jimy-betanzos · Lee el historial de limpiezas.
-pub fn load_history() -> Vec<HistoryEntry> {
-    std::fs::read_to_string(data_dir().join("historial.json"))
+pub fn jb_load_history() -> Vec<JbHistoryEntry> {
+    std::fs::read_to_string(jb_data_dir().join("historial.json"))
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())
         .unwrap_or_default()
 }
 
 /// jimy-betanzos · Agrega una limpieza al historial y lo guarda.
-pub fn push_history(e: HistoryEntry) -> Vec<HistoryEntry> {
-    let mut h = load_history();
+pub fn jb_push_history(e: JbHistoryEntry) -> Vec<JbHistoryEntry> {
+    let mut h = jb_load_history();
     h.push(e);
     if h.len() > HISTORY_MAX {
         let extra = h.len() - HISTORY_MAX;
         h.drain(0..extra);
     }
-    let d = data_dir();
+    let d = jb_data_dir();
     let _ = std::fs::create_dir_all(&d);
     if let Ok(s) = serde_json::to_string(&h) {
         let _ = std::fs::write(d.join("historial.json"), s);

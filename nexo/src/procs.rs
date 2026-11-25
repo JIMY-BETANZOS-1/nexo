@@ -25,10 +25,10 @@ mod plat;
 mod plat;
 
 // jimy-betanzos · dependencia: módulo propio de la plataforma (Windows o Linux/macOS)
-pub use plat::{close_gracefully, force_kill, trim};
+pub use plat::{jb_close_gracefully, jb_force_kill, jb_trim};
 // jimy-betanzos · dependencia: módulo propio de la plataforma (Windows o Linux/macOS)
 #[allow(unused_imports)]
-pub use plat::{foreground_pid, list_processes, top_windows};
+pub use plat::{jb_foreground_pid, jb_list_processes, jb_top_windows};
 
 /// Procesos del sistema: nunca se compactan, cierran ni sugieren.
 const SYSTEM_EXES: &[&str] = &[
@@ -76,17 +76,17 @@ const INSTALLER_EXES: &[&str] = &[
 const IO_ACTIVE: f64 = 1.5 * 1024.0 * 1024.0; // bytes/s
 
 /// jimy-betanzos · Nombre comparable entre sistemas: «Chrome.exe», «chrome» y «Google Chrome» se tratan igual.
-fn base(exe: &str) -> &str {
+fn jb_base(exe: &str) -> &str {
     exe.strip_suffix(".exe").unwrap_or(exe)
 }
 
 /// jimy-betanzos · Indica si un ejecutable está en una de las listas conocidas.
-fn listed(list: &[&str], exe: &str) -> bool {
-    list.iter().any(|x| base(x) == base(exe))
+fn jb_listed(list: &[&str], exe: &str) -> bool {
+    list.iter().any(|x| jb_base(x) == jb_base(exe))
 }
 
 /// jimy-betanzos · Nombre legible de un programa («Explorador de Windows»).
-pub fn friendly(exe: &str) -> String {
+pub fn jb_friendly(exe: &str) -> String {
     let known = match exe {
         "chrome.exe" => "Google Chrome",
         "msedge.exe" => "Microsoft Edge",
@@ -146,7 +146,7 @@ pub fn friendly(exe: &str) -> String {
 
 /// jimy-betanzos · Datos de un proceso: nombre, memoria, CPU y disco.
 #[derive(Clone, Default)]
-pub struct ProcInfo {
+pub struct JbProcInfo {
     pub pid: u32,
     pub exe: String,
     pub private: u64,
@@ -157,14 +157,14 @@ pub struct ProcInfo {
 }
 
 /// jimy-betanzos · Ventana visible de un programa (título y si está al frente).
-pub struct Win {
+pub struct JbWin {
     pub hwnd: isize,
     pub pid: u32,
     pub title: String,
 }
 
 /// jimy-betanzos · Detecta cambios sin guardar por el título de la ventana (*).
-fn looks_unsaved(title: &str) -> bool {
+fn jb_looks_unsaved(title: &str) -> bool {
     let t = title.to_lowercase();
     title.starts_with('*')
         || title.contains(" *")
@@ -177,7 +177,7 @@ fn looks_unsaved(title: &str) -> bool {
 
 /// jimy-betanzos · Programa agrupado con todos sus procesos.
 #[derive(Clone, Default)]
-pub struct AppGroup {
+pub struct JbAppGroup {
     pub exe: String,
     pub name: String,
     pub pids: Vec<u32>,
@@ -195,26 +195,26 @@ pub struct AppGroup {
 }
 
 /// jimy-betanzos · Métodos de AppGroup.
-impl AppGroup {
+impl JbAppGroup {
     /// jimy-betanzos · Indica si el programa está leyendo o escribiendo en disco.
-    pub fn io_active(&self) -> bool {
+    pub fn jb_io_active(&self) -> bool {
         self.io_rate > IO_ACTIVE
     }
 
     /// jimy-betanzos · Indica si el programa está inactivo (casi sin CPU ni disco).
-    pub fn idle(&self) -> bool {
-        self.cpu_pct < 1.5 && !self.io_active()
+    pub fn jb_idle(&self) -> bool {
+        self.cpu_pct < 1.5 && !self.jb_io_active()
     }
 
     // jimy-betanzos: solo se compacta lo que el usuario no está usando; nunca procesos del
     // sistema, la ventana activa ni un programa que se está instalando.
     /// jimy-betanzos · Se puede compactar sin molestar: segundo plano, inactivo y no del sistema.
-    pub fn can_trim(&self) -> bool {
-        plat::PER_APP_TRIM && !self.system && !self.foreground && !self.installing && self.accessible && self.idle()
+    pub fn jb_can_trim(&self) -> bool {
+        plat::PER_APP_TRIM && !self.system && !self.foreground && !self.installing && self.accessible && self.jb_idle()
     }
 
     /// jimy-betanzos · Motivos para tener cuidado antes de cerrar el programa.
-    pub fn reasons(&self) -> Vec<&'static str> {
+    pub fn jb_reasons(&self) -> Vec<&'static str> {
         let mut r = Vec::new();
         if self.unsaved {
             r.push("Tiene cambios SIN GUARDAR (lo indica el título de su ventana).");
@@ -225,7 +225,7 @@ impl AppGroup {
         if self.installing {
             r.push("Está instalando o actualizando algo: cerrarlo a medias puede dañar la instalación.");
         }
-        if self.io_active() {
+        if self.jb_io_active() {
             r.push("Está leyendo o escribiendo datos ahora mismo (descarga, copia o guardado).");
         }
         if self.foreground {
@@ -237,36 +237,36 @@ impl AppGroup {
 
 /// jimy-betanzos · Toma muestras sucesivas para calcular CPU y actividad de disco por programa.
 #[derive(Default)]
-pub struct Sampler {
+pub struct JbSampler {
     prev: HashMap<u32, (u64, u64)>,
     prev_t: Option<Instant>,
     sys_prev: Option<(u64, u64)>,
 }
 
 /// jimy-betanzos · Métodos de Sampler.
-impl Sampler {
+impl JbSampler {
     /// jimy-betanzos · Devuelve los programas agrupados por ejecutable (ordenados por memoria) y la CPU total.
-    pub fn sample(&mut self, with_windows: bool) -> (Vec<AppGroup>, f32) {
-        let procs = list_processes();
+    pub fn jb_sample(&mut self, with_windows: bool) -> (Vec<JbAppGroup>, f32) {
+        let procs = jb_list_processes();
         let now = Instant::now();
         let dt = self.prev_t.map(|t| now.duration_since(t).as_secs_f64()).unwrap_or(0.0);
         let ncpu = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1) as f64;
-        let fg = foreground_pid();
-        let windows = if with_windows { top_windows() } else { Vec::new() };
+        let fg = jb_foreground_pid();
+        let windows = if with_windows { jb_top_windows() } else { Vec::new() };
 
-        let mut groups: HashMap<String, AppGroup> = HashMap::new();
+        let mut groups: HashMap<String, JbAppGroup> = HashMap::new();
         let mut next = HashMap::with_capacity(procs.len());
         for p in &procs {
             if p.pid == 0 {
                 continue;
             }
-            let g = groups.entry(p.exe.clone()).or_insert_with(|| AppGroup {
+            let g = groups.entry(p.exe.clone()).or_insert_with(|| JbAppGroup {
                 exe: p.exe.clone(),
-                name: friendly(&p.exe),
-                system: listed(SYSTEM_EXES, &p.exe),
-                editor: listed(EDITOR_EXES, &p.exe),
-                installing: listed(INSTALLER_EXES, &p.exe)
-                    || (p.exe.contains("setup") || p.exe.contains("install")) && base(&p.exe) != "nexo",
+                name: jb_friendly(&p.exe),
+                system: jb_listed(SYSTEM_EXES, &p.exe),
+                editor: jb_listed(EDITOR_EXES, &p.exe),
+                installing: jb_listed(INSTALLER_EXES, &p.exe)
+                    || (p.exe.contains("setup") || p.exe.contains("install")) && jb_base(&p.exe) != "nexo",
                 accessible: true,
                 ..Default::default()
             });
@@ -284,7 +284,7 @@ impl Sampler {
         for w in windows {
             if let Some(p) = procs.iter().find(|p| p.pid == w.pid) {
                 if let Some(g) = groups.get_mut(&p.exe) {
-                    g.unsaved |= looks_unsaved(&w.title);
+                    g.unsaved |= jb_looks_unsaved(&w.title);
                     g.windows.push((w.hwnd, w.title));
                 }
             }
@@ -292,14 +292,14 @@ impl Sampler {
         self.prev = next;
         self.prev_t = Some(now);
 
-        let mut v: Vec<AppGroup> = groups.into_values().collect();
+        let mut v: Vec<JbAppGroup> = groups.into_values().collect();
         v.sort_by_key(|g| std::cmp::Reverse(g.private));
-        (v, self.system_cpu())
+        (v, self.jb_system_cpu())
     }
 
     /// jimy-betanzos · Uso total del procesador desde la última medición.
-    fn system_cpu(&mut self) -> f32 {
-        let Some((idle, total)) = plat::cpu_times() else { return 0.0 };
+    fn jb_system_cpu(&mut self) -> f32 {
+        let Some((idle, total)) = plat::jb_cpu_times() else { return 0.0 };
         let pct = match self.sys_prev {
             Some((pi, pt)) if total > pt => {
                 let dt = (total - pt) as f64;
@@ -313,18 +313,18 @@ impl Sampler {
 }
 
 /// jimy-betanzos · Igual que `trim_idle`, informando el avance en milésimas (para la barra de progreso).
-pub fn trim_idle_progress(groups: &[AppGroup], progress: &std::sync::atomic::AtomicU32) -> (usize, u64) {
+pub fn jb_trim_idle_progress(groups: &[JbAppGroup], progress: &std::sync::atomic::AtomicU32) -> (usize, u64) {
     #[cfg(unix)]
     {
         let _ = groups;
         progress.store(300, std::sync::atomic::Ordering::Relaxed);
-        return plat::stabilize_system();
+        return plat::jb_stabilize_system();
     }
     #[allow(unreachable_code)]
-    let todo: Vec<&AppGroup> = groups.iter().filter(|g| g.can_trim()).collect();
+    let todo: Vec<&JbAppGroup> = groups.iter().filter(|g| g.jb_can_trim()).collect();
     let (mut n, mut freed) = (0, 0);
     for (i, g) in todo.iter().enumerate() {
-        let f = trim(g);
+        let f = jb_trim(g);
         if f > 0 {
             n += 1;
             freed += f;
@@ -336,11 +336,11 @@ pub fn trim_idle_progress(groups: &[AppGroup], progress: &std::sync::atomic::Ato
 
 /// jimy-betanzos · Compacta todos los programas inactivos de segundo plano. Devuelve (programas, bytes).
 #[cfg_attr(unix, allow(dead_code))]
-pub fn trim_idle(groups: &[AppGroup]) -> (usize, u64) {
+pub fn jb_trim_idle(groups: &[JbAppGroup]) -> (usize, u64) {
     let mut n = 0;
     let mut freed = 0;
-    for g in groups.iter().filter(|g| g.can_trim()) {
-        let f = trim(g);
+    for g in groups.iter().filter(|g| g.jb_can_trim()) {
+        let f = jb_trim(g);
         if f > 0 {
             n += 1;
             freed += f;

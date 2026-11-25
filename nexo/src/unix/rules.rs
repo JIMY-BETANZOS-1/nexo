@@ -19,15 +19,15 @@ use std::process::Command;
 use super::*;
 
 /// jimy-betanzos · Carpeta personal del usuario.
-fn home() -> PathBuf {
+fn jb_home() -> PathBuf {
     std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/"))
 }
 
 /// jimy-betanzos · Carpeta del usuario según ~/.config/user-dirs.dirs (Linux; en español suele ser
 /// «Documentos», «Descargas»…). Si no está definida, se usa el nombre en inglés.
 #[cfg(not(target_os = "macos"))]
-fn xdg_dir(key: &str, default: &str) -> PathBuf {
-    let h = home();
+fn jb_xdg_dir(key: &str, default: &str) -> PathBuf {
+    let h = jb_home();
     if let Ok(text) = std::fs::read_to_string(h.join(".config/user-dirs.dirs")) {
         for l in text.lines() {
             if let Some(v) = l.strip_prefix(&format!("XDG_{}_DIR=", key)) {
@@ -40,18 +40,18 @@ fn xdg_dir(key: &str, default: &str) -> PathBuf {
 }
 
 /// jimy-betanzos · Detecta las carpetas del usuario y del sistema.
-pub fn detect() -> Env {
-    let h = home();
+pub fn jb_detect() -> JbEnv {
+    let h = jb_home();
     #[cfg(target_os = "macos")]
     let (docs, desk, vids, music, pics, down) = (h.join("Documents"), h.join("Desktop"), h.join("Movies"), h.join("Music"), h.join("Pictures"), h.join("Downloads"));
     #[cfg(not(target_os = "macos"))]
     let (docs, desk, vids, music, pics, down) = (
-        xdg_dir("DOCUMENTS", "Documents"),
-        xdg_dir("DESKTOP", "Desktop"),
-        xdg_dir("VIDEOS", "Videos"),
-        xdg_dir("MUSIC", "Music"),
-        xdg_dir("PICTURES", "Pictures"),
-        xdg_dir("DOWNLOAD", "Downloads"),
+        jb_xdg_dir("DOCUMENTS", "Documents"),
+        jb_xdg_dir("DESKTOP", "Desktop"),
+        jb_xdg_dir("VIDEOS", "Videos"),
+        jb_xdg_dir("MUSIC", "Music"),
+        jb_xdg_dir("PICTURES", "Pictures"),
+        jb_xdg_dir("DOWNLOAD", "Downloads"),
     );
 
     #[cfg(target_os = "macos")]
@@ -74,7 +74,7 @@ pub fn detect() -> Env {
         std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).unwrap_or_else(|| h.join(".config")),
     );
 
-    Env {
+    JbEnv {
         local,
         roaming,
         temp: std::env::temp_dir(),
@@ -87,12 +87,12 @@ pub fn detect() -> Env {
 }
 
 /// jimy-betanzos · Deja solo las carpetas que existen.
-fn dirs(list: Vec<PathBuf>) -> Vec<PathBuf> {
+fn jb_dirs(list: Vec<PathBuf>) -> Vec<PathBuf> {
     list.into_iter().filter(|p| p.is_dir()).collect()
 }
 
 /// jimy-betanzos · Subcarpetas `Cache`, `Code Cache` y `GPUCache` de los perfiles de un navegador Chromium.
-fn chromium_caches(base: &Path, procs: &'static [&'static str]) -> Vec<Target> {
+fn jb_chromium_caches(base: &Path, procs: &'static [&'static str]) -> Vec<JbTarget> {
     let mut out = Vec::new();
     let mut profiles = vec![base.to_path_buf()];
     if let Ok(rd) = std::fs::read_dir(base) {
@@ -107,7 +107,7 @@ fn chromium_caches(base: &Path, procs: &'static [&'static str]) -> Vec<Target> {
         for c in ["Cache", "Code Cache", "GPUCache", "Service Worker/CacheStorage"] {
             let d = p.join(c);
             if d.is_dir() {
-                out.push(blocked(t(d, true, Filter::All, 0), procs));
+                out.push(jb_blocked(jb_t(d, true, JbFilter::All, 0), procs));
             }
         }
     }
@@ -115,14 +115,14 @@ fn chromium_caches(base: &Path, procs: &'static [&'static str]) -> Vec<Target> {
 }
 
 /// jimy-betanzos · Carpetas de caché de los perfiles de Firefox.
-fn firefox_caches(profiles_dir: &Path) -> Vec<Target> {
+fn jb_firefox_caches(profiles_dir: &Path) -> Vec<JbTarget> {
     let mut out = Vec::new();
     if let Ok(rd) = std::fs::read_dir(profiles_dir) {
         for e in rd.flatten() {
             for c in ["cache2", "startupCache", "thumbnails"] {
                 let d = e.path().join(c);
                 if d.is_dir() {
-                    out.push(blocked(t(d, true, Filter::All, 0), &["firefox", "firefox-bin"]));
+                    out.push(jb_blocked(jb_t(d, true, JbFilter::All, 0), &["firefox", "firefox-bin"]));
                 }
             }
         }
@@ -131,24 +131,24 @@ fn firefox_caches(profiles_dir: &Path) -> Vec<Target> {
 }
 
 /// jimy-betanzos · Carpetas de caché de los navegadores.
-fn browser_targets(env: &Env) -> Vec<Target> {
+fn jb_browser_targets(env: &JbEnv) -> Vec<JbTarget> {
     let c = &env.local;
     let mut out = Vec::new();
     #[cfg(target_os = "macos")]
     {
-        out.extend(chromium_caches(&c.join("Google/Chrome"), &["google chrome", "google chrome helper"]));
-        out.extend(chromium_caches(&c.join("Microsoft Edge"), &["microsoft edge"]));
-        out.extend(chromium_caches(&c.join("BraveSoftware/Brave-Browser"), &["brave browser"]));
-        out.extend(firefox_caches(&c.join("Firefox/Profiles")));
+        out.extend(jb_chromium_caches(&c.join("Google/Chrome"), &["google chrome", "google chrome helper"]));
+        out.extend(jb_chromium_caches(&c.join("Microsoft Edge"), &["microsoft edge"]));
+        out.extend(jb_chromium_caches(&c.join("BraveSoftware/Brave-Browser"), &["brave browser"]));
+        out.extend(jb_firefox_caches(&c.join("Firefox/Profiles")));
     }
     #[cfg(not(target_os = "macos"))]
     {
-        out.extend(chromium_caches(&c.join("google-chrome"), &["chrome", "google-chrome"]));
-        out.extend(chromium_caches(&c.join("chromium"), &["chromium", "chromium-browser"]));
-        out.extend(chromium_caches(&c.join("microsoft-edge"), &["msedge", "microsoft-edge"]));
-        out.extend(chromium_caches(&c.join("BraveSoftware/Brave-Browser"), &["brave", "brave-browser"]));
-        out.extend(firefox_caches(&c.join("mozilla/firefox")));
-        out.extend(firefox_caches(&home().join(".mozilla/firefox")));
+        out.extend(jb_chromium_caches(&c.join("google-chrome"), &["chrome", "google-chrome"]));
+        out.extend(jb_chromium_caches(&c.join("chromium"), &["chromium", "chromium-browser"]));
+        out.extend(jb_chromium_caches(&c.join("microsoft-edge"), &["msedge", "microsoft-edge"]));
+        out.extend(jb_chromium_caches(&c.join("BraveSoftware/Brave-Browser"), &["brave", "brave-browser"]));
+        out.extend(jb_firefox_caches(&c.join("mozilla/firefox")));
+        out.extend(jb_firefox_caches(&jb_home().join(".mozilla/firefox")));
     }
     out
 }
@@ -156,14 +156,14 @@ fn browser_targets(env: &Env) -> Vec<Target> {
 /// jimy-betanzos · Cada carpeta de ~/Library/Caches por separado, sin las de los navegadores (tienen su
 /// propia categoría) ni las de Apple (las gestiona macOS).
 #[cfg(target_os = "macos")]
-fn mac_app_caches(env: &Env) -> Vec<Target> {
+fn jb_mac_app_caches(env: &JbEnv) -> Vec<JbTarget> {
     const SKIP: &[&str] = &["Google", "Firefox", "Microsoft Edge", "BraveSoftware", "com.google.Chrome", "org.mozilla.firefox"];
     let mut out = Vec::new();
     if let Ok(rd) = std::fs::read_dir(&env.local) {
         for e in rd.flatten() {
             let n = e.file_name().to_string_lossy().to_string();
             if e.path().is_dir() && !n.starts_with("com.apple.") && !SKIP.contains(&n.as_str()) {
-                out.push(t(e.path(), true, Filter::All, 24));
+                out.push(jb_t(e.path(), true, JbFilter::All, 24));
             }
         }
     }
@@ -172,7 +172,7 @@ fn mac_app_caches(env: &Env) -> Vec<Target> {
 
 /// jimy-betanzos · Carpetas de caché de aplicaciones conocidas.
 #[cfg_attr(target_os = "macos", allow(dead_code))]
-fn app_targets(env: &Env) -> Vec<Target> {
+fn jb_app_targets(env: &JbEnv) -> Vec<JbTarget> {
     let (c, r) = (&env.local, &env.roaming);
     let mut list: Vec<(PathBuf, &'static [&'static str])> = vec![
         (r.join("discord/Cache"), &["discord"]),
@@ -190,173 +190,173 @@ fn app_targets(env: &Env) -> Vec<Target> {
         list.push((c.join("spotify"), &["spotify"]));
         list.push((c.join("thumbnails"), &[]));
     }
-    list.into_iter().filter(|(p, _)| p.is_dir()).map(|(p, b)| blocked(t(p, true, Filter::All, 0), b)).collect()
+    list.into_iter().filter(|(p, _)| p.is_dir()).map(|(p, b)| jb_blocked(jb_t(p, true, JbFilter::All, 0), b)).collect()
 }
 
 /// jimy-betanzos · Cachés que los programadores pueden regenerar en cualquier momento.
-fn dev_targets(env: &Env) -> Vec<Target> {
-    let h = home();
+fn jb_dev_targets(env: &JbEnv) -> Vec<JbTarget> {
+    let h = jb_home();
     #[cfg_attr(not(target_os = "macos"), allow(unused_mut))]
     let mut list = vec![h.join(".npm/_cacache"), env.local.join("pip"), env.local.join("yarn"), env.local.join("go-build")];
     #[cfg(target_os = "macos")]
     list.extend([h.join("Library/Developer/Xcode/DerivedData"), h.join("Library/Developer/CoreSimulator/Caches")]);
-    dirs(list).into_iter().map(|p| t(p, true, Filter::All, 24)).collect()
+    jb_dirs(list).into_iter().map(|p| jb_t(p, true, JbFilter::All, 24)).collect()
 }
 
 /// jimy-betanzos · Lista completa de categorías de limpieza.
-pub fn categories(env: &Env) -> Vec<CategoryDef> {
-    let h = home();
-    let mut v = vec![CategoryDef {
+pub fn jb_categories(env: &JbEnv) -> Vec<JbCategoryDef> {
+    let h = jb_home();
+    let mut v = vec![JbCategoryDef {
         id: "temp_user",
         name: "Temporales de usuario",
         desc: "Archivos que los programas dejan en la carpeta temporal. Solo los de más de 24 h.",
-        kind: Kind::Safe,
-        special: Special::None,
+        kind: JbKind::Safe,
+        special: JbSpecial::None,
         default_on: true,
-        targets: vec![t(env.temp.clone(), true, Filter::All, 24)],
+        targets: vec![jb_t(env.temp.clone(), true, JbFilter::All, 24)],
     }];
 
     #[cfg(target_os = "macos")]
     {
-        v.push(CategoryDef {
+        v.push(JbCategoryDef {
             id: "apps",
             name: "Caché de aplicaciones",
             desc: "~/Library/Caches: copias que las apps guardan para abrir más rápido. Solo lo de más de 24 h.",
-            kind: Kind::Safe,
-            special: Special::None,
+            kind: JbKind::Safe,
+            special: JbSpecial::None,
             default_on: true,
-            targets: mac_app_caches(env),
+            targets: jb_mac_app_caches(env),
         });
-        v.push(CategoryDef {
+        v.push(JbCategoryDef {
             id: "errors",
             name: "Informes de errores",
             desc: "Reportes de apps que se cerraron mal (DiagnosticReports).",
-            kind: Kind::Safe,
-            special: Special::None,
+            kind: JbKind::Safe,
+            special: JbSpecial::None,
             default_on: true,
-            targets: dirs(vec![h.join("Library/Logs/DiagnosticReports")]).into_iter().map(|p| t(p, true, Filter::All, 0)).collect(),
+            targets: jb_dirs(vec![h.join("Library/Logs/DiagnosticReports")]).into_iter().map(|p| jb_t(p, true, JbFilter::All, 0)).collect(),
         });
-        v.push(CategoryDef {
+        v.push(JbCategoryDef {
             id: "logs",
             name: "Registros antiguos",
             desc: "Registros de apps (~/Library/Logs) de más de 30 días.",
-            kind: Kind::Safe,
-            special: Special::None,
+            kind: JbKind::Safe,
+            special: JbSpecial::None,
             default_on: true,
-            targets: dirs(vec![h.join("Library/Logs")]).into_iter().map(|p| t(p, true, Filter::All, 24 * 30)).collect(),
+            targets: jb_dirs(vec![h.join("Library/Logs")]).into_iter().map(|p| jb_t(p, true, JbFilter::All, 24 * 30)).collect(),
         });
     }
 
     #[cfg(not(target_os = "macos"))]
     {
-        v.push(CategoryDef {
+        v.push(JbCategoryDef {
             id: "apps",
             name: "Caché de aplicaciones",
             desc: "Discord, VS Code, Spotify, Slack, Teams y miniaturas del explorador de archivos (solo caché).",
-            kind: Kind::Safe,
-            special: Special::None,
+            kind: JbKind::Safe,
+            special: JbSpecial::None,
             default_on: true,
-            targets: app_targets(env),
+            targets: jb_app_targets(env),
         });
-        v.push(CategoryDef {
+        v.push(JbCategoryDef {
             id: "errors",
             name: "Informes de errores",
             desc: "Reportes de programas que se cerraron mal (/var/crash) de tu usuario.",
-            kind: Kind::Safe,
-            special: Special::None,
+            kind: JbKind::Safe,
+            special: JbSpecial::None,
             default_on: true,
-            targets: dirs(vec![PathBuf::from("/var/crash")]).into_iter().map(|p| t(p, false, Filter::Ext(&["crash"]), 0)).collect(),
+            targets: jb_dirs(vec![PathBuf::from("/var/crash")]).into_iter().map(|p| jb_t(p, false, JbFilter::Ext(&["crash"]), 0)).collect(),
         });
-        v.push(CategoryDef {
+        v.push(JbCategoryDef {
             id: "shaders",
             name: "Caché de gráficos",
             desc: "Sombreadores de Mesa y NVIDIA. Se regeneran solos.",
-            kind: Kind::Safe,
-            special: Special::None,
+            kind: JbKind::Safe,
+            special: JbSpecial::None,
             default_on: true,
-            targets: dirs(vec![env.local.join("mesa_shader_cache"), env.local.join("nvidia"), h.join(".nv/GLCache")]).into_iter().map(|p| t(p, true, Filter::All, 0)).collect(),
+            targets: jb_dirs(vec![env.local.join("mesa_shader_cache"), env.local.join("nvidia"), h.join(".nv/GLCache")]).into_iter().map(|p| jb_t(p, true, JbFilter::All, 0)).collect(),
         });
-        v.push(CategoryDef {
+        v.push(JbCategoryDef {
             id: "update",
             name: "Caché de paquetes del sistema",
             desc: "Paquetes ya instalados que apt, dnf o pacman guardan. Pide tu contraseña.",
-            kind: Kind::Safe,
-            special: Special::System("paquetes"),
+            kind: JbKind::Safe,
+            special: JbSpecial::System("paquetes"),
             default_on: false,
             targets: vec![],
         });
-        v.push(CategoryDef {
+        v.push(JbCategoryDef {
             id: "journal",
             name: "Registros del sistema (journal)",
             desc: "Registros de systemd de más de 30 días. Pide tu contraseña.",
-            kind: Kind::Safe,
-            special: Special::System("journal"),
+            kind: JbKind::Safe,
+            special: JbSpecial::System("journal"),
             default_on: false,
             targets: vec![],
         });
     }
 
-    v.push(CategoryDef {
+    v.push(JbCategoryDef {
         id: "browsers",
         name: "Caché de navegadores",
         desc: "Chrome, Edge, Brave, Chromium y Firefox. NO toca contraseñas, historial ni sesiones.",
-        kind: Kind::Safe,
-        special: Special::None,
+        kind: JbKind::Safe,
+        special: JbSpecial::None,
         default_on: true,
-        targets: browser_targets(env),
+        targets: jb_browser_targets(env),
     });
-    v.push(CategoryDef {
+    v.push(JbCategoryDef {
         id: "dev",
         name: "Caché de herramientas de programación",
         desc: "npm, pip, yarn, Go y Xcode (DerivedData). Se vuelven a descargar o generar solos.",
-        kind: Kind::Safe,
-        special: Special::None,
+        kind: JbKind::Safe,
+        special: JbSpecial::None,
         default_on: true,
-        targets: dev_targets(env),
+        targets: jb_dev_targets(env),
     });
-    v.push(CategoryDef {
+    v.push(JbCategoryDef {
         id: "recycle",
         name: "Papelera",
         desc: "Lo que tú ya enviaste a la Papelera. Al vaciarla se borra para siempre.",
-        kind: Kind::Review,
-        special: Special::RecycleBin,
+        kind: JbKind::Review,
+        special: JbSpecial::RecycleBin,
         default_on: false,
         targets: vec![],
     });
     if let Some(s) = &env.screenshots {
         #[cfg(target_os = "macos")]
-        let targets = ["captura de pantalla", "screen shot", "screenshot"].iter().map(|p| t(s.clone(), false, Filter::Prefix(p), 0)).collect();
+        let targets = ["captura de pantalla", "screen shot", "screenshot"].iter().map(|p| jb_t(s.clone(), false, JbFilter::Prefix(p), 0)).collect();
         #[cfg(not(target_os = "macos"))]
-        let targets = vec![t(s.clone(), true, Filter::Ext(IMAGE_EXT), 0)];
-        v.push(CategoryDef {
+        let targets = vec![jb_t(s.clone(), true, JbFilter::Ext(IMAGE_EXT), 0)];
+        v.push(JbCategoryDef {
             id: "screenshots",
             name: "Capturas de pantalla",
             desc: "Imágenes de capturas de pantalla. Van a la Papelera (recuperables).",
-            kind: Kind::Review,
-            special: Special::None,
+            kind: JbKind::Review,
+            special: JbSpecial::None,
             default_on: false,
             targets,
         });
     }
     if let Some(d) = &env.downloads {
-        v.push(CategoryDef {
+        v.push(JbCategoryDef {
             id: "downloads_old",
             name: "Instaladores y comprimidos viejos",
             desc: "En Descargas: .dmg, .pkg, .deb, .rpm, .AppImage, .zip, .tar.gz… de más de 30 días. Van a la Papelera.",
-            kind: Kind::Review,
-            special: Special::None,
+            kind: JbKind::Review,
+            special: JbSpecial::None,
             default_on: false,
-            targets: vec![t(d.clone(), false, Filter::Ext(UNIX_PACKAGE_EXT), 24 * 30)],
+            targets: vec![jb_t(d.clone(), false, JbFilter::Ext(UNIX_PACKAGE_EXT), 24 * 30)],
         });
     }
-    v.push(CategoryDef {
+    v.push(JbCategoryDef {
         id: "protected",
         name: "Videos y documentos",
         desc: "Protegidos. Nunca se borran solos: solo los que tú marques, y van a la Papelera.",
-        kind: Kind::Protected,
-        special: Special::None,
+        kind: JbKind::Protected,
+        special: JbSpecial::None,
         default_on: false,
-        targets: env.downloads.iter().map(|d| t(d.clone(), true, Filter::ProtectedOnly, 24 * 60)).collect(),
+        targets: env.downloads.iter().map(|d| jb_t(d.clone(), true, JbFilter::ProtectedOnly, 24 * 60)).collect(),
     });
     v
 }
@@ -366,12 +366,12 @@ const UNIX_PACKAGE_EXT: &[&str] = &["dmg", "pkg", "deb", "rpm", "appimage", "run
 // ───────────── Categorías que limpia un comando del sistema (solo Linux) ─────────────
 
 /// jimy-betanzos · Indica si un comando está instalado.
-fn which(cmd: &str) -> bool {
+fn jb_which(cmd: &str) -> bool {
     Command::new("sh").args(["-c", &format!("command -v {} >/dev/null 2>&1", cmd)]).status().map(|s| s.success()).unwrap_or(false)
 }
 
 /// jimy-betanzos · Tamaño y cantidad de archivos de una carpeta.
-fn dir_size(p: &Path) -> (u64, u64) {
+fn jb_dir_size(p: &Path) -> (u64, u64) {
     let (mut s, mut n) = (0, 0);
     for e in walkdir::WalkDir::new(p).follow_links(false).into_iter().flatten() {
         if let Ok(m) = e.metadata() {
@@ -385,12 +385,12 @@ fn dir_size(p: &Path) -> (u64, u64) {
 }
 
 /// jimy-betanzos · (bytes, elementos) que liberaría la categoría. Solo lee.
-pub fn system_size(id: &str) -> (u64, u64) {
+pub fn jb_system_size(id: &str) -> (u64, u64) {
     match id {
         "paquetes" => {
             let mut total = (0, 0);
             for d in ["/var/cache/apt/archives", "/var/cache/dnf", "/var/cache/pacman/pkg"] {
-                let (s, n) = dir_size(Path::new(d));
+                let (s, n) = jb_dir_size(Path::new(d));
                 total = (total.0 + s, total.1 + n);
             }
             total
@@ -422,15 +422,15 @@ pub fn system_size(id: &str) -> (u64, u64) {
 }
 
 /// jimy-betanzos · Limpia la categoría con el comando del sistema (pide la contraseña). Devuelve lo liberado.
-pub fn system_clean(id: &str) -> Result<u64, String> {
-    let before = system_size(id).0;
+pub fn jb_system_clean(id: &str) -> Result<u64, String> {
+    let before = jb_system_size(id).0;
     let cmd = match id {
-        "paquetes" if which("apt-get") => "apt-get clean",
-        "paquetes" if which("dnf") => "dnf clean packages",
-        "paquetes" if which("pacman") => "paccache -rk1 2>/dev/null || pacman -Sc --noconfirm",
+        "paquetes" if jb_which("apt-get") => "apt-get clean",
+        "paquetes" if jb_which("dnf") => "dnf clean packages",
+        "paquetes" if jb_which("pacman") => "paccache -rk1 2>/dev/null || pacman -Sc --noconfirm",
         "journal" => "journalctl --vacuum-time=30d",
         _ => return Err("No disponible en este sistema.".into()),
     };
-    crate::sys::run_as_admin(cmd)?;
-    Ok(before.saturating_sub(system_size(id).0))
+    crate::sys::jb_run_as_admin(cmd)?;
+    Ok(before.saturating_sub(jb_system_size(id).0))
 }

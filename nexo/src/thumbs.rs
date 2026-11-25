@@ -30,14 +30,14 @@ use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
 use windows::Win32::UI::Shell::{IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_BIGGERSIZEOK, SIIGBF_RESIZETOFIT};
 
 /// jimy-betanzos · Cada hilo que pide miniaturas necesita COM inicializado.
-pub fn init_thread() {
+pub fn jb_init_thread() {
     unsafe {
         let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
     }
 }
 
 /// jimy-betanzos · (ancho, alto, RGBA premultiplicado) de la miniatura, del lado mayor `size`.
-pub fn shell_thumbnail(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
+pub fn jb_shell_thumbnail(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)> {
     unsafe {
         let factory: IShellItemImageFactory = SHCreateItemFromParsingName(&HSTRING::from(path.as_os_str()), None).ok()?;
         let hbmp = factory
@@ -83,4 +83,4 @@ pub fn shell_thumbnail(path: &Path, size: u32) -> Option<(usize, usize, Vec<u8>)
 }
 
 // jimy-betanzos · dependencia: módulo propio bmp
-pub use crate::bmp::bmp;
+pub use crate::bmp::jb_bmp;

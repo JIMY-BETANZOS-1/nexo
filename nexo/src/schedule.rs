@@ -7,26 +7,26 @@
 //! La app no queda residente: Windows la lanza, limpia y se cierra (0 MB en reposo).
 
 // jimy-betanzos · dependencia: módulo propio config
-use crate::config::{Config, Frequency};
+use crate::config::{JbConfig, JbFrequency};
 // jimy-betanzos · dependencia: módulo propio
 use crate::{install, sys};
 
 pub const TASK: &str = "NEXO\\LimpiezaAutomatica";
 
 /// jimy-betanzos · Escapa caracteres especiales para el XML de la tarea.
-fn xml_escape(s: &str) -> String {
+fn jb_xml_escape(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
 
 /// jimy-betanzos · Arma la definición XML de la tarea programada.
-fn task_xml(cfg: &Config, exe: &str, admin: bool) -> String {
+fn jb_task_xml(cfg: &JbConfig, exe: &str, admin: bool) -> String {
     let start = format!("2025-01-05T{:02}:00:00", cfg.hour);
     let schedule = match cfg.frequency {
-        Frequency::Daily => "<ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay>".to_string(),
-        Frequency::Weekly => {
+        JbFrequency::Daily => "<ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay>".to_string(),
+        JbFrequency::Weekly => {
             "<ScheduleByWeek><WeeksInterval>1</WeeksInterval><DaysOfWeek><Sunday /></DaysOfWeek></ScheduleByWeek>".to_string()
         }
-        Frequency::Monthly => "<ScheduleByMonth><DaysOfMonth><Day>1</Day></DaysOfMonth><Months><January /><February /><March /><April /><May /><June /><July /><August /><September /><October /><November /><December /></Months></ScheduleByMonth>".to_string(),
+        JbFrequency::Monthly => "<ScheduleByMonth><DaysOfMonth><Day>1</Day></DaysOfMonth><Months><January /><February /><March /><April /><May /><June /><July /><August /><September /><October /><November /><December /></Months></ScheduleByMonth>".to_string(),
     };
     let level = if admin { "HighestAvailable" } else { "LeastPrivilege" };
     format!(
@@ -55,15 +55,15 @@ fn task_xml(cfg: &Config, exe: &str, admin: bool) -> String {
         start = start,
         schedule = schedule,
         level = level,
-        exe = xml_escape(exe)
+        exe = jb_xml_escape(exe)
     )
 }
 
 /// jimy-betanzos · Crea o actualiza la tarea programada de limpieza.
-pub fn enable(cfg: &Config, admin: bool) -> Result<(), String> {
+pub fn jb_enable(cfg: &JbConfig, admin: bool) -> Result<(), String> {
     // Copia estable del ejecutable: la tarea no depende de dónde se abrió NEXO.
-    let exe = install::install()?;
-    let xml = task_xml(cfg, &exe.display().to_string(), admin);
+    let exe = install::jb_install()?;
+    let xml = jb_task_xml(cfg, &exe.display().to_string(), admin);
     // schtasks exige UTF-16 LE con BOM.
     let mut bytes = vec![0xFF, 0xFE];
     for u in xml.encode_utf16() {
@@ -71,7 +71,7 @@ pub fn enable(cfg: &Config, admin: bool) -> Result<(), String> {
     }
     let file = std::env::temp_dir().join("nexo_tarea.xml");
     std::fs::write(&file, bytes).map_err(|e| e.to_string())?;
-    let out = sys::hidden_cmd("schtasks")
+    let out = sys::jb_hidden_cmd("schtasks")
         .args(["/Create", "/TN", TASK, "/XML"])
         .arg(&file)
         .arg("/F")
@@ -86,11 +86,11 @@ pub fn enable(cfg: &Config, admin: bool) -> Result<(), String> {
 }
 
 /// jimy-betanzos · Borra la tarea programada de limpieza.
-pub fn disable() -> Result<(), String> {
-    if !is_registered() {
+pub fn jb_disable() -> Result<(), String> {
+    if !jb_is_registered() {
         return Ok(());
     }
-    let out = sys::hidden_cmd("schtasks")
+    let out = sys::jb_hidden_cmd("schtasks")
         .args(["/Delete", "/TN", TASK, "/F"])
         .output()
         .map_err(|e| e.to_string())?;
@@ -102,8 +102,8 @@ pub fn disable() -> Result<(), String> {
 }
 
 /// jimy-betanzos · Indica si la tarea programada existe.
-pub fn is_registered() -> bool {
-    sys::hidden_cmd("schtasks")
+pub fn jb_is_registered() -> bool {
+    sys::jb_hidden_cmd("schtasks")
         .args(["/Query", "/TN", TASK])
         .output()
         .map(|o| o.status.success())

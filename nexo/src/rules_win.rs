@@ -20,17 +20,17 @@ use super::*;
 use crate::sys;
 
 /// jimy-betanzos · Lee una carpeta de una variable de entorno de Windows.
-fn env_path(var: &str, fallback: &str) -> PathBuf {
+fn jb_env_path(var: &str, fallback: &str) -> PathBuf {
     std::env::var_os(var).map(PathBuf::from).unwrap_or_else(|| PathBuf::from(fallback))
 }
 
 /// jimy-betanzos · Detecta las carpetas de Windows del usuario y del sistema.
-pub fn detect() -> Env {
-    let profile = env_path("USERPROFILE", "C:\\Users\\Default");
-    let pictures = sys::known_folder(&FOLDERID_Pictures);
-    let screenshots = sys::known_folder(&FOLDERID_Screenshots)
+pub fn jb_detect() -> JbEnv {
+    let profile = jb_env_path("USERPROFILE", "C:\\Users\\Default");
+    let pictures = sys::jb_known_folder(&FOLDERID_Pictures);
+    let screenshots = sys::jb_known_folder(&FOLDERID_Screenshots)
         .or_else(|| pictures.as_ref().map(|p| p.join("Screenshots")));
-    let downloads = sys::known_folder(&FOLDERID_Downloads);
+    let downloads = sys::jb_known_folder(&FOLDERID_Downloads);
 
     let mut forbidden: Vec<PathBuf> = [
         &FOLDERID_Documents,
@@ -41,7 +41,7 @@ pub fn detect() -> Env {
         &FOLDERID_Downloads,
     ]
     .iter()
-    .filter_map(|id| sys::known_folder(id))
+    .filter_map(|id| sys::jb_known_folder(id))
     .collect();
     for var in ["OneDrive", "OneDriveConsumer", "OneDriveCommercial"] {
         if let Some(p) = std::env::var_os(var) {
@@ -59,12 +59,12 @@ pub fn detect() -> Env {
         forbidden.push(profile.join(name));
     }
 
-    Env {
-        local: env_path("LOCALAPPDATA", "C:\\Users\\Default\\AppData\\Local"),
-        roaming: env_path("APPDATA", "C:\\Users\\Default\\AppData\\Roaming"),
+    JbEnv {
+        local: jb_env_path("LOCALAPPDATA", "C:\\Users\\Default\\AppData\\Local"),
+        roaming: jb_env_path("APPDATA", "C:\\Users\\Default\\AppData\\Roaming"),
         temp: std::env::temp_dir(),
-        windir: env_path("WINDIR", "C:\\Windows"),
-        programdata: env_path("ProgramData", "C:\\ProgramData"),
+        windir: jb_env_path("WINDIR", "C:\\Windows"),
+        programdata: jb_env_path("ProgramData", "C:\\ProgramData"),
         downloads,
         screenshots,
         forbidden,
@@ -83,7 +83,7 @@ const CHROMIUM: &[(&str, &[&str])] = &[
 const CACHE_DIRS: &[&str] = &["Cache", "Code Cache", "GPUCache"];
 
 /// jimy-betanzos · Carpetas de caché de los navegadores instalados.
-fn browser_targets(env: &Env) -> Vec<Target> {
+fn jb_browser_targets(env: &JbEnv) -> Vec<JbTarget> {
     let mut out = Vec::new();
     for (rel, procs) in CHROMIUM {
         let base = env.local.join(rel);
@@ -104,14 +104,14 @@ fn browser_targets(env: &Env) -> Vec<Target> {
             for c in CACHE_DIRS {
                 let d = p.join(c);
                 if d.is_dir() {
-                    out.push(blocked(t(d, true, Filter::All, 0), procs));
+                    out.push(jb_blocked(jb_t(d, true, JbFilter::All, 0), procs));
                 }
             }
         }
         for c in ["GrShaderCache", "ShaderCache"] {
             let d = base.join(c);
             if d.is_dir() {
-                out.push(blocked(t(d, true, Filter::All, 0), procs));
+                out.push(jb_blocked(jb_t(d, true, JbFilter::All, 0), procs));
             }
         }
     }
@@ -121,7 +121,7 @@ fn browser_targets(env: &Env) -> Vec<Target> {
             for c in ["cache2", "startupCache", "thumbnails"] {
                 let d = e.path().join(c);
                 if d.is_dir() {
-                    out.push(blocked(t(d, true, Filter::All, 0), &["firefox.exe"]));
+                    out.push(jb_blocked(jb_t(d, true, JbFilter::All, 0), &["firefox.exe"]));
                 }
             }
         }
@@ -130,7 +130,7 @@ fn browser_targets(env: &Env) -> Vec<Target> {
 }
 
 /// jimy-betanzos · Carpetas de caché de aplicaciones conocidas.
-fn app_cache_targets(env: &Env) -> Vec<Target> {
+fn jb_app_cache_targets(env: &JbEnv) -> Vec<JbTarget> {
     let r = &env.roaming;
     let l = &env.local;
     let list: Vec<(PathBuf, &'static [&'static str])> = vec![
@@ -150,83 +150,83 @@ fn app_cache_targets(env: &Env) -> Vec<Target> {
     ];
     list.into_iter()
         .filter(|(p, _)| p.is_dir())
-        .map(|(p, b)| blocked(t(p, true, Filter::All, 0), b))
+        .map(|(p, b)| jb_blocked(jb_t(p, true, JbFilter::All, 0), b))
         .collect()
 }
 
 const UPDATE_PROCS: &[&str] = &["tiworker.exe", "trustedinstaller.exe", "wuauclt.exe"];
 
 /// jimy-betanzos · Lista completa de categorías de limpieza de Windows.
-pub fn categories(env: &Env) -> Vec<CategoryDef> {
+pub fn jb_categories(env: &JbEnv) -> Vec<JbCategoryDef> {
     let w = &env.windir;
     let l = &env.local;
     let mut v = vec![
-        CategoryDef {
+        JbCategoryDef {
             id: "temp_user",
             name: "Temporales de usuario",
             desc: "Archivos que los programas dejan en %TEMP%. Solo los de más de 24 h.",
-            kind: Kind::Safe,
-            special: Special::None,
+            kind: JbKind::Safe,
+            special: JbSpecial::None,
             default_on: true,
-            targets: vec![t(env.temp.clone(), true, Filter::All, 24)],
+            targets: vec![jb_t(env.temp.clone(), true, JbFilter::All, 24)],
         },
-        CategoryDef {
+        JbCategoryDef {
             id: "temp_win",
             name: "Temporales de Windows",
             desc: "Carpeta Windows\\Temp. Solo archivos de más de 24 h.",
-            kind: Kind::Safe,
-            special: Special::None,
+            kind: JbKind::Safe,
+            special: JbSpecial::None,
             default_on: true,
-            targets: vec![admin(t(w.join("Temp"), true, Filter::All, 24))],
+            targets: vec![jb_admin(jb_t(w.join("Temp"), true, JbFilter::All, 24))],
         },
-        CategoryDef {
+        JbCategoryDef {
             id: "thumbs",
             name: "Caché de miniaturas",
             desc: "Vistas previas de imágenes del Explorador. Windows las vuelve a crear.",
-            kind: Kind::Safe,
-            special: Special::None,
+            kind: JbKind::Safe,
+            special: JbSpecial::None,
             default_on: true,
-            targets: vec![t(l.join("Microsoft\\Windows\\Explorer"), false, Filter::Prefix("thumbcache_"), 0)],
+            targets: vec![jb_t(l.join("Microsoft\\Windows\\Explorer"), false, JbFilter::Prefix("thumbcache_"), 0)],
         },
-        CategoryDef {
+        JbCategoryDef {
             id: "errors",
             name: "Informes de errores y volcados",
             desc: "Reportes de fallos y volcados de memoria de programas que se cerraron mal.",
-            kind: Kind::Safe,
-            special: Special::None,
+            kind: JbKind::Safe,
+            special: JbSpecial::None,
             default_on: true,
             targets: vec![
-                t(l.join("Microsoft\\Windows\\WER"), true, Filter::All, 0),
-                t(l.join("CrashDumps"), true, Filter::All, 0),
-                admin(t(env.programdata.join("Microsoft\\Windows\\WER"), true, Filter::All, 0)),
-                admin(t(w.join("Minidump"), true, Filter::All, 0)),
-                admin(t(w.join("LiveKernelReports"), true, Filter::Ext(&["dmp"]), 0)),
+                jb_t(l.join("Microsoft\\Windows\\WER"), true, JbFilter::All, 0),
+                jb_t(l.join("CrashDumps"), true, JbFilter::All, 0),
+                jb_admin(jb_t(env.programdata.join("Microsoft\\Windows\\WER"), true, JbFilter::All, 0)),
+                jb_admin(jb_t(w.join("Minidump"), true, JbFilter::All, 0)),
+                jb_admin(jb_t(w.join("LiveKernelReports"), true, JbFilter::Ext(&["dmp"]), 0)),
             ],
         },
-        CategoryDef {
+        JbCategoryDef {
             id: "browsers",
             name: "Caché de navegadores",
             desc: "Chrome, Edge, Brave, Opera, Firefox. NO toca contraseñas, historial ni sesiones.",
-            kind: Kind::Safe,
-            special: Special::None,
+            kind: JbKind::Safe,
+            special: JbSpecial::None,
             default_on: true,
-            targets: browser_targets(env),
+            targets: jb_browser_targets(env),
         },
-        CategoryDef {
+        JbCategoryDef {
             id: "apps",
             name: "Caché de aplicaciones",
             desc: "Discord, VS Code, Spotify, Teams, Slack, Zoom, WhatsApp (solo caché).",
-            kind: Kind::Safe,
-            special: Special::None,
+            kind: JbKind::Safe,
+            special: JbSpecial::None,
             default_on: true,
-            targets: app_cache_targets(env),
+            targets: jb_app_cache_targets(env),
         },
-        CategoryDef {
+        JbCategoryDef {
             id: "shaders",
             name: "Caché de gráficos",
             desc: "Sombreadores de DirectX, NVIDIA, AMD e Intel. Se regeneran solos.",
-            kind: Kind::Safe,
-            special: Special::None,
+            kind: JbKind::Safe,
+            special: JbSpecial::None,
             default_on: true,
             targets: [
                 l.join("D3DSCache"),
@@ -238,81 +238,81 @@ pub fn categories(env: &Env) -> Vec<CategoryDef> {
             ]
             .into_iter()
             .filter(|p| p.is_dir())
-            .map(|p| t(p, true, Filter::All, 0))
+            .map(|p| jb_t(p, true, JbFilter::All, 0))
             .collect(),
         },
-        CategoryDef {
+        JbCategoryDef {
             id: "update",
             name: "Caché de Windows Update",
             desc: "Actualizaciones ya instaladas y caché de Optimización de distribución.",
-            kind: Kind::Safe,
-            special: Special::None,
+            kind: JbKind::Safe,
+            special: JbSpecial::None,
             default_on: true,
             targets: vec![
-                blocked(admin(t(w.join("SoftwareDistribution\\Download"), true, Filter::All, 72)), UPDATE_PROCS),
-                admin(t(
+                jb_blocked(jb_admin(jb_t(w.join("SoftwareDistribution\\Download"), true, JbFilter::All, 72)), UPDATE_PROCS),
+                jb_admin(jb_t(
                     w.join("ServiceProfiles\\NetworkService\\AppData\\Local\\Microsoft\\Windows\\DeliveryOptimization\\Cache"),
                     true,
-                    Filter::All,
+                    JbFilter::All,
                     0,
                 )),
             ],
         },
-        CategoryDef {
+        JbCategoryDef {
             id: "logs",
             name: "Registros antiguos del sistema",
             desc: "Logs de Windows de más de 30 días.",
-            kind: Kind::Safe,
-            special: Special::None,
+            kind: JbKind::Safe,
+            special: JbSpecial::None,
             default_on: true,
-            targets: vec![admin(t(w.join("Logs"), true, Filter::Ext(&["log", "etl", "old", "cab"]), 24 * 30))],
+            targets: vec![jb_admin(jb_t(w.join("Logs"), true, JbFilter::Ext(&["log", "etl", "old", "cab"]), 24 * 30))],
         },
-        CategoryDef {
+        JbCategoryDef {
             id: "recycle",
             name: "Papelera de reciclaje",
             desc: "Lo que tú ya enviaste a la Papelera. Al vaciarla se borra para siempre.",
-            kind: Kind::Review,
-            special: Special::RecycleBin,
+            kind: JbKind::Review,
+            special: JbSpecial::RecycleBin,
             default_on: false,
             targets: vec![],
         },
     ];
 
     if let Some(s) = &env.screenshots {
-        v.push(CategoryDef {
+        v.push(JbCategoryDef {
             id: "screenshots",
             name: "Capturas de pantalla",
             desc: "Imágenes de la carpeta Capturas. Van a la Papelera (recuperables).",
-            kind: Kind::Review,
-            special: Special::None,
+            kind: JbKind::Review,
+            special: JbSpecial::None,
             default_on: false,
-            targets: vec![t(s.clone(), true, Filter::Ext(IMAGE_EXT), 0)],
+            targets: vec![jb_t(s.clone(), true, JbFilter::Ext(IMAGE_EXT), 0)],
         });
     }
     if let Some(d) = &env.downloads {
-        v.push(CategoryDef {
+        v.push(JbCategoryDef {
             id: "downloads_old",
             name: "Instaladores y comprimidos viejos",
             desc: "En Descargas: .exe, .msi, .zip, .rar, .iso... de más de 30 días. Van a la Papelera.",
-            kind: Kind::Review,
-            special: Special::None,
+            kind: JbKind::Review,
+            special: JbSpecial::None,
             default_on: false,
             // Solo los sueltos en Descargas: dentro de subcarpetas suelen ser partes de un
             // programa descomprimido, y quitar una pieza lo dejaría roto.
-            targets: vec![t(d.clone(), false, Filter::Ext(PACKAGE_EXT), 24 * 30)],
+            targets: vec![jb_t(d.clone(), false, JbFilter::Ext(PACKAGE_EXT), 24 * 30)],
         });
     }
-    v.push(CategoryDef {
+    v.push(JbCategoryDef {
         id: "protected",
         name: "Videos y documentos",
         desc: "Protegidos. Nunca se borran solos: solo los que tú marques, y van a la Papelera.",
-        kind: Kind::Protected,
-        special: Special::None,
+        kind: JbKind::Protected,
+        special: JbSpecial::None,
         default_on: false,
         targets: env
             .downloads
             .iter()
-            .map(|d| t(d.clone(), true, Filter::ProtectedOnly, 24 * 60))
+            .map(|d| jb_t(d.clone(), true, JbFilter::ProtectedOnly, 24 * 60))
             .collect(),
     });
     v
@@ -320,11 +320,11 @@ pub fn categories(env: &Env) -> Vec<CategoryDef> {
 
 
 /// jimy-betanzos · En Windows no hay categorías que dependan de un comando del sistema.
-pub fn system_size(_id: &str) -> (u64, u64) {
+pub fn jb_system_size(_id: &str) -> (u64, u64) {
     (0, 0)
 }
 
 /// jimy-betanzos · Limpieza de sistema especial (en Windows no se usa).
-pub fn system_clean(_id: &str) -> Result<u64, String> {
+pub fn jb_system_clean(_id: &str) -> Result<u64, String> {
     Err("No disponible en Windows.".into())
 }

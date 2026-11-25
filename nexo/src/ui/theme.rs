@@ -22,24 +22,24 @@ pub const MUTED: Color32 = Color32::from_rgb(138, 146, 155);
 pub const LIGHT: Color32 = Color32::from_rgb(245, 247, 249);
 
 /// jimy-betanzos · Transparencia mezclada en espacio gamma: los brillos suaves se quedan suaves.
-pub fn alpha(c: Color32, a: u8) -> Color32 {
+pub fn jb_alpha(c: Color32, a: u8) -> Color32 {
     let m = |v: u8| ((v as u16 * a as u16) / 255) as u8;
     Color32::from_rgba_premultiplied(m(c.r()), m(c.g()), m(c.b()), a)
 }
 
 /// jimy-betanzos · Familia de fuente para títulos y cifras.
-pub fn display() -> FontFamily {
+pub fn jb_display() -> FontFamily {
     FontFamily::Name("display".into())
 }
 
 /// jimy-betanzos · Fuente de títulos del tamaño indicado.
-pub fn font(size: f32) -> FontId {
-    FontId::new(size, display())
+pub fn jb_font(size: f32) -> FontId {
+    FontId::new(size, jb_display())
 }
 
 /// jimy-betanzos · Usa fuentes que ya trae el sistema: nada que descargar ni empaquetar.
 /// Windows: Segoe UI y Cascadia · macOS: Helvetica Neue y Menlo · Linux: DejaVu.
-pub fn setup(ctx: &egui::Context) {
+pub fn jb_setup(ctx: &egui::Context) {
     let mut fonts = FontDefinitions::default();
     let windows_fonts = std::env::var_os("WINDIR")
         .map(|w| std::path::PathBuf::from(w).join("Fonts"))
@@ -73,7 +73,7 @@ pub fn setup(ctx: &egui::Context) {
         fonts.families.get_mut(&FontFamily::Monospace).unwrap().insert(0, "cascadia".into());
     }
     display_list.extend(fonts.families[&FontFamily::Proportional].iter().filter(|&n| n != "titulo").cloned());
-    fonts.families.insert(display(), display_list);
+    fonts.families.insert(jb_display(), display_list);
     ctx.set_fonts(fonts);
 
     let mut style = (*ctx.style()).clone();
@@ -98,24 +98,24 @@ pub fn setup(ctx: &egui::Context) {
     v.extreme_bg_color = Color32::from_rgb(18, 21, 24);
     v.faint_bg_color = PANEL_HI;
     v.hyperlink_color = ACCENT;
-    v.selection.bg_fill = alpha(ACCENT, 70);
+    v.selection.bg_fill = jb_alpha(ACCENT, 70);
     v.selection.stroke = egui::Stroke::new(1.0_f32, ACCENT);
     v.window_rounding = 4.0.into();
-    v.window_stroke = egui::Stroke::new(1.0_f32, alpha(ACCENT, 60));
+    v.window_stroke = egui::Stroke::new(1.0_f32, jb_alpha(ACCENT, 60));
     for w in [&mut v.widgets.inactive, &mut v.widgets.noninteractive] {
         w.bg_fill = PANEL_HI;
         w.weak_bg_fill = PANEL_HI;
         w.rounding = 4.0.into();
     }
-    v.widgets.inactive.bg_stroke = egui::Stroke::new(1.0_f32, alpha(ACCENT, 50));
+    v.widgets.inactive.bg_stroke = egui::Stroke::new(1.0_f32, jb_alpha(ACCENT, 50));
     v.widgets.inactive.fg_stroke = egui::Stroke::new(1.5_f32, TEXT);
-    v.widgets.hovered.bg_fill = alpha(ACCENT, 40);
-    v.widgets.hovered.weak_bg_fill = alpha(ACCENT, 40);
+    v.widgets.hovered.bg_fill = jb_alpha(ACCENT, 40);
+    v.widgets.hovered.weak_bg_fill = jb_alpha(ACCENT, 40);
     v.widgets.hovered.bg_stroke = egui::Stroke::new(1.0_f32, ACCENT);
     v.widgets.hovered.fg_stroke = egui::Stroke::new(1.5_f32, ACCENT);
     v.widgets.hovered.rounding = 4.0.into();
-    v.widgets.active.bg_fill = alpha(ACCENT, 80);
-    v.widgets.active.weak_bg_fill = alpha(ACCENT, 80);
+    v.widgets.active.bg_fill = jb_alpha(ACCENT, 80);
+    v.widgets.active.weak_bg_fill = jb_alpha(ACCENT, 80);
     v.widgets.active.fg_stroke = egui::Stroke::new(2.0_f32, Color32::WHITE);
     v.widgets.active.rounding = 4.0.into();
     v.widgets.open.bg_fill = PANEL_HI;

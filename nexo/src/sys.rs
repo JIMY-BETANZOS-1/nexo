@@ -54,22 +54,22 @@ use windows_sys::Win32::UI::Shell::{
 use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
 /// jimy-betanzos · Convierte un texto del sistema al formato de Windows (UTF-16).
-pub fn wide(s: &OsStr) -> Vec<u16> {
+pub fn jb_wide(s: &OsStr) -> Vec<u16> {
     s.encode_wide().chain(Some(0)).collect()
 }
 
 /// jimy-betanzos · Convierte un texto al formato de Windows (UTF-16).
-fn wstr(s: &str) -> Vec<u16> {
+fn jb_wstr(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(Some(0)).collect()
 }
 
 /// jimy-betanzos · Indica si NEXO tiene permisos de administrador.
-pub fn is_admin() -> bool {
+pub fn jb_is_admin() -> bool {
     unsafe { IsUserAnAdmin() != 0 }
 }
 
 /// jimy-betanzos · Nombres de ejecutables en marcha, en minúsculas (p. ej. "chrome.exe").
-pub fn running_processes() -> HashSet<String> {
+pub fn jb_running_processes() -> HashSet<String> {
     let mut set = HashSet::new();
     unsafe {
         let snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -93,20 +93,20 @@ pub fn running_processes() -> HashSet<String> {
 }
 
 /// jimy-betanzos · Estado de la energía: batería, porcentaje y cargador.
-pub struct Power {
+pub struct JbPower {
     pub on_ac: bool,
     pub percent: Option<u8>,
     pub has_battery: bool,
 }
 
 /// jimy-betanzos · Lee el estado de la batería y el cargador.
-pub fn power() -> Power {
+pub fn jb_power() -> JbPower {
     unsafe {
         let mut s: SYSTEM_POWER_STATUS = zeroed();
         if GetSystemPowerStatus(&mut s) == 0 {
-            return Power { on_ac: true, percent: None, has_battery: false };
+            return JbPower { on_ac: true, percent: None, has_battery: false };
         }
-        Power {
+        JbPower {
             on_ac: s.ACLineStatus == 1,
             percent: (s.BatteryLifePercent <= 100).then_some(s.BatteryLifePercent),
             has_battery: s.BatteryFlag != 128 && s.BatteryFlag != 255,
@@ -115,7 +115,7 @@ pub fn power() -> Power {
 }
 
 /// jimy-betanzos · Verdadero si hay un juego/video en pantalla completa o modo presentación.
-pub fn user_busy() -> bool {
+pub fn jb_user_busy() -> bool {
     unsafe {
         let mut st: QUERY_USER_NOTIFICATION_STATE = 0;
         if SHQueryUserNotificationState(&mut st) != 0 {
@@ -126,7 +126,7 @@ pub fn user_busy() -> bool {
 }
 
 /// jimy-betanzos · (bytes, elementos) en la Papelera de reciclaje de todas las unidades.
-pub fn recycle_bin() -> (u64, u64) {
+pub fn jb_recycle_bin() -> (u64, u64) {
     unsafe {
         let mut i: SHQUERYRBINFO = zeroed();
         i.cbSize = size_of::<SHQUERYRBINFO>() as u32;
@@ -140,7 +140,7 @@ pub fn recycle_bin() -> (u64, u64) {
 }
 
 /// jimy-betanzos · Vacía la Papelera de reciclaje.
-pub fn empty_recycle_bin() -> bool {
+pub fn jb_empty_recycle_bin() -> bool {
     unsafe {
         SHEmptyRecycleBinW(
             null_mut(),
@@ -151,7 +151,7 @@ pub fn empty_recycle_bin() -> bool {
 }
 
 /// jimy-betanzos · Ruta de una carpeta especial de Windows (Descargas, Videos…).
-pub fn known_folder(id: &GUID) -> Option<PathBuf> {
+pub fn jb_known_folder(id: &GUID) -> Option<PathBuf> {
     unsafe {
         let mut p: PWSTR = null_mut();
         let hr = SHGetKnownFolderPath(id, 0, null_mut(), &mut p);
@@ -172,9 +172,9 @@ pub fn known_folder(id: &GUID) -> Option<PathBuf> {
 }
 
 /// jimy-betanzos · (libre, total) en bytes de la unidad que contiene `p`.
-pub fn disk_space(p: &Path) -> (u64, u64) {
+pub fn jb_disk_space(p: &Path) -> (u64, u64) {
     unsafe {
-        let w = wide(p.as_os_str());
+        let w = jb_wide(p.as_os_str());
         let (mut avail, mut total, mut free) = (0u64, 0u64, 0u64);
         if GetDiskFreeSpaceExW(w.as_ptr(), &mut avail, &mut total, &mut free) != 0 {
             (avail, total)
@@ -185,7 +185,7 @@ pub fn disk_space(p: &Path) -> (u64, u64) {
 }
 
 /// jimy-betanzos · Estado de la memoria RAM y virtual.
-pub struct Mem {
+pub struct JbMem {
     pub load: u32,
     pub total: u64,
     pub avail: u64,
@@ -195,9 +195,9 @@ pub struct Mem {
 }
 
 /// jimy-betanzos · Métodos de Mem.
-impl Mem {
+impl JbMem {
     /// jimy-betanzos · Porcentaje de memoria virtual en uso.
-    pub fn commit_pct(&self) -> f32 {
+    pub fn jb_commit_pct(&self) -> f32 {
         if self.commit_total == 0 {
             0.0
         } else {
@@ -207,12 +207,12 @@ impl Mem {
 }
 
 /// jimy-betanzos · Lee el estado de la memoria del equipo.
-pub fn memory() -> Mem {
+pub fn jb_memory() -> JbMem {
     unsafe {
         let mut m: MEMORYSTATUSEX = zeroed();
         m.dwLength = size_of::<MEMORYSTATUSEX>() as u32;
         GlobalMemoryStatusEx(&mut m);
-        Mem {
+        JbMem {
             load: m.dwMemoryLoad,
             total: m.ullTotalPhys,
             avail: m.ullAvailPhys,
@@ -223,15 +223,15 @@ pub fn memory() -> Mem {
 }
 
 /// jimy-betanzos · Unidad donde está instalado el sistema (C:).
-pub fn system_drive() -> PathBuf {
+pub fn jb_system_drive() -> PathBuf {
     PathBuf::from(std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into()) + "\\")
 }
 
 /// jimy-betanzos · Lee un valor de texto del registro del sistema.
-pub fn reg_string(sub: &str, val: &str) -> Option<String> {
+pub fn jb_reg_string(sub: &str, val: &str) -> Option<String> {
     unsafe {
-        let s = wstr(sub);
-        let v = wstr(val);
+        let s = jb_wstr(sub);
+        let v = jb_wstr(val);
         let mut buf = [0u16; 256];
         let mut sz = (buf.len() * 2) as u32;
         let r = RegGetValueW(
@@ -254,7 +254,7 @@ pub fn reg_string(sub: &str, val: &str) -> Option<String> {
 
 /// jimy-betanzos · Entradas de arranque automático ("nombre → comando") de las claves Run y de las
 /// carpetas de Inicio. Lectura barata: el vigía la compara cada 30 s.
-pub fn startup_entries() -> HashSet<String> {
+pub fn jb_startup_entries() -> HashSet<String> {
     // jimy-betanzos · dependencia: funciones de Windows (windows-sys)
     use windows_sys::Win32::System::Registry::{
         RegCloseKey, RegEnumValueW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER, KEY_READ,
@@ -268,7 +268,7 @@ pub fn startup_entries() -> HashSet<String> {
     for (root, sub) in keys {
         unsafe {
             let mut hk: HKEY = null_mut();
-            if RegOpenKeyExW(root, wstr(sub).as_ptr(), 0, KEY_READ, &mut hk) != 0 {
+            if RegOpenKeyExW(root, jb_wstr(sub).as_ptr(), 0, KEY_READ, &mut hk) != 0 {
                 continue;
             }
             let mut i = 0;
@@ -309,27 +309,27 @@ pub fn startup_entries() -> HashSet<String> {
 }
 
 /// jimy-betanzos · Marca y modelo del equipo.
-pub fn machine_model() -> String {
+pub fn jb_machine_model() -> String {
     let bios = "HARDWARE\\DESCRIPTION\\System\\BIOS";
-    let maker = reg_string(bios, "SystemManufacturer").unwrap_or_default();
-    let family = reg_string(bios, "SystemFamily")
-        .or_else(|| reg_string(bios, "SystemProductName"))
+    let maker = jb_reg_string(bios, "SystemManufacturer").unwrap_or_default();
+    let family = jb_reg_string(bios, "SystemFamily")
+        .or_else(|| jb_reg_string(bios, "SystemProductName"))
         .unwrap_or_else(|| "Equipo Windows".into());
     format!("{} {}", maker, family).trim().to_string()
 }
 
 /// jimy-betanzos · Vuelve a abrir NEXO pidiendo permiso de administrador.
-pub fn relaunch_as_admin() -> bool {
-    relaunch_as_admin_with("")
+pub fn jb_relaunch_as_admin() -> bool {
+    jb_relaunch_as_admin_with("")
 }
 
 /// jimy-betanzos · Vuelve a abrir NEXO con permisos de administrador (aviso de Windows) y los mismos argumentos.
-pub fn relaunch_as_admin_with(params: &str) -> bool {
+pub fn jb_relaunch_as_admin_with(params: &str) -> bool {
     let Ok(exe) = std::env::current_exe() else { return false };
     unsafe {
-        let op = wstr("runas");
-        let file = wide(exe.as_os_str());
-        let p = wstr(params);
+        let op = jb_wstr("runas");
+        let file = jb_wide(exe.as_os_str());
+        let p = jb_wstr(params);
         let h = ShellExecuteW(null_mut(), op.as_ptr(), file.as_ptr(), p.as_ptr(), null(), SW_SHOWNORMAL);
         h as isize > 32
     }
@@ -337,7 +337,7 @@ pub fn relaunch_as_admin_with(params: &str) -> bool {
 
 /// jimy-betanzos · Para trabajo que el usuario está esperando (escanear, limpiar, diagnosticar):
 /// cede CPU a lo que estés usando, pero el disco va a velocidad normal.
-pub fn interactive_thread() {
+pub fn jb_interactive_thread() {
     // jimy-betanzos · dependencia: funciones de Windows (windows-sys)
     use windows_sys::Win32::System::Threading::THREAD_PRIORITY_BELOW_NORMAL;
     unsafe {
@@ -348,28 +348,28 @@ pub fn interactive_thread() {
 /// jimy-betanzos · Baja la prioridad de CPU y disco del hilo actual: el usuario no nota el trabajo.
 /// Solo para tareas desatendidas (modo automático, vigía): en modo interactivo
 /// haría muy lento el acceso a disco.
-pub fn background_thread() {
+pub fn jb_background_thread() {
     unsafe {
         SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN);
     }
 }
 
 /// jimy-betanzos · Devuelve al sistema la memoria propia que NEXO no está usando (solo su propio proceso).
-pub fn trim_own_memory() {
+pub fn jb_trim_own_memory() {
     unsafe {
         SetProcessWorkingSetSize(GetCurrentProcess(), usize::MAX, usize::MAX);
     }
 }
 
 /// jimy-betanzos · Baja la prioridad de NEXO para no frenar el equipo.
-pub fn background_process() {
+pub fn jb_background_process() {
     unsafe {
         SetPriorityClass(GetCurrentProcess(), PROCESS_MODE_BACKGROUND_BEGIN);
     }
 }
 
 /// jimy-betanzos · Unix (segundos) -> (año, mes, día, hora, minuto) en hora local.
-pub fn local_time(unix: u64) -> (u16, u16, u16, u16, u16) {
+pub fn jb_local_time(unix: u64) -> (u16, u16, u16, u16, u16) {
     unsafe {
         let v = (unix + 11_644_473_600) * 10_000_000;
         let ft = FILETIME { dwLowDateTime: v as u32, dwHighDateTime: (v >> 32) as u32 };
@@ -384,7 +384,7 @@ pub fn local_time(unix: u64) -> (u16, u16, u16, u16, u16) {
 }
 
 /// jimy-betanzos · Una sola ventana de NEXO: si ya hay una abierta, la trae al frente y devuelve false.
-pub fn claim_single_instance() -> bool {
+pub fn jb_claim_single_instance() -> bool {
     // jimy-betanzos · dependencia: funciones de Windows (windows-sys)
     use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
     // jimy-betanzos · dependencia: funciones de Windows (windows-sys)
@@ -392,10 +392,10 @@ pub fn claim_single_instance() -> bool {
     // jimy-betanzos · dependencia: funciones de Windows (windows-sys)
     use windows_sys::Win32::UI::WindowsAndMessaging::{FindWindowW, SetForegroundWindow, ShowWindow, SW_RESTORE};
     unsafe {
-        let name = wstr("Local\\NEXO_INTERFAZ");
+        let name = jb_wstr("Local\\NEXO_INTERFAZ");
         let h = CreateMutexW(null(), 0, name.as_ptr());
         if !h.is_null() && GetLastError() == ERROR_ALREADY_EXISTS {
-            let title = wstr("NEXO");
+            let title = jb_wstr("NEXO");
             let win = FindWindowW(null(), title.as_ptr());
             if !win.is_null() {
                 ShowWindow(win, SW_RESTORE);
@@ -409,7 +409,7 @@ pub fn claim_single_instance() -> bool {
 }
 
 /// jimy-betanzos · Comando sin ventana de consola.
-pub fn hidden_cmd(program: &str) -> std::process::Command {
+pub fn jb_hidden_cmd(program: &str) -> std::process::Command {
     // jimy-betanzos · dependencia: biblioteca estándar de Rust (os)
     use std::os::windows::process::CommandExt;
     let mut c = std::process::Command::new(program);
@@ -419,20 +419,20 @@ pub fn hidden_cmd(program: &str) -> std::process::Command {
 
 /// jimy-betanzos · Abre un archivo con su programa (fotos, videos, PDF...). Los ejecutables y scripts
 /// nunca se lanzan: solo se muestran en el Explorador.
-pub fn open_file(p: &Path) {
+pub fn jb_open_file(p: &Path) {
     const RISKY: &[&str] = &[
         "exe", "msi", "msix", "appx", "bat", "cmd", "com", "scr", "ps1", "vbs", "vbe", "js", "jse",
         "wsf", "hta", "jar", "reg", "lnk", "url", "cpl", "msc", "pif",
     ];
     let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
     if RISKY.contains(&ext.as_str()) || ext.is_empty() {
-        reveal_in_explorer(p);
+        jb_reveal_in_explorer(p);
     } else {
         let _ = std::process::Command::new("explorer").arg(p).spawn();
     }
 }
 
 /// jimy-betanzos · Muestra un archivo seleccionado en el Explorador.
-pub fn reveal_in_explorer(p: &Path) {
+pub fn jb_reveal_in_explorer(p: &Path) {
     let _ = std::process::Command::new("explorer").arg(format!("/select,{}", p.display())).spawn();
 }

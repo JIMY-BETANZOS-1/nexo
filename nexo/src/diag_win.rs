@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use windows_sys::Win32::System::Registry::{RegSetKeyValueW, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, REG_BINARY};
 
 // jimy-betanzos · dependencia: módulo propio de la interfaz
-use super::{Progress, Raw, StartupItem};
+use super::{JbProgress, JbRaw, JbStartupItem};
 // jimy-betanzos · dependencia: módulo propio
 use crate::{fmt, sys};
 
@@ -21,7 +21,7 @@ const SCRIPT: &str = include_str!("diag.ps1");
 pub const BALANCED: &str = "381b4222-f694-41f0-9685-ff5bb260df2e";
 
 /// jimy-betanzos · Recoge los datos del sistema con un script de PowerShell de solo lectura.
-pub fn run_script(progress: &Progress) -> Result<Raw, String> {
+pub fn jb_run_script(progress: &JbProgress) -> Result<JbRaw, String> {
     // jimy-betanzos · dependencia: biblioteca estándar de Rust (io)
     use std::io::{BufRead, BufReader};
     // jimy-betanzos · dependencia: biblioteca estándar de Rust (sync)
@@ -32,7 +32,7 @@ pub fn run_script(progress: &Progress) -> Result<Raw, String> {
     bytes.extend_from_slice(SCRIPT.as_bytes());
     std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
     progress.store(40, Ordering::Relaxed);
-    let child = sys::hidden_cmd("powershell")
+    let child = sys::jb_hidden_cmd("powershell")
         .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File"])
         .arg(&path)
         .stdout(std::process::Stdio::piped())
@@ -70,8 +70,8 @@ pub fn run_script(progress: &Progress) -> Result<Raw, String> {
 }
 
 /// jimy-betanzos · Devuelve el plan de energía activo (nombre e identificador).
-pub fn active_power_plan() -> (String, String) {
-    let Ok(out) = sys::hidden_cmd("powercfg").arg("/getactivescheme").output() else {
+pub fn jb_active_power_plan() -> (String, String) {
+    let Ok(out) = sys::jb_hidden_cmd("powercfg").arg("/getactivescheme").output() else {
         return (String::new(), String::new());
     };
     let text = String::from_utf8_lossy(&out.stdout).to_string();
@@ -88,26 +88,26 @@ pub fn active_power_plan() -> (String, String) {
 }
 
 /// jimy-betanzos · Cambia el plan de energía de Windows.
-pub fn set_power_plan(guid: &str) -> bool {
-    sys::hidden_cmd("powercfg").args(["/setactive", guid]).status().map(|s| s.success()).unwrap_or(false)
+pub fn jb_set_power_plan(guid: &str) -> bool {
+    sys::jb_hidden_cmd("powercfg").args(["/setactive", guid]).status().map(|s| s.success()).unwrap_or(false)
 }
 
 /// jimy-betanzos · Activa o desactiva un programa de inicio igual que el Administrador de tareas
 /// (StartupApproved). No borra nada: se puede volver a activar en cualquier momento.
-pub fn set_startup_enabled(item: &StartupItem, on: bool) -> Result<(), String> {
-    let hive = if item.machine_wide() { HKEY_LOCAL_MACHINE } else { HKEY_CURRENT_USER };
+pub fn jb_set_startup_enabled(item: &JbStartupItem, on: bool) -> Result<(), String> {
+    let hive = if item.jb_machine_wide() { HKEY_LOCAL_MACHINE } else { HKEY_CURRENT_USER };
     let key = format!("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\{}", item.sub);
     let mut data = [0u8; 12];
     data[0] = if on { 2 } else { 3 };
     if !on {
-        let ft = (fmt::now() + 11_644_473_600) * 10_000_000;
+        let ft = (fmt::jb_now() + 11_644_473_600) * 10_000_000;
         data[4..12].copy_from_slice(&ft.to_le_bytes());
     }
     let w = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
     let r = unsafe { RegSetKeyValueW(hive, w(&key).as_ptr(), w(&item.name).as_ptr(), REG_BINARY, data.as_ptr() as *const _, 12) };
     if r == 0 {
         Ok(())
-    } else if item.machine_wide() {
+    } else if item.jb_machine_wide() {
         Err("Este programa es de todo el equipo: abre NEXO como administrador para cambiarlo.".into())
     } else {
         Err(format!("No se pudo cambiar (error {}).", r))
@@ -115,10 +115,10 @@ pub fn set_startup_enabled(item: &StartupItem, on: bool) -> Result<(), String> {
 }
 
 /// jimy-betanzos · Análisis rápido de Microsoft Defender. Devuelve el código de salida (0 = limpio).
-pub fn quick_scan() -> Result<i32, String> {
+pub fn jb_quick_scan() -> Result<i32, String> {
     let pf = std::env::var_os("ProgramFiles").map(PathBuf::from).unwrap_or_else(|| "C:\\Program Files".into());
     let exe = pf.join("Windows Defender").join("MpCmdRun.exe");
-    sys::hidden_cmd(&exe.to_string_lossy())
+    sys::jb_hidden_cmd(&exe.to_string_lossy())
         .args(["-Scan", "-ScanType", "1"])
         .status()
         .map(|s| s.code().unwrap_or(-1))
@@ -126,30 +126,30 @@ pub fn quick_scan() -> Result<i32, String> {
 }
 
 /// jimy-betanzos · Genera el informe oficial de batería de Windows y lo abre en el navegador (local).
-pub fn battery_report() {
+pub fn jb_battery_report() {
     let out = std::env::temp_dir().join("NEXO_informe_bateria.html");
-    let ok = sys::hidden_cmd("powercfg").arg("/batteryreport").arg("/output").arg(&out).status().map(|s| s.success()).unwrap_or(false);
+    let ok = sys::jb_hidden_cmd("powercfg").arg("/batteryreport").arg("/output").arg(&out).status().map(|s| s.success()).unwrap_or(false);
     if ok {
         let _ = std::process::Command::new("explorer").arg(&out).spawn();
     }
 }
 
 /// jimy-betanzos · Abre un ajuste de Windows (ms-settings:, windowsdefender:, taskschd.msc...).
-pub fn open(target: &str) {
-    let _ = sys::hidden_cmd("cmd").args(["/c", "start", "", target]).spawn();
+pub fn jb_open(target: &str) {
+    let _ = sys::jb_hidden_cmd("cmd").args(["/c", "start", "", target]).spawn();
 }
 
 
 // ── Textos y accesos directos propios de Windows (los usa `analyze`).
 pub const AV_MISSING_SEVERITY: u8 = 1;
 /// jimy-betanzos · Indica si se puede lanzar un análisis rápido del antivirus.
-pub fn quick_scan_available() -> bool {
+pub fn jb_quick_scan_available() -> bool {
     true
 }
 pub const CHECK_SIGNATURES: bool = true;
 
 /// jimy-betanzos · Textos que dependen del sistema operativo (nombre del antivirus, etc.).
-pub fn txt(k: &str) -> &'static str {
+pub fn jb_txt(k: &str) -> &'static str {
     match k {
         "os" => "Windows",
         "av" => "Microsoft Defender",
@@ -171,7 +171,7 @@ pub fn txt(k: &str) -> &'static str {
 }
 
 /// jimy-betanzos · Página de Configuración de Windows asociada a una comprobación.
-pub fn setting(k: &str) -> Option<&'static str> {
+pub fn jb_setting(k: &str) -> Option<&'static str> {
     Some(match k {
         "antivirus" => "windowsdefender:",
         "realtime" => "windowsdefender://threat",
