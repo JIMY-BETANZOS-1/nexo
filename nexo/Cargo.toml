@@ -1,6 +1,6 @@
 [package]
 name = "nexo"
-version = "1.5.1"
+version = "1.5.2"
 edition = "2021"
 authors = ["Chatta Betanzos, Jimy Alexander (jimy-betanzos)"]
 description = "NEXO - limpieza y optimización local para Windows, Linux y macOS"
